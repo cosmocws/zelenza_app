@@ -18,7 +18,7 @@ def inicializar_datos():
     if not os.path.exists("data/precios_luz.csv"):
         df_vacio = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo'
+            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
         ])
         df_vacio.to_csv("data/precios_luz.csv", index=False)
 
@@ -117,7 +117,7 @@ def mostrar_panel_usuario():
     with tab3:
         calculadora_gas()
 
-# --- FUNCIONES DE ADMINISTRADOR (SIMPLIFICADAS) ---
+# --- FUNCIONES DE ADMINISTRADOR (ACTUALIZADAS) ---
 def gestion_electricidad():
     st.subheader("⚡ Gestión de Planes de Electricidad")
     
@@ -141,7 +141,7 @@ def gestion_electricidad():
             if st.button("✅ SÍ, RESETEAR TODO", type="primary"):
                 df_vacio = pd.DataFrame(columns=[
                     'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                    'punta', 'valle', 'total_potencia', 'activo'
+                    'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
                 ])
                 df_vacio.to_csv("data/precios_luz.csv", index=False)
                 st.success("✅ Datos reseteados correctamente. Ahora puedes crear tus propios planes.")
@@ -169,6 +169,19 @@ def gestion_electricidad():
         *Útil para desactivar planes temporales o promociones finalizadas sin eliminarlos.*
         """)
     
+    # Explicación del campo "umbral_especial_plus"
+    with st.expander("🎯 ¿Qué significa 'Umbral Especial PLUS'?"):
+        st.info("""
+        **Regla ESPECIAL PLUS**: Este plan solo aparece si el máximo ahorro de otros planes es MENOR que este umbral.
+        
+        **Ejemplo**:
+        - Umbral: 15€
+        - Ahorro máximo otros planes: 17€ → ❌ ESPECIAL PLUS NO aparece (17 > 15)
+        - Ahorro máximo otros planes: 14€ → ✅ ESPECIAL PLUS SÍ aparece (14 < 15)
+        
+        *Útil para mostrar planes con permanencia solo cuando el ahorro es limitado.*
+        """)
+    
     # Cargar datos actuales
     try:
         df_luz = pd.read_csv("data/precios_luz.csv")
@@ -176,14 +189,14 @@ def gestion_electricidad():
         if df_luz.empty:
             df_luz = pd.DataFrame(columns=[
                 'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                'punta', 'valle', 'total_potencia', 'activo'
+                'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
             ])
             st.info("📝 No hay planes configurados. ¡Crea el primero!")
     except (FileNotFoundError, pd.errors.EmptyDataError):
         st.warning("⚠️ No hay datos de electricidad. ¡Crea tu primer plan!")
         df_luz = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo'
+            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
         ])
     
     # Mostrar datos actuales con opción de edición
@@ -285,6 +298,12 @@ def gestion_electricidad():
             
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
+            
+            # NUEVO CAMPO: Umbral Especial PLUS
+            umbral_especial_plus = st.number_input("Umbral Especial PLUS (€)", min_value=0.0, format="%.2f",
+                                                 value=st.session_state.editing_plan['umbral_especial_plus'] if st.session_state.editing_plan and 'umbral_especial_plus' in st.session_state.editing_plan else 15.00,
+                                                 help="Aparece solo si el ahorro del cliente es MENOR a este valor")
+            st.caption("Plan ESPECIAL PLUS: Aparece si ahorro < este valor")
         
         # BOTÓN DE SUBMIT
         if st.session_state.editing_plan is not None:
@@ -307,7 +326,8 @@ def gestion_electricidad():
                     'punta': punta,
                     'valle': valle,
                     'total_potencia': total_potencia,
-                    'activo': activo
+                    'activo': activo,
+                    'umbral_especial_plus': umbral_especial_plus  # NUEVO CAMPO
                 }
                 st.session_state.pending_action = action_type
                 st.session_state.show_confirmation = True
@@ -414,7 +434,7 @@ def gestion_modelos_factura():
         st.success(f"✅ Modelo para {empresa} guardado correctamente")
         st.image(archivo, caption=f"Modelo de factura - {empresa}", use_column_width=True)
 
-# --- FUNCIONES DE USUARIO (SIN CÓDIGO POSTAL) ---
+# --- FUNCIONES DE USUARIO (ACTUALIZADAS CON REGLA ESPECIAL) ---
 def consultar_modelos_factura():
     st.subheader("📊 Modelos de Factura")
     st.info("Selecciona tu compañía eléctrica para ver los modelos de factura")
@@ -479,7 +499,7 @@ def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
 
-# --- FUNCIONES DE CÁLCULO REALES ---
+# --- FUNCIONES DE CÁLCULO ACTUALIZADAS CON REGLA ESPECIAL ---
 def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
     """Calcula comparación exacta con factura actual - Muestra CON y SIN PI"""
     try:
@@ -500,12 +520,15 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         DESCUENTO_PRIMERA_FACTURA = 5.00  # €
         IVA = 0.21  # 21%
         
-        resultados = []
+        # Primero calcular todos los planes para encontrar el máximo ahorro
+        todos_resultados = []
         
         for _, plan in planes_activos.iterrows():
             
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
+            # VERIFICAR SI ES PLAN ESPECIAL PLUS
+            es_especial_plus = "ESPECIAL PLUS" in plan['plan'].upper()
             
             for tiene_pi in [True, False]:  # Calcular ambas opciones: CON y SIN PI
                 
@@ -567,7 +590,12 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                         info_extra = f" | 🎁 +25€/trimestre"
                     info_extra += f" | 📊 {calculo_ahorro['dias_bajo_precio']}d a 0.105€"
                 
-                resultados.append({
+                # Información adicional para Especial Plus
+                if es_especial_plus:
+                    info_extra += " | 📍 Con permanencia"
+                
+                todos_resultados.append({
+                    'plan_data': plan,
                     'Plan': plan['plan'],
                     'Pack Iberdrola': pack_info,
                     'Precio kWh': precio_display,
@@ -575,11 +603,36 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                     'Ahorro Mensual': round(ahorro, 2),
                     'Ahorro Anual': round(ahorro_anual, 2),
                     'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más',
-                    'Info Extra': info_extra
+                    'Info Extra': info_extra,
+                    'es_especial_plus': es_especial_plus,
+                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)  # Valor por defecto 15€
                 })
         
-        # Mostrar resultados
-        df_resultados = pd.DataFrame(resultados)
+        # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
+        ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
+        max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
+        
+        # FILTRAR resultados según regla del Especial Plus
+        resultados_finales = []
+        for resultado in todos_resultados:
+            # Si NO es Especial Plus, siempre se muestra
+            if not resultado['es_especial_plus']:
+                resultados_finales.append(resultado)
+            # Si ES Especial Plus, solo se muestra si el máximo ahorro es MENOR que el umbral
+            else:
+                umbral = resultado['umbral_especial_plus']
+                if max_ahorro < umbral:
+                    resultados_finales.append(resultado)
+                    st.info(f"💡 **Plan ESPECIAL PLUS** aparece porque el máximo ahorro ({max_ahorro}€) es menor que el umbral ({umbral}€)")
+                else:
+                    st.info(f"💡 **Plan ESPECIAL PLUS** ocultado porque el máximo ahorro ({max_ahorro}€) es mayor que el umbral ({umbral}€)")
+        
+        # Mostrar resultados filtrados
+        df_resultados = pd.DataFrame(resultados_finales)
+        
+        if df_resultados.empty:
+            st.warning("ℹ️ No hay planes disponibles según los criterios de filtrado")
+            return
         
         # Encontrar mejor plan
         mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
@@ -600,7 +653,8 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
             st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
         
         # Tabla comparativa
-        st.dataframe(df_resultados, use_container_width=True)
+        st.dataframe(df_resultados[['Plan', 'Pack Iberdrola', 'Precio kWh', 'Coste Nuevo', 'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']], 
+                    use_container_width=True)
         
         # Recomendación
         if mejor_plan['Ahorro Mensual'] > 0:
@@ -638,12 +692,15 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
         # Calcular costo anual actual del cliente
         costo_anual_actual = costo_mensual_actual * 12
         
-        resultados = []
+        # Primero calcular todos los planes para encontrar el máximo ahorro
+        todos_resultados = []
         
         for _, plan in planes_activos.iterrows():
             
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
+            # VERIFICAR SI ES PLAN ESPECIAL PLUS
+            es_especial_plus = "ESPECIAL PLUS" in plan['plan'].upper()
             
             for tiene_pi in [True, False]:  # Calcular ambas opciones: CON y SIN PI
                 
@@ -679,6 +736,10 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                     bonificacion_anual = 0.0  # Sin bonificación para planes normales
                     info_extra = ""
                 
+                # Información adicional para Especial Plus
+                if es_especial_plus:
+                    info_extra += " | 📍 Con permanencia"
+                
                 # CÁLCULOS COMUNES PARA TODOS LOS PLANES
                 coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
                 coste_alquiler_anual = ALQUILER_CONTADOR
@@ -707,7 +768,8 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                 precio_display = f"{precio_kwh:.3f}€" if not isinstance(precio_kwh, str) else precio_kwh
                 
                 # Añadir a resultados
-                resultados.append({
+                todos_resultados.append({
+                    'plan_data': plan,
                     'Plan': plan['plan'],
                     'Pack Iberdrola': pack_info,
                     'Precio kWh': precio_display,
@@ -716,11 +778,36 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                     'Ahorro Mensual': round(ahorro_mensual, 2),
                     'Ahorro Anual': round(ahorro_anual, 2),
                     'Estado': '💚 Ahorras' if ahorro_mensual > 0 else '🔴 Pagas más',
-                    'Info Extra': info_extra
+                    'Info Extra': info_extra,
+                    'es_especial_plus': es_especial_plus,
+                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)  # Valor por defecto 15€
                 })
         
-        # Mostrar resultados
-        df_resultados = pd.DataFrame(resultados)
+        # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
+        ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
+        max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
+        
+        # FILTRAR resultados según regla del Especial Plus
+        resultados_finales = []
+        for resultado in todos_resultados:
+            # Si NO es Especial Plus, siempre se muestra
+            if not resultado['es_especial_plus']:
+                resultados_finales.append(resultado)
+            # Si ES Especial Plus, solo se muestra si el máximo ahorro es MENOR que el umbral
+            else:
+                umbral = resultado['umbral_especial_plus']
+                if max_ahorro < umbral:
+                    resultados_finales.append(resultado)
+                    st.info(f"💡 **Plan ESPECIAL PLUS** aparece porque el máximo ahorro ({max_ahorro}€) es menor que el umbral ({umbral}€)")
+                else:
+                    st.info(f"💡 **Plan ESPECIAL PLUS** ocultado porque el máximo ahorro ({max_ahorro}€) es mayor que el umbral ({umbral}€)")
+        
+        # Mostrar resultados filtrados
+        df_resultados = pd.DataFrame(resultados_finales)
+        
+        if df_resultados.empty:
+            st.warning("ℹ️ No hay planes disponibles según los criterios de filtrado")
+            return
         
         # Encontrar plan más económico (mayor ahorro mensual)
         mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
@@ -741,7 +828,8 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
             st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
         
         # Tabla comparativa
-        st.dataframe(df_resultados, use_container_width=True)
+        st.dataframe(df_resultados[['Plan', 'Pack Iberdrola', 'Precio kWh', 'Mensual Normal', 'Anual', 'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']], 
+                    use_container_width=True)
         
         # Recomendación
         if mejor_plan['Ahorro Mensual'] > 0:
@@ -762,10 +850,6 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
     except Exception as e:
         st.error(f"❌ Error en el cálculo anual: {e}")
 
-def calculadora_gas():
-    st.subheader("🔥 Calculadora de Gas")
-    st.info("Funcionalidad en desarrollo...")
-    
 def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anual=False):
     """
     Calcula el coste para el Plan Ahorro Automático
