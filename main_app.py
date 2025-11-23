@@ -118,7 +118,7 @@ def mostrar_panel_usuario():
     
     # Comparativas
     st.subheader("🧮 Comparativas")
-    tab1, tab2, tab3 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas"])
+    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "📋 CUPS Naturgy"])  # AÑADIR ESTA PESTAÑA
     
     with tab1:
         comparativa_exacta()
@@ -126,6 +126,8 @@ def mostrar_panel_usuario():
         comparativa_estimada()
     with tab3:
         calculadora_gas()
+    with tab4:
+        cups_naturgy()
 
 # --- LISTA DE COMUNIDADES AUTÓNOMAS ---
 COMUNIDADES_AUTONOMAS = [
@@ -754,6 +756,60 @@ def comparativa_estimada():
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
+
+def cups_naturgy():
+    st.subheader("📋 CUPS Naturgy")
+    
+    st.info("Ejemplos de CUPS para trámites con Naturgy")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("### 🔥 CUPS Ejemplo Gas")
+        cups_gas = "ES0217010103496537HH"
+        st.code(cups_gas, language="text")
+        
+        # Botón para copiar CUPS Gas
+        if st.button("📋 Copiar CUPS Gas", key="copy_gas", use_container_width=True):
+            st.session_state.copied_gas = cups_gas
+            st.success("✅ CUPS Gas copiado al portapapeles")
+    
+    with col2:
+        st.write("### ⚡ CUPS Ejemplo Electricidad")
+        cups_luz = "ES0031405120579007YM"
+        st.code(cups_luz, language="text")
+        
+        # Botón para copiar CUPS Electricidad
+        if st.button("📋 Copiar CUPS Electricidad", key="copy_luz", use_container_width=True):
+            st.session_state.copied_luz = cups_luz
+            st.success("✅ CUPS Electricidad copiado al portapapeles")
+    
+    st.markdown("---")
+    
+    st.write("### 🌐 Acceso Directo a Tarifa Plana Zen")
+    
+    # Crear el enlace que se abre en nueva pestaña
+    url = "https://www.naturgy.es/hogar/luz_y_gas/tarifa_plana_zen"
+    
+    # Usar markdown para crear un enlace que se abre en nueva pestaña
+    st.markdown(f"""
+    <a href="{url}" target="_blank" style="text-decoration: none;">
+        <button style="
+            background-color: #00A0E3; 
+            color: white; 
+            padding: 12px 24px; 
+            border: none; 
+            border-radius: 5px; 
+            font-size: 16px; 
+            cursor: pointer;
+            width: 100%;
+        ">
+            🚀 Abrir Tarifa Plana Zen de Naturgy
+        </button>
+    </a>
+    """, unsafe_allow_html=True)
+    
+    st.caption("💡 Se abrirá en una nueva pestaña (el usuario puede hacer Ctrl+Click para abrir en modo incógnito)")
 
 # --- FUNCIONES DE CÁLCULO ACTUALIZADAS ---
 def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad, excedente_kwh=0.0):
