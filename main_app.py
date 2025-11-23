@@ -158,8 +158,14 @@ def gestion_gas():
 def gestion_modelos_factura():
     st.subheader("📄 Gestión de Modelos de Factura")
     
-    empresa = st.selectbox("Seleccionar Empresa", 
-                          ["Iberdrola", "Endesa", "Naturgy", "Otros"])
+    # Lista completa de empresas disponibles
+    EMPRESAS_ELECTRICAS = [
+        "Iberdrola", "Endesa", "Naturgy", "TotalEnergies", 
+        "Repsol", "EDP", "Viesgo", "Holaluz", "Factor Energía",
+        "Octopus Energy", "Otra"
+    ]
+    
+    empresa = st.selectbox("Seleccionar Empresa", EMPRESAS_ELECTRICAS)
     
     st.write(f"### Subir Modelo de Factura para {empresa}")
     
@@ -168,8 +174,11 @@ def gestion_modelos_factura():
                               key=f"upload_{empresa}")
     
     if archivo is not None:
-        # Guardar el archivo en la carpeta correspondiente
-        carpeta_empresa = f"modelos_facturas/{empresa.lower()}"
+        # Crear carpeta si no existe
+        carpeta_empresa = f"modelos_facturas/{empresa.lower().replace(' ', '_')}"
+        os.makedirs(carpeta_empresa, exist_ok=True)
+        
+        # Guardar el archivo
         ruta_archivo = os.path.join(carpeta_empresa, archivo.name)
         
         with open(ruta_archivo, "wb") as f:
@@ -177,28 +186,38 @@ def gestion_modelos_factura():
         
         st.success(f"✅ Modelo de factura para {empresa} guardado correctamente")
         
-        # Mostrar la imagen subida
-        st.image(archivo, caption=f"Modelo de factura - {empresa}", width=300)
+        # Mostrar preview
+        st.image(archivo, caption=f"Modelo de factura - {empresa}", use_column_width=True)
 
 # --- FUNCIONES DE USUARIO ---
 def consultar_modelos_factura():
     st.subheader("📊 Modelos de Factura")
     st.info("Consulta los modelos de factura para identificar los datos necesarios")
     
-    empresa = st.selectbox("Selecciona tu compañía eléctrica", 
-                          ["Iberdrola", "Endesa", "Naturgy", "Otros"])
+    # Misma lista de empresas que en admin
+    EMPRESAS_ELECTRICAS = [
+        "Iberdrola", "Endesa", "Naturgy", "TotalEnergies", 
+        "Repsol", "EDP", "Viesgo", "Holaluz", "Factor Energía",
+        "Octopus Energy", "Otra"
+    ]
+    
+    empresa = st.selectbox("Selecciona tu compañía eléctrica", EMPRESAS_ELECTRICAS)
     
     # Mostrar modelos disponibles para esa empresa
-    carpeta_empresa = f"modelos_facturas/{empresa.lower()}"
+    carpeta_empresa = f"modelos_facturas/{empresa.lower().replace(' ', '_')}"
     
     if os.path.exists(carpeta_empresa):
         archivos = os.listdir(carpeta_empresa)
         if archivos:
-            st.write(f"### Modelos disponibles para {empresa}:")
+            st.write(f"### 📋 Modelos disponibles para {empresa}:")
             
             for archivo in archivos:
                 ruta_completa = os.path.join(carpeta_empresa, archivo)
-                st.image(ruta_completa, caption=archivo, width=400)
+                
+                # Mostrar cada imagen en tamaño completo
+                st.write(f"**Modelo:** {archivo}")
+                st.image(ruta_completa, use_column_width=True)
+                st.markdown("---")  # Línea separadora
         else:
             st.warning(f"⚠️ No hay modelos de factura disponibles para {empresa}")
             st.info("Contacta con el administrador para que suba modelos de referencia")
