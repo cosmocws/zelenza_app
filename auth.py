@@ -1,17 +1,10 @@
 # auth.py
 import streamlit as st
-import os
 
 # Credenciales de administrador
 ADMIN_CREDENTIALS = {
     "usuario": "admin",
     "contraseña": "admin123"
-}
-
-# Usuarios básicos (podemos expandir esto después)
-USER_CREDENTIALS = {
-    "cliente": "cliente123",
-    "usuario": "usuario123"
 }
 
 def authenticate(username, password, user_type):
@@ -23,8 +16,8 @@ def authenticate(username, password, user_type):
         return (username == ADMIN_CREDENTIALS["usuario"] and 
                 password == ADMIN_CREDENTIALS["contraseña"])
     else:
-        return (username in USER_CREDENTIALS and 
-                password == USER_CREDENTIALS[username])
+        # Para usuario normal, cualquier credencial funciona
+        return True
 
 def check_auth():
     """Verifica si el usuario está autenticado"""
