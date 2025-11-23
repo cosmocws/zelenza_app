@@ -207,6 +207,18 @@ def mostrar_panel_usuario():
 def gestion_electricidad():
     st.subheader("⚡ Gestión de Planes de Electricidad")
     
+    # --- RESET TEMPORAL - ELIMINAR DESPUÉS ---
+    st.error("🚨 RESET TEMPORAL DE DATOS")
+    if st.button("🔄 Resetear datos a vacío (SOLO PRIMERA VEZ)"):
+        df_vacio = pd.DataFrame(columns=[
+            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+        ])
+        df_vacio.to_csv("data/precios_luz.csv", index=False)
+        st.success("✅ Datos reseteados. Ahora puedes crear tus propios planes.")
+        st.rerun()
+    # --- FIN RESET TEMPORAL ---
+    
     # Explicación del campo "activo"
     with st.expander("💡 ¿Qué significa 'Plan activo'?"):
         st.info("""
@@ -288,6 +300,15 @@ def gestion_electricidad():
             st.session_state.editing_plan = None
             st.rerun()
     
+    # Inicializar estado de confirmación
+    if 'show_confirmation' not in st.session_state:
+        st.session_state.show_confirmation = False
+    if 'pending_plan' not in st.session_state:
+        st.session_state.pending_plan = None
+    if 'pending_action' not in st.session_state:
+        st.session_state.pending_action = None
+    
+    # FORMULARIO PRINCIPAL
     with st.form("form_plan_electricidad"):
         col1, col2, col3 = st.columns(3)
         
@@ -337,15 +358,13 @@ def gestion_electricidad():
             )
             st.caption("Selecciona 'Toda España' o comunidades específicas")
         
-        # Botones diferentes según si estamos editando o creando
+        # Botón de envío del formulario
         if st.session_state.editing_plan is not None:
             submitted = st.form_submit_button("💾 Guardar Cambios", type="primary")
             action_type = "actualizar"
-            action_message = f"¿Estás seguro de que quieres ACTUALIZAR el plan '{nombre_plan}'?"
         else:
             submitted = st.form_submit_button("➕ Crear Nuevo Plan", type="primary")
             action_type = "crear"
-            action_message = f"¿Estás seguro de que quieres CREAR el nuevo plan '{nombre_plan}'?"
         
         if submitted:
             if not nombre_plan:
@@ -353,69 +372,97 @@ def gestion_electricidad():
             elif not comunidades:
                 st.error("❌ Debes seleccionar al menos una comunidad autónoma")
             else:
-                # Mostrar confirmación
-                with st.container():
-                    st.warning("⚠️ CONFIRMACIÓN REQUERIDA")
-                    st.write(action_message)
-                    
-                    col_confirm, col_cancel = st.columns(2)
-                    with col_confirm:
-                        if st.button("✅ Sí, confirmar", type="primary"):
-                            # Crear nuevo registro
-                            nuevo_plan = {
-                                'plan': nombre_plan,
-                                'precio_original_kwh': precio_original,
-                                'con_pi_kwh': con_pi,
-                                'sin_pi_kwh': sin_pi,
-                                'punta': punta,
-                                'valle': valle,
-                                'total_potencia': total_potencia,
-                                'activo': activo,
-                                'comunidades': comunidades  # NUEVO CAMPO
-                            }
-                            
-                            # Añadir o actualizar el plan
-                            if nombre_plan in df_luz['plan'].values:
-                                # Actualizar plan existente
-                                idx = df_luz[df_luz['plan'] == nombre_plan].index[0]
-                                for key, value in nuevo_plan.items():
-                                    df_luz.at[idx, key] = value
-                                st.success(f"✅ Plan '{nombre_plan}' actualizado correctamente")
-                            else:
-                                # Añadir nuevo plan
-                                df_luz = pd.concat([df_luz, pd.DataFrame([nuevo_plan])], ignore_index=True)
-                                st.success(f"✅ Plan '{nombre_plan}' añadido correctamente")
-                            
-                            # Guardar y limpiar estado
-                            df_luz.to_csv("data/precios_luz.csv", index=False)
-                            st.session_state.editing_plan = None
-                            st.rerun()
-                    
-                    with col_cancel:
-                        if st.button("❌ Cancelar"):
-                            st.info("Operación cancelada")
+                # Preparar datos para confirmación
+                st.session_state.pending_plan = {
+                    'plan': nombre_plan,
+                    'precio_original_kwh': precio_original,
+                    'con_pi_kwh': con_pi,
+                    'sin_pi_kwh': sin_pi,
+                    'punta': punta,
+                    'valle': valle,
+                    'total_potencia': total_potencia,
+                    'activo': activo,
+                    'comunidades': comunidades
+                }
+                st.session_state.pending_action = action_type
+                st.session_state.show_confirmation = True
+                st.rerun()
     
-    # Opción para eliminar planes
-    if not df_luz.empty and st.session_state.editing_plan is None:
+    # MOSTRAR CONFIRMACIÓN (FUERA DEL FORM)
+    if st.session_state.show_confirmation:
+        st.markdown("---")
+        st.warning("⚠️ CONFIRMACIÓN REQUERIDA")
+        
+        if st.session_state.pending_action == "actualizar":
+            st.write(f"¿Estás seguro de que quieres ACTUALIZAR el plan '{st.session_state.pending_plan['plan']}'?")
+        else:
+            st.write(f"¿Estás seguro de que quieres CREAR el nuevo plan '{st.session_state.pending_plan['plan']}'?")
+        
+        col_confirm, col_cancel = st.columns(2)
+        with col_confirm:
+            if st.button("✅ Sí, confirmar", type="primary", key="confirm_yes"):
+                # Ejecutar la acción
+                nuevo_plan = st.session_state.pending_plan
+                
+                # Añadir o actualizar el plan
+                if nuevo_plan['plan'] in df_luz['plan'].values:
+                    # Actualizar plan existente
+                    idx = df_luz[df_luz['plan'] == nuevo_plan['plan']].index[0]
+                    for key, value in nuevo_plan.items():
+                        df_luz.at[idx, key] = value
+                    st.success(f"✅ Plan '{nuevo_plan['plan']}' actualizado correctamente")
+                else:
+                    # Añadir nuevo plan
+                    df_luz = pd.concat([df_luz, pd.DataFrame([nuevo_plan])], ignore_index=True)
+                    st.success(f"✅ Plan '{nuevo_plan['plan']}' añadido correctamente")
+                
+                # Guardar y limpiar estado
+                df_luz.to_csv("data/precios_luz.csv", index=False)
+                st.session_state.editing_plan = None
+                st.session_state.show_confirmation = False
+                st.session_state.pending_plan = None
+                st.session_state.pending_action = None
+                st.rerun()
+        
+        with col_cancel:
+            if st.button("❌ Cancelar", type="secondary", key="confirm_no"):
+                st.session_state.show_confirmation = False
+                st.session_state.pending_plan = None
+                st.session_state.pending_action = None
+                st.info("Operación cancelada")
+                st.rerun()
+    
+    # Opción para eliminar planes (FUERA DE CUALQUIER FORM)
+    if not df_luz.empty and st.session_state.editing_plan is None and not st.session_state.show_confirmation:
         st.write("### 🗑️ Eliminar Plan")
         plan_a_eliminar = st.selectbox("Selecciona plan a eliminar", df_luz['plan'].unique())
         
         if st.button("Eliminar Plan Seleccionado", type="secondary"):
-            with st.container():
-                st.error("🚨 ELIMINACIÓN PERMANENTE")
-                st.write(f"¿Estás seguro de que quieres ELIMINAR permanentemente el plan '{plan_a_eliminar}'?")
-                
-                col_conf_del, col_can_del = st.columns(2)
-                with col_conf_del:
-                    if st.button("✅ Sí, eliminar", type="primary"):
-                        df_luz = df_luz[df_luz['plan'] != plan_a_eliminar]
-                        df_luz.to_csv("data/precios_luz.csv", index=False)
-                        st.success(f"✅ Plan '{plan_a_eliminar}' eliminado correctamente")
-                        st.rerun()
-                
-                with col_can_del:
-                    if st.button("❌ Cancelar eliminación"):
-                        st.info("Eliminación cancelada")
+            st.session_state.pending_elimination = plan_a_eliminar
+            st.rerun()
+    
+    # Confirmación para eliminación
+    if hasattr(st.session_state, 'pending_elimination'):
+        st.markdown("---")
+        st.error("🚨 ELIMINACIÓN PERMANENTE")
+        st.write(f"¿Estás seguro de que quieres ELIMINAR permanentemente el plan '{st.session_state.pending_elimination}'?")
+        
+        col_conf_del, col_can_del = st.columns(2)
+        with col_conf_del:
+            if st.button("✅ Sí, eliminar", type="primary"):
+                df_luz = df_luz[df_luz['plan'] != st.session_state.pending_elimination]
+                df_luz.to_csv("data/precios_luz.csv", index=False)
+                st.success(f"✅ Plan '{st.session_state.pending_elimination}' eliminado correctamente")
+                if hasattr(st.session_state, 'pending_elimination'):
+                    del st.session_state.pending_elimination
+                st.rerun()
+        
+        with col_can_del:
+            if st.button("❌ Cancelar eliminación"):
+                if hasattr(st.session_state, 'pending_elimination'):
+                    del st.session_state.pending_elimination
+                st.info("Eliminación cancelada")
+                st.rerun()
 
 def gestion_gas():
     st.subheader("🔥 Gestión de Planes de Gas")
