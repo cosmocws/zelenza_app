@@ -453,11 +453,13 @@ def comparativa_exacta():
     
     with col2:
         consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_exacta")
-        # Quitamos PI y añadimos costo actual para comparar
         costo_actual = st.number_input("¿Cuánto pagaste? (€)", min_value=0.0, value=50.0, key="costo_exacta")
+        # NUEVO: Opción para activar/desactivar PI
+        tiene_pi = st.checkbox("¿Aplicar Pensión Igualatoria?", value=False, 
+                              help="Activa esta opción si tienes derecho a Pensión Igualatoria")
     
     if st.button("🔍 Comparar", type="primary", key="comparar_exacta"):
-        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual)
+        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, tiene_pi)
 
 def comparativa_estimada():
     st.subheader("📅 Comparativa ESTIMADA")
@@ -467,19 +469,22 @@ def comparativa_estimada():
     
     with col1:
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
+        # NUEVO: Opción para activar/desactivar PI
+        tiene_pi = st.checkbox("¿Aplicar Pensión Igualatoria?", value=False, key="pi_estimada",
+                              help="Activa esta opción si tienes derecho a Pensión Igualatoria")
     
     with col2:
         consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
     
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
-        calcular_estimacion_anual(potencia, consumo_anual)
+        calcular_estimacion_anual(potencia, consumo_anual, tiene_pi)
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
 
 # --- FUNCIONES DE CÁLCULO REALES ---
-def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
+def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, tiene_pi):
     """Calcula comparación exacta con factura actual"""
     try:
         # Cargar planes activos
@@ -492,9 +497,9 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         
         st.success("🧮 Calculando comparativa...")
         
-        # CONSTANTES (las mismas que nos diste)
+        # CONSTANTES ACTUALIZADAS (sin bono social)
         ALQUILER_CONTADOR = 0.81  # €/mes
-        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
+        PACK_IBERDROLA = 3.95  # €/mes (solo si tiene PI activado)
         IMPUESTO_ELECTRICO = 0.0511  # 5.11%
         DESCUENTO_PRIMERA_FACTURA = 5.00  # €
         IVA = 0.21  # 21% (para península)
@@ -502,17 +507,22 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         resultados = []
         
         for _, plan in planes_activos.iterrows():
-            # Usamos el precio sin PI (ya que quitamos esa opción)
-            precio_kwh = plan['sin_pi_kwh']
+            # Determinar precio según PI
+            if tiene_pi:
+                precio_kwh = plan['con_pi_kwh']
+                coste_pack = PACK_IBERDROLA  # Se añade el pack si tiene PI
+            else:
+                precio_kwh = plan['sin_pi_kwh']
+                coste_pack = 0.0  # Sin pack si no tiene PI
             
-            # CÁLCULOS EXACTOS
+            # CÁLCULOS EXACTOS (SIN BONO SOCIAL)
             coste_consumo = consumo * precio_kwh
             coste_potencia = potencia * plan['total_potencia'] * dias
             coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
-            coste_financiacion = FINANCIACION_BONO_SOCIAL * dias
+            coste_pack_total = coste_pack * (dias / 30)  # Pack proporcional a días
             
             # SUBTOTAL
-            subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_financiacion
+            subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_pack_total
             
             # IMPUESTOS
             impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
@@ -524,9 +534,15 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
             # Calcular ahorro
             ahorro = costo_actual - total_nuevo
             
+            # Información adicional para mostrar
+            info_pi = "✅ Con PI" if tiene_pi else "❌ Sin PI"
+            info_pack = f"+{coste_pack_total:.2f}€ Pack" if tiene_pi else "Sin Pack"
+            
             resultados.append({
                 'Plan': plan['plan'],
+                'PI': info_pi,
                 'Precio kWh': f"{precio_kwh:.3f}€",
+                'Pack': info_pack,
                 'Coste Nuevo': round(total_nuevo, 2),
                 'Ahorro': round(ahorro, 2),
                 'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más'
@@ -539,6 +555,9 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         mejor_plan = df_resultados.loc[df_resultados['Ahorro'].idxmax()]
         
         st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
+        
+        # Información de configuración
+        st.info(f"**Configuración:** {'Con Pensión Igualatoria' if tiene_pi else 'Sin Pensión Igualatoria'} | Días: {dias} | Consumo: {consumo}kWh")
         
         # Métricas principales
         col1, col2, col3 = st.columns(3)
@@ -556,13 +575,14 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         # Recomendación
         if mejor_plan['Ahorro'] > 0:
             st.success(f"🎯 **RECOMENDACIÓN**: {mejor_plan['Plan']} - Ahorras {mejor_plan['Ahorro']}€")
+            st.info(f"💡 **Incluye:** {mejor_plan['PI']} | {mejor_plan['Pack']}")
         else:
             st.warning("ℹ️ Todos los planes son más caros que tu factura actual")
             
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
 
-def calcular_estimacion_anual(potencia, consumo_anual):
+def calcular_estimacion_anual(potencia, consumo_anual, tiene_pi):
     """Calcula estimación anual"""
     try:
         # Cargar planes activos
@@ -575,9 +595,9 @@ def calcular_estimacion_anual(potencia, consumo_anual):
         
         st.success("🧮 Calculando estimación anual...")
         
-        # CONSTANTES
+        # CONSTANTES ACTUALIZADAS (sin bono social)
         ALQUILER_CONTADOR = 0.81 * 12  # €/año
-        FINANCIACION_BONO_SOCIAL = 0.03 * 365  # €/año
+        PACK_IBERDROLA = 3.95 * 12  # €/año (solo si tiene PI activado)
         IMPUESTO_ELECTRICO = 0.0511  # 5.11%
         DESCUENTO_PRIMERA_FACTURA = 5.00  # € (solo primera factura)
         IVA = 0.21  # 21%
@@ -586,16 +606,21 @@ def calcular_estimacion_anual(potencia, consumo_anual):
         resultados = []
         
         for _, plan in planes_activos.iterrows():
-            precio_kwh = plan['sin_pi_kwh']
+            # Determinar precio según PI
+            if tiene_pi:
+                precio_kwh = plan['con_pi_kwh']
+                coste_pack = PACK_IBERDROLA  # Pack anual si tiene PI
+            else:
+                precio_kwh = plan['sin_pi_kwh']
+                coste_pack = 0.0  # Sin pack si no tiene PI
             
-            # CÁLCULOS ANUALES
+            # CÁLCULOS ANUALES (SIN BONO SOCIAL)
             coste_consumo_anual = consumo_anual * precio_kwh
             coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
             coste_alquiler_anual = ALQUILER_CONTADOR
-            coste_financiacion_anual = FINANCIACION_BONO_SOCIAL
             
             # SUBTOTAL ANUAL
-            subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_financiacion_anual
+            subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_pack
             
             # IMPUESTOS ANUALES
             impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
@@ -605,9 +630,15 @@ def calcular_estimacion_anual(potencia, consumo_anual):
             total_anual = subtotal_anual + impuesto_electrico_anual + iva_anual - DESCUENTO_PRIMERA_FACTURA
             mensual = total_anual / 12
             
+            # Información adicional
+            info_pi = "✅ Con PI" if tiene_pi else "❌ Sin PI"
+            info_pack = f"+{coste_pack/12:.2f}€/mes Pack" if tiene_pi else "Sin Pack"
+            
             resultados.append({
                 'Plan': plan['plan'],
+                'PI': info_pi,
                 'Precio kWh': f"{precio_kwh:.3f}€",
+                'Pack': info_pack,
                 'Anual': round(total_anual, 2),
                 'Mensual': round(mensual, 2)
             })
@@ -620,6 +651,9 @@ def calcular_estimacion_anual(potencia, consumo_anual):
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
         
+        # Información de configuración
+        st.info(f"**Configuración:** {'Con Pensión Igualatoria' if tiene_pi else 'Sin Pensión Igualatoria'} | Consumo anual: {consumo_anual}kWh")
+        
         # Métricas
         col1, col2 = st.columns(2)
         with col1:
@@ -631,6 +665,7 @@ def calcular_estimacion_anual(potencia, consumo_anual):
         st.dataframe(df_resultados, use_container_width=True)
         
         st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['Anual']}€/año")
+        st.info(f"💡 **Incluye:** {mejor_plan['PI']} | {mejor_plan['Pack']}")
         
         # Gráfico comparativo
         st.write("### 📈 Comparativa Visual")
