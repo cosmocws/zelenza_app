@@ -2,31 +2,30 @@
 import streamlit as st
 import os
 
-# Credenciales de administrador - SEGURAS con variables de entorno
-def get_admin_credentials():
-    """Obtiene credenciales desde variables de entorno o usa valores por defecto"""
-    return {
-        "usuario": os.getenv('ADMIN_USER', 'zelenza_admin'),
-        "contraseña": os.getenv('ADMIN_PASS', 'cambia_esta_contraseña_2024')
-    }
+# Credenciales de administrador
+ADMIN_CREDENTIALS = {
+    "usuario": "admin",
+    "contraseña": "admin123"
+}
 
-def authenticate(username, password):
-    """Autentica al administrador"""
+# Usuarios básicos (podemos expandir esto después)
+USER_CREDENTIALS = {
+    "cliente": "cliente123",
+    "usuario": "usuario123"
+}
+
+def authenticate(username, password, user_type):
+    """Autentica al usuario según el tipo"""
     if not username or not password:
         return False
     
-    credentials = get_admin_credentials()
-    return (username == credentials["usuario"] and 
-            password == credentials["contraseña"])
+    if user_type == "admin":
+        return (username == ADMIN_CREDENTIALS["usuario"] and 
+                password == ADMIN_CREDENTIALS["contraseña"])
+    else:
+        return (username in USER_CREDENTIALS and 
+                password == USER_CREDENTIALS[username])
 
-def check_admin_auth():
-    """Verifica si el usuario actual es administrador"""
-    return (st.session_state.get('authenticated', False) and 
-            st.session_state.get('user_type') == 'admin')
-
-# Lista de empresas para usar en toda la app
-EMPRESAS_ELECTRICAS = [
-    "Iberdrola", "Endesa", "Naturgy", "TotalEnergies", 
-    "Repsol", "EDP", "Viesgo", "Holaluz", "Factor Energía",
-    "Octopus Energy", "Otra"
-]
+def check_auth():
+    """Verifica si el usuario está autenticado"""
+    return st.session_state.get('authenticated', False)
