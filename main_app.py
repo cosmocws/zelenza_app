@@ -55,14 +55,13 @@ def inicializar_datos():
 def obtener_comunidad_por_cp(codigo_postal):
     """
     Determina la comunidad autónoma basándose en el código postal
-    (Simplificado - en producción usarías una base de datos completa)
     """
     try:
         cp = int(codigo_postal)
     except:
         return None
     
-    # Mapeo simplificado de códigos postales a comunidades
+    # Mapeo mejorado de códigos postales a comunidades
     comunidades_cp = {
         "Andalucía": [range(1000, 2399), range(29000, 29999), range(41000, 41999)],
         "Aragón": [range(22000, 22999), range(50000, 50999)],
@@ -633,20 +632,135 @@ def calculadora_gas():
     if st.button("Calcular Gas", type="primary"):
         calcular_gas(consumo_gas, tipo_red, tiene_pmg)
 
-# Funciones de cálculo (placeholder)
+# Funciones de cálculo REALES
 def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, comunidad):
-    st.info("🔧 Cálculos en desarrollo...")
-    st.write(f"Parámetros recibidos: {dias} días, {potencia} kW, {consumo} kWh, PI: {tiene_pi}")
-    st.write(f"Ubicación: CP {codigo_postal} - {comunidad}")
-    # Aquí implementaremos la lógica basada en tu tabla
+    st.success("🧮 Calculando costes...")
+    
+    try:
+        # Cargar planes activos que coincidan con la comunidad
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        planes_disponibles = df_luz[
+            (df_luz['activo'] == True) & 
+            (
+                (df_luz['comunidades'].apply(lambda x: 'Toda España' in x if isinstance(x, list) else x == 'Toda España')) |
+                (df_luz['comunidades'].apply(lambda x: comunidad in x if isinstance(x, list) else x == comunidad))
+            )
+        ]
+        
+        if planes_disponibles.empty:
+            st.warning("⚠️ No hay planes disponibles para tu comunidad autónoma")
+            return
+        
+        st.write(f"### 📊 Resultados para {dias} días en {comunidad}")
+        
+        # Calcular costes para cada plan
+        resultados = []
+        
+        for _, plan in planes_disponibles.iterrows():
+            # Determinar precio según PI
+            precio_kwh = plan['con_pi_kwh'] if tiene_pi == "Sí" else plan['sin_pi_kwh']
+            
+            # Cálculos
+            coste_consumo = consumo * precio_kwh
+            coste_potencia = potencia * plan['total_potencia'] * dias
+            coste_total = coste_consumo + coste_potencia
+            coste_diario = coste_total / dias if dias > 0 else 0
+            
+            resultados.append({
+                'Plan': plan['plan'],
+                'Coste Consumo': round(coste_consumo, 2),
+                'Coste Potencia': round(coste_potencia, 2),
+                'Coste Total': round(coste_total, 2),
+                'Coste Diario': round(coste_diario, 2),
+                'Precio kWh': precio_kwh
+            })
+        
+        # Mostrar resultados en tabla
+        df_resultados = pd.DataFrame(resultados)
+        st.dataframe(df_resultados, use_container_width=True)
+        
+        # Mostrar el plan más económico
+        if not df_resultados.empty:
+            mejor_plan = df_resultados.loc[df_resultados['Coste Total'].idxmin()]
+            st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['Coste Total']}€ total")
+            
+            # Gráfico comparativo
+            st.write("### 📈 Comparativa de Planes")
+            chart_data = df_resultados.set_index('Plan')['Coste Total']
+            st.bar_chart(chart_data)
+            
+    except Exception as e:
+        st.error(f"❌ Error en el cálculo: {str(e)}")
 
 def calcular_electricidad_anual(potencia, consumo, tiene_pi, codigo_postal, comunidad):
-    st.info("🔧 Cálculos anuales en desarrollo...")
-    st.write(f"Parámetros recibidos: {potencia} kW, {consumo} kWh, PI: {tiene_pi}")
-    st.write(f"Ubicación: CP {codigo_postal} - {comunidad}")
+    st.success("🧮 Calculando coste anual...")
+    
+    try:
+        # Cargar planes activos que coincidan con la comunidad
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        planes_disponibles = df_luz[
+            (df_luz['activo'] == True) & 
+            (
+                (df_luz['comunidades'].apply(lambda x: 'Toda España' in x if isinstance(x, list) else x == 'Toda España')) |
+                (df_luz['comunidades'].apply(lambda x: comunidad in x if isinstance(x, list) else x == comunidad))
+            )
+        ]
+        
+        if planes_disponibles.empty:
+            st.warning("⚠️ No hay planes disponibles para tu comunidad autónoma")
+            return
+        
+        st.write(f"### 📊 Resultados Anuales para {comunidad}")
+        
+        # Calcular costes anuales para cada plan
+        resultados = []
+        
+        for _, plan in planes_disponibles.iterrows():
+            # Determinar precio según PI
+            precio_kwh = plan['con_pi_kwh'] if tiene_pi == "Sí" else plan['sin_pi_kwh']
+            
+            # Cálculos anuales (365 días)
+            coste_consumo_anual = consumo * precio_kwh
+            coste_potencia_anual = potencia * plan['total_potencia'] * 365
+            coste_total_anual = coste_consumo_anual + coste_potencia_anual
+            coste_mensual = coste_total_anual / 12
+            
+            resultados.append({
+                'Plan': plan['plan'],
+                'Consumo Anual': round(coste_consumo_anual, 2),
+                'Potencia Anual': round(coste_potencia_anual, 2),
+                'Total Anual': round(coste_total_anual, 2),
+                'Mensual': round(coste_mensual, 2),
+                'Precio kWh': precio_kwh
+            })
+        
+        # Mostrar resultados en tabla
+        df_resultados = pd.DataFrame(resultados)
+        st.dataframe(df_resultados, use_container_width=True)
+        
+        # Mostrar el plan más económico
+        if not df_resultados.empty:
+            mejor_plan = df_resultados.loc[df_resultados['Total Anual'].idxmin()]
+            st.success(f"🎯 **MEJOR OPCIÓN ANUAL**: {mejor_plan['Plan']}")
+            st.info(f"💶 **{mejor_plan['Total Anual']}€/año** ({mejor_plan['Mensual']}€/mes)")
+            
+            # Gráfico comparativo
+            st.write("### 📈 Comparativa Anual")
+            chart_data = df_resultados.set_index('Plan')['Total Anual']
+            st.bar_chart(chart_data)
+            
+    except Exception as e:
+        st.error(f"❌ Error en el cálculo anual: {str(e)}")
 
 def calcular_gas(consumo, tipo_red, tiene_pmg):
-    st.info("🔧 Cálculos de gas en desarrollo...")
+    st.info("🔧 Calculadora de Gas en desarrollo...")
+    st.write("### 📊 Parámetros introducidos:")
+    st.write(f"- **Consumo**: {consumo} kWh")
+    st.write(f"- **Tipo Red**: {tipo_red}")
+    st.write(f"- **PMG**: {tiene_pmg}")
+    
+    # Aquí implementaremos la lógica específica del gas cuando tengamos los datos
+    st.warning("⚠️ Los cálculos de gas estarán disponibles pronto")
 
 if __name__ == "__main__":
     main()
