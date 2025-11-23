@@ -809,7 +809,7 @@ def cups_naturgy():
     </a>
     """, unsafe_allow_html=True)
     
-    st.caption("💡 Se abrirá en una nueva pestaña (el usuario puede hacer Ctrl+Click para abrir en modo incógnito)")
+    st.caption("💡 Se abrirá en una nueva pestaña (el usuario puede hacer Click derecho y buscar modo incógnito en caso de que no cargue correctamente)")
 
 # --- FUNCIONES DE CÁLCULO ACTUALIZADAS ---
 def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad, excedente_kwh=0.0):
