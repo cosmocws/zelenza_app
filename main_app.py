@@ -29,9 +29,11 @@ def inicializar_datos():
             'sin_pi_kwh': [0.138, 0.149, 0.161, 0.161, 0.125],
             'punta': [0.116, 0.108, 0.108, 0.085, 0.108],
             'valle': [0.046, 0.046, 0.046, 0.046, 0.046],
-            'total_potencia': [0.162, 0.154, 0.154, 0.131, 0.154]
+            'total_potencia': [0.162, 0.154, 0.154, 0.131, 0.154],
+            'activo': [True, True, True, True, True]
         }
         pd.DataFrame(datos_luz).to_csv("data/precios_luz.csv", index=False)
+        st.sidebar.success("✅ Datos iniciales de electricidad creados")
 
 def main():
     # Inicializar datos
@@ -146,9 +148,91 @@ def mostrar_panel_usuario():
 
 # --- FUNCIONES DE ADMINISTRADOR ---
 def gestion_electricidad():
-    st.subheader("Gestión de Planes de Electricidad")
-    st.info("Aquí podrás configurar los precios de los planes de electricidad")
-    # (Implementaremos en el siguiente paso)
+    st.subheader("⚡ Gestión de Planes de Electricidad")
+    
+    # Cargar datos actuales
+    try:
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        st.success("✅ Datos de electricidad cargados correctamente")
+    except FileNotFoundError:
+        st.warning("⚠️ No hay datos de electricidad. Se crearán datos iniciales.")
+        # Crear DataFrame inicial vacío
+        df_luz = pd.DataFrame(columns=[
+            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+            'punta', 'valle', 'total_potencia', 'activo'
+        ])
+    
+    # Mostrar datos actuales
+    st.write("### 📊 Planes Actuales")
+    if not df_luz.empty:
+        st.dataframe(df_luz, use_container_width=True)
+    else:
+        st.info("No hay planes configurados aún")
+    
+    # Formulario para añadir/editar planes
+    st.write("### ➕ Añadir/Editar Plan")
+    
+    with st.form("form_plan_electricidad"):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            nombre_plan = st.text_input("Nombre del Plan*", placeholder="Ej: IMPULSA 24h")
+            precio_original = st.number_input("Precio Original kWh*", min_value=0.0, format="%.3f", value=0.170)
+            con_pi = st.number_input("Con PI kWh*", min_value=0.0, format="%.3f", value=0.130)
+        
+        with col2:
+            sin_pi = st.number_input("Sin PI kWh*", min_value=0.0, format="%.3f", value=0.138)
+            punta = st.number_input("Punta €*", min_value=0.0, format="%.3f", value=0.116)
+            valle = st.number_input("Valle €*", min_value=0.0, format="%.3f", value=0.046)
+        
+        with col3:
+            total_potencia = st.number_input("Total Potencia €*", min_value=0.0, format="%.3f", value=0.162)
+            activo = st.checkbox("Plan activo", value=True)
+        
+        submitted = st.form_submit_button("💾 Guardar Plan", type="primary")
+        
+        if submitted:
+            if not nombre_plan:
+                st.error("❌ El nombre del plan es obligatorio")
+            else:
+                # Crear nuevo registro
+                nuevo_plan = {
+                    'plan': nombre_plan,
+                    'precio_original_kwh': precio_original,
+                    'con_pi_kwh': con_pi,
+                    'sin_pi_kwh': sin_pi,
+                    'punta': punta,
+                    'valle': valle,
+                    'total_potencia': total_potencia,
+                    'activo': activo
+                }
+                
+                # Añadir o actualizar el plan
+                if nombre_plan in df_luz['plan'].values:
+                    # Actualizar plan existente
+                    idx = df_luz[df_luz['plan'] == nombre_plan].index[0]
+                    for key, value in nuevo_plan.items():
+                        df_luz.at[idx, key] = value
+                    st.success(f"✅ Plan '{nombre_plan}' actualizado correctamente")
+                else:
+                    # Añadir nuevo plan
+                    df_luz = pd.concat([df_luz, pd.DataFrame([nuevo_plan])], ignore_index=True)
+                    st.success(f"✅ Plan '{nombre_plan}' añadido correctamente")
+                
+                # Guardar los datos
+                df_luz.to_csv("data/precios_luz.csv", index=False)
+                st.rerun()
+    
+    # Opción para eliminar planes
+    if not df_luz.empty:
+        st.write("### 🗑️ Eliminar Plan")
+        plan_a_eliminar = st.selectbox("Selecciona plan a eliminar", df_luz['plan'].unique())
+        
+        if st.button("Eliminar Plan Seleccionado", type="secondary"):
+            df_luz = df_luz[df_luz['plan'] != plan_a_eliminar]
+            df_luz.to_csv("data/precios_luz.csv", index=False)
+            st.success(f"✅ Plan '{plan_a_eliminar}' eliminado correctamente")
+            st.rerun()
 
 def gestion_gas():
     st.subheader("Gestión de Planes de Gas")
