@@ -1,8 +1,24 @@
 import streamlit as st
 import pandas as pd
 import os
-from auth import authenticate
 
+def authenticate(username, password, user_type):
+    try:
+        if user_type == "user":
+            return (username == st.secrets["credentials"]["user_username"] and 
+                    password == st.secrets["credentials"]["user_password"])
+        elif user_type == "admin":
+            return (username == st.secrets["credentials"]["admin_username"] and 
+                    password == st.secrets["credentials"]["admin_password"])
+        return False
+    except:
+        # Fallback por si no hay secrets
+        if user_type == "user":
+            return username == "usuario" and password == "cliente123"
+        elif user_type == "admin":
+            return username == "admin" and password == "admin123"
+        return False
+        
 # Configuración de la página
 st.set_page_config(
     page_title="Zelenza CEX - Iberdrola",
@@ -47,23 +63,28 @@ def main():
         mostrar_aplicacion_principal()
 
 def mostrar_login():
-    """Muestra la pantalla de login"""
     st.header("🔐 Iniciar Sesión")
     
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("👤 Acceso Usuario")
+        user_user = st.text_input("Usuario", key="user_user")
+        user_pass = st.text_input("Contraseña", type="password", key="user_pass")
+        
         if st.button("Entrar como Usuario", use_container_width=True, type="secondary"):
-            st.session_state.authenticated = True
-            st.session_state.user_type = "user"
-            st.session_state.username = "usuario"
-            st.rerun()
+            if authenticate(user_user, user_pass, "user"):
+                st.session_state.authenticated = True
+                st.session_state.user_type = "user"
+                st.session_state.username = user_user
+                st.rerun()
+            else:
+                st.error("❌ Credenciales incorrectas")
     
     with col2:
         st.subheader("🔧 Acceso Administrador")
-        admin_user = st.text_input("Usuario Administrador")
-        admin_pass = st.text_input("Contraseña", type="password")
+        admin_user = st.text_input("Usuario Administrador", key="admin_user")
+        admin_pass = st.text_input("Contraseña", type="password", key="admin_pass")
         
         if st.button("Entrar como Admin", use_container_width=True, type="primary"):
             if authenticate(admin_user, admin_pass, "admin"):
