@@ -48,7 +48,8 @@ def inicializar_datos():
     if not os.path.exists("data/precios_luz.csv"):
         df_vacio = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+            'punta', 'valle', 'total_potencia', 'activo', 'comunidades',
+            'pack_iberdrola'
         ])
         df_vacio.to_csv("data/precios_luz.csv", index=False)
 
@@ -226,7 +227,8 @@ def gestion_electricidad():
             if st.button("✅ SÍ, RESETEAR TODO", type="primary"):
                 df_vacio = pd.DataFrame(columns=[
                     'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                    'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+                    'punta', 'valle', 'total_potencia', 'activo', 'comunidades',
+                    'pack_iberdrola'
                 ])
                 df_vacio.to_csv("data/precios_luz.csv", index=False)
                 st.success("✅ Datos reseteados correctamente. Ahora puedes crear tus propios planes.")
@@ -261,14 +263,16 @@ def gestion_electricidad():
         if df_luz.empty:
             df_luz = pd.DataFrame(columns=[
                 'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+                'punta', 'valle', 'total_potencia', 'activo', 'comunidades',
+                'pack_iberdrola'
             ])
             st.info("📝 No hay planes configurados. ¡Crea el primero!")
     except (FileNotFoundError, pd.errors.EmptyDataError):
         st.warning("⚠️ No hay datos de electricidad. ¡Crea tu primer plan!")
         df_luz = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+            'punta', 'valle', 'total_potencia', 'activo', 'comunidades',
+            'pack_iberdrola'
         ])
     
     # Mostrar datos actuales con opción de edición
@@ -367,6 +371,11 @@ def gestion_electricidad():
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
             
+            # NUEVO CAMPO: Pack Iberdrola
+            pack_iberdrola = st.number_input("Pack Iberdrola (€)*", min_value=0.0, format="%.2f",
+                                           value=st.session_state.editing_plan['pack_iberdrola'] if st.session_state.editing_plan else 3.95)
+            st.caption("Precio mensual del Pack Iberdrola")
+            
             # NUEVO CAMPO: Comunidades autónomas - CORREGIDO
             # Manejar el caso cuando comunidades es string (legado) o lista
             comunidades_default = ["Toda España"]
@@ -411,7 +420,8 @@ def gestion_electricidad():
                     'valle': valle,
                     'total_potencia': total_potencia,
                     'activo': activo,
-                    'comunidades': comunidades
+                    'comunidades': comunidades,
+                    'pack_iberdrola': pack_iberdrola
                 }
                 st.session_state.pending_action = action_type
                 st.session_state.show_confirmation = True
@@ -580,20 +590,20 @@ def calculadora_diaria():
     with col2:
         consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_diario")
         tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_diario")
+        pack_iberdrola = st.radio("¿Pack Iberdrola?", ["Sí", "No"], key="pack_diario")
     
     # Validar código postal
     if st.button("Calcular", type="primary", key="calcular_diario"):
         if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
             st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
         else:
-            # Aquí irá la lógica de cálculo filtrada por comunidad autónoma
             comunidad = obtener_comunidad_por_cp(codigo_postal)
             if comunidad:
                 st.success(f"📍 Ubicación detectada: {comunidad}")
-                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, comunidad)
+                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdrola, codigo_postal, comunidad)
             else:
                 st.error("❌ No se pudo determinar la comunidad autónoma. Usando cálculo general.")
-                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, "Toda España")
+                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdrola, codigo_postal, "Toda España")
 
 def calculadora_anual():
     st.subheader("📅 Calculadora Anual de Electricidad")
@@ -608,6 +618,7 @@ def calculadora_anual():
     with col2:
         consumo_anual = st.number_input("Consumo anual (kWh)", min_value=0.0, value=7500.0, key="consumo_anual")
         tiene_pi_anual = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_anual")
+        pack_iberdrola_anual = st.radio("¿Pack Iberdrola?", ["Sí", "No"], key="pack_anual")
     
     if st.button("Calcular Anual", type="primary", key="calcular_anual"):
         if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
@@ -616,10 +627,10 @@ def calculadora_anual():
             comunidad = obtener_comunidad_por_cp(codigo_postal)
             if comunidad:
                 st.success(f"📍 Ubicación detectada: {comunidad}")
-                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, codigo_postal, comunidad)
+                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, pack_iberdrola_anual, codigo_postal, comunidad)
             else:
                 st.error("❌ No se pudo determinar la comunidad autónoma. Usando cálculo general.")
-                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, codigo_postal, "Toda España")
+                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, pack_iberdrola_anual, codigo_postal, "Toda España")
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
@@ -632,8 +643,8 @@ def calculadora_gas():
     if st.button("Calcular Gas", type="primary"):
         calcular_gas(consumo_gas, tipo_red, tiene_pmg)
 
-# Funciones de cálculo REALES
-def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, comunidad):
+# --- FUNCIONES DE CÁLCULO REALES ---
+def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdrola, codigo_postal, comunidad):
     st.success("🧮 Calculando costes...")
     
     try:
@@ -653,26 +664,56 @@ def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_posta
         
         st.write(f"### 📊 Resultados para {dias} días en {comunidad}")
         
+        # CONSTANTES DE CÁLCULO
+        ALQUILER_CONTADOR = 0.81  # €/mes
+        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
+        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
+        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        
+        # Determinar IVA según ubicación
+        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21  # 21% península, 0% Canarias
+        
         # Calcular costes para cada plan
         resultados = []
         
         for _, plan in planes_disponibles.iterrows():
-            # Determinar precio según PI
-            precio_kwh = plan['con_pi_kwh'] if tiene_pi == "Sí" else plan['sin_pi_kwh']
+            # Determinar precio según PI y Pack Iberdrola
+            if tiene_pi == "Sí":
+                precio_kwh = plan['con_pi_kwh']
+                coste_pack = plan['pack_iberdrola'] if pack_iberdrola == "Sí" else 0.0
+            else:
+                precio_kwh = plan['sin_pi_kwh'] 
+                coste_pack = 0.0  # Sin Pack Iberdrola si no tiene PI
             
-            # Cálculos
+            # CÁLCULOS PRINCIPALES
             coste_consumo = consumo * precio_kwh
             coste_potencia = potencia * plan['total_potencia'] * dias
-            coste_total = coste_consumo + coste_potencia
-            coste_diario = coste_total / dias if dias > 0 else 0
+            coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
+            coste_financiacion = FINANCIACION_BONO_SOCIAL * dias
+            coste_pack_total = coste_pack * (dias / 30)
+            
+            # SUBTOTAL
+            subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_financiacion + coste_pack_total
+            
+            # IMPUESTOS
+            impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
+            iva = (subtotal + impuesto_electrico) * iva_porcentaje
+            
+            # TOTAL FINAL
+            total = subtotal + impuesto_electrico + iva - DESCUENTO_PRIMERA_FACTURA
             
             resultados.append({
                 'Plan': plan['plan'],
-                'Coste Consumo': round(coste_consumo, 2),
-                'Coste Potencia': round(coste_potencia, 2),
-                'Coste Total': round(coste_total, 2),
-                'Coste Diario': round(coste_diario, 2),
-                'Precio kWh': precio_kwh
+                'Consumo': round(coste_consumo, 2),
+                'Potencia': round(coste_potencia, 2),
+                'Alquiler': round(coste_alquiler, 2),
+                'Bono Social': round(coste_financiacion, 2),
+                'Pack Iberdrola': round(coste_pack_total, 2),
+                'Subtotal': round(subtotal, 2),
+                'Imp. Eléctrico': round(impuesto_electrico, 2),
+                'IVA': round(iva, 2),
+                'Descuento': -DESCUENTO_PRIMERA_FACTURA,
+                'TOTAL': round(total, 2) if total > 0 else 0
             })
         
         # Mostrar resultados en tabla
@@ -681,18 +722,30 @@ def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_posta
         
         # Mostrar el plan más económico
         if not df_resultados.empty:
-            mejor_plan = df_resultados.loc[df_resultados['Coste Total'].idxmin()]
-            st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['Coste Total']}€ total")
+            mejor_plan = df_resultados.loc[df_resultados['TOTAL'].idxmin()]
+            st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['TOTAL']}€ total")
             
             # Gráfico comparativo
             st.write("### 📈 Comparativa de Planes")
-            chart_data = df_resultados.set_index('Plan')['Coste Total']
+            chart_data = df_resultados.set_index('Plan')['TOTAL']
             st.bar_chart(chart_data)
+            
+            # Desglose del mejor plan
+            st.write("### 💰 Desglose del Mejor Plan")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Coste Consumo", f"{mejor_plan['Consumo']}€")
+                st.metric("Coste Potencia", f"{mejor_plan['Potencia']}€")
+                st.metric("Alquiler Contador", f"{mejor_plan['Alquiler']}€")
+            with col2:
+                st.metric("Bono Social", f"{mejor_plan['Bono Social']}€")
+                st.metric("Pack Iberdrola", f"{mejor_plan['Pack Iberdrola']}€")
+                st.metric("Descuento Primera Factura", f"{mejor_plan['Descuento']}€")
             
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {str(e)}")
 
-def calcular_electricidad_anual(potencia, consumo, tiene_pi, codigo_postal, comunidad):
+def calcular_electricidad_anual(potencia, consumo, tiene_pi, pack_iberdrola, codigo_postal, comunidad):
     st.success("🧮 Calculando coste anual...")
     
     try:
@@ -712,26 +765,59 @@ def calcular_electricidad_anual(potencia, consumo, tiene_pi, codigo_postal, comu
         
         st.write(f"### 📊 Resultados Anuales para {comunidad}")
         
+        # CONSTANTES DE CÁLCULO
+        ALQUILER_CONTADOR = 0.81  # €/mes
+        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
+        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
+        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        DIAS_ANUAL = 365
+        
+        # Determinar IVA según ubicación
+        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21  # 21% península, 0% Canarias
+        
         # Calcular costes anuales para cada plan
         resultados = []
         
         for _, plan in planes_disponibles.iterrows():
-            # Determinar precio según PI
-            precio_kwh = plan['con_pi_kwh'] if tiene_pi == "Sí" else plan['sin_pi_kwh']
+            # Determinar precio según PI y Pack Iberdrola
+            if tiene_pi == "Sí":
+                precio_kwh = plan['con_pi_kwh']
+                coste_pack = plan['pack_iberdrola'] if pack_iberdrola == "Sí" else 0.0
+            else:
+                precio_kwh = plan['sin_pi_kwh'] 
+                coste_pack = 0.0  # Sin Pack Iberdrola si no tiene PI
             
-            # Cálculos anuales (365 días)
+            # CÁLCULOS ANUALES
             coste_consumo_anual = consumo * precio_kwh
-            coste_potencia_anual = potencia * plan['total_potencia'] * 365
-            coste_total_anual = coste_consumo_anual + coste_potencia_anual
-            coste_mensual = coste_total_anual / 12
+            coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
+            coste_alquiler_anual = ALQUILER_CONTADOR * 12  # 12 meses
+            coste_financiacion_anual = FINANCIACION_BONO_SOCIAL * DIAS_ANUAL
+            coste_pack_anual = coste_pack * 12  # 12 meses
+            
+            # SUBTOTAL ANUAL
+            subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_financiacion_anual + coste_pack_anual
+            
+            # IMPUESTOS ANUALES
+            impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
+            iva_anual = (subtotal_anual + impuesto_electrico_anual) * iva_porcentaje
+            
+            # TOTAL ANUAL (solo un descuento de primera factura)
+            total_anual = subtotal_anual + impuesto_electrico_anual + iva_anual - DESCUENTO_PRIMERA_FACTURA
+            mensual = total_anual / 12
             
             resultados.append({
                 'Plan': plan['plan'],
                 'Consumo Anual': round(coste_consumo_anual, 2),
                 'Potencia Anual': round(coste_potencia_anual, 2),
-                'Total Anual': round(coste_total_anual, 2),
-                'Mensual': round(coste_mensual, 2),
-                'Precio kWh': precio_kwh
+                'Alquiler Anual': round(coste_alquiler_anual, 2),
+                'Bono Social Anual': round(coste_financiacion_anual, 2),
+                'Pack Iberdrola Anual': round(coste_pack_anual, 2),
+                'Subtotal Anual': round(subtotal_anual, 2),
+                'Imp. Eléctrico Anual': round(impuesto_electrico_anual, 2),
+                'IVA Anual': round(iva_anual, 2),
+                'Descuento': -DESCUENTO_PRIMERA_FACTURA,
+                'Total Anual': round(total_anual, 2) if total_anual > 0 else 0,
+                'Mensual': round(mensual, 2)
             })
         
         # Mostrar resultados en tabla
