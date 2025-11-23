@@ -21,6 +21,13 @@ def inicializar_datos():
             'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
         ])
         df_vacio.to_csv("data/precios_luz.csv", index=False)
+    
+    # Archivo para configuración de excedentes
+    if not os.path.exists("data/config_excedentes.csv"):
+        config_excedentes = pd.DataFrame([{
+            'precio_excedente_kwh': 0.06
+        }])
+        config_excedentes.to_csv("data/config_excedentes.csv", index=False)
 
 def main():
     inicializar_datos()
@@ -88,7 +95,7 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    tab1, tab2, tab3 = st.tabs(["⚡ Electricidad", "🔥 Gas", "📄 Facturas"])
+    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Electricidad", "🔥 Gas", "📄 Facturas", "☀️ Excedentes"])
     
     with tab1:
         gestion_electricidad()
@@ -96,6 +103,8 @@ def mostrar_panel_administrador():
         gestion_gas()
     with tab3:
         gestion_modelos_factura()
+    with tab4:
+        gestion_excedentes()
 
 def mostrar_panel_usuario():
     """Panel del usuario normal"""
@@ -488,7 +497,39 @@ def gestion_modelos_factura():
         st.success(f"✅ Modelo para {empresa} guardado correctamente")
         st.image(archivo, caption=f"Modelo de factura - {empresa}", use_column_width=True)
 
-# --- FUNCIONES DE USUARIO (ACTUALIZADAS CON REGLA ESPECIAL) ---
+def gestion_excedentes():
+    """Gestión del pago por excedentes de placas solares"""
+    st.subheader("☀️ Configuración de Excedentes Placas Solares")
+    
+    try:
+        config_excedentes = pd.read_csv("data/config_excedentes.csv")
+        precio_actual = config_excedentes.iloc[0]['precio_excedente_kwh']
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        precio_actual = 0.06
+        config_excedentes = pd.DataFrame([{'precio_excedente_kwh': precio_actual}])
+        config_excedentes.to_csv("data/config_excedentes.csv", index=False)
+    
+    st.info("Configura el precio que se paga por kWh de excedente de placas solares")
+    
+    with st.form("form_excedentes"):
+        nuevo_precio = st.number_input(
+            "Precio por kWh de excedente (€)",
+            min_value=0.0,
+            max_value=1.0,
+            value=precio_actual,
+            format="%.3f",
+            help="Precio que se paga al cliente por cada kWh de excedente de placas solares"
+        )
+        
+        if st.form_submit_button("💾 Guardar Precio", type="primary"):
+            config_excedentes = pd.DataFrame([{'precio_excedente_kwh': nuevo_precio}])
+            config_excedentes.to_csv("data/config_excedentes.csv", index=False)
+            st.success(f"✅ Precio de excedente actualizado a {nuevo_precio}€/kWh")
+            st.rerun()
+    
+    st.info(f"**Precio actual:** {precio_actual}€ por kWh de excedente")
+
+# --- FUNCIONES DE USUARIO (ACTUALIZADAS) ---
 def consultar_modelos_factura():
     st.subheader("📊 Modelos de Factura")
     st.info("Selecciona tu compañía eléctrica para ver los modelos de factura")
@@ -524,13 +565,19 @@ def comparativa_exacta():
     with col1:
         dias = st.number_input("Días del período", min_value=1, value=30, key="dias_exacta")
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_exacta")
+        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_exacta")
     
     with col2:
-        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_exacta")
         costo_actual = st.number_input("¿Cuánto pagaste? (€)", min_value=0.0, value=50.0, key="costo_exacta")
+        
+        # NUEVO: Checkbox para excedentes de placas solares
+        con_excedentes = st.checkbox("¿Tienes excedentes de placas solares?", key="excedentes_exacta")
+        excedente_kwh = 0.0
+        if con_excedentes:
+            excedente_kwh = st.number_input("kWh de excedente este mes", min_value=0.0, value=50.0, key="excedente_exacta")
     
     if st.button("🔍 Comparar", type="primary", key="comparar_exacta"):
-        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual)
+        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente_kwh)
 
 def comparativa_estimada():
     st.subheader("📅 Comparativa ESTIMADA")
@@ -540,21 +587,26 @@ def comparativa_estimada():
     
     with col1:
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
+        consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
         # NUEVO: Lo que paga actualmente el cliente
         costo_mensual_actual = st.number_input("¿Cuánto pagas actualmente al mes? (€)", min_value=0.0, value=80.0, key="costo_actual_estimada")
     
     with col2:
-        consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
+        # NUEVO: Checkbox para excedentes de placas solares
+        con_excedentes = st.checkbox("¿Tienes excedentes de placas solares?", key="excedentes_estimada")
+        excedente_mensual_kwh = 0.0
+        if con_excedentes:
+            excedente_mensual_kwh = st.number_input("kWh de excedente mensual promedio", min_value=0.0, value=40.0, key="excedente_estimada")
     
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
-        calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual)
+        calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, excedente_mensual_kwh)
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
 
-# --- FUNCIONES DE CÁLCULO ACTUALIZADAS CON REGLA ESPECIAL ---
-def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
+# --- FUNCIONES DE CÁLCULO ACTUALIZADAS ---
+def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente_kwh=0.0):
     """Calcula comparación exacta con factura actual - Muestra CON y SIN PI"""
     try:
         # Cargar planes activos
@@ -564,6 +616,13 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         if planes_activos.empty:
             st.warning("⚠️ No hay planes configurados. Contacta con el administrador.")
             return
+        
+        # Cargar precio de excedentes
+        try:
+            config_excedentes = pd.read_csv("data/config_excedentes.csv")
+            precio_excedente = config_excedentes.iloc[0]['precio_excedente_kwh']
+        except:
+            precio_excedente = 0.06
         
         st.success("🧮 Calculando comparativa...")
         
@@ -595,7 +654,12 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                     precio_kwh = f"0.215€/0.105€*"
                     coste_consumo = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA * (dias / 30) if tiene_pi else 0.0
-                    bonificacion = calculo_ahorro['bonificacion']
+                    
+                    # NUEVO: Bonificación mensual fija para Ahorro Automático
+                    if tiene_pi:
+                        bonificacion_mensual = 10.00 * (dias / 30)  # 10€/mes con PI
+                    else:
+                        bonificacion_mensual = 8.33 * (dias / 30)   # 25€/trimestre = 8.33€/mes sin PI
                     
                 else:
                     # --- CÁLCULO NORMAL PARA OTROS PLANES ---
@@ -607,11 +671,26 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                         coste_pack = 0.0
                     
                     coste_consumo = consumo * precio_kwh
-                    bonificacion = 0.0  # Sin bonificación para planes normales
+                    bonificacion_mensual = 0.0  # Sin bonificación para planes normales
                 
                 # CÁLCULOS COMUNES PARA TODOS LOS PLANES
                 coste_potencia = potencia * plan['total_potencia'] * dias
                 coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
+                
+                # NUEVO: Cálculo de excedentes (se resta del consumo y se suma como ingreso)
+                ingreso_excedentes = excedente_kwh * precio_excedente
+                consumo_neto = max(0, consumo - excedente_kwh)
+                
+                # Si hay excedentes, recalcular el coste de consumo
+                if excedente_kwh > 0:
+                    if es_ahorro_automatico:
+                        # Para ahorro automático, recalcular con consumo neto
+                        calculo_ahorro_neto = calcular_plan_ahorro_automatico(
+                            plan, consumo_neto, dias, tiene_pi, es_anual=False
+                        )
+                        coste_consumo = calculo_ahorro_neto['coste_consumo']
+                    else:
+                        coste_consumo = consumo_neto * (plan['con_pi_kwh'] if tiene_pi else plan['sin_pi_kwh'])
                 
                 # SUBTOTAL
                 subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_pack
@@ -620,9 +699,9 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                 impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
                 iva_total = (subtotal + impuesto_electrico) * IVA
                 
-                # TOTAL (con descuento bienvenida y bonificación si aplica)
+                # TOTAL (con descuento bienvenida, bonificación e ingreso por excedentes)
                 total_bruto = subtotal + impuesto_electrico + iva_total
-                total_neto = total_bruto - DESCUENTO_PRIMERA_FACTURA - bonificacion
+                total_neto = total_bruto - DESCUENTO_PRIMERA_FACTURA - bonificacion_mensual - ingreso_excedentes
                 
                 # Asegurar que no sea negativo
                 total_nuevo = max(0, total_neto)
@@ -639,14 +718,18 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                 info_extra = ""
                 if es_ahorro_automatico:
                     if tiene_pi:
-                        info_extra = f" | 🎁 +30€/trimestre"
+                        info_extra = f" | 🎁 +10€/mes bono"
                     else:
-                        info_extra = f" | 🎁 +25€/trimestre"
+                        info_extra = f" | 🎁 +8.33€/mes bono"
                     info_extra += f" | 📊 {calculo_ahorro['dias_bajo_precio']}d a 0.105€"
                 
                 # Información adicional para Especial Plus
                 if es_especial_plus:
                     info_extra += " | 📍 Con permanencia"
+                
+                # Información adicional para excedentes
+                if excedente_kwh > 0:
+                    info_extra += f" | ☀️ +{ingreso_excedentes:.2f}€ excedentes"
                 
                 todos_resultados.append({
                     'plan_data': plan,
@@ -659,14 +742,14 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                     'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más',
                     'Info Extra': info_extra,
                     'es_especial_plus': es_especial_plus,
-                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)  # Valor por defecto 15€
+                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)
                 })
         
         # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
         ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
         max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
         
-        # FILTRAR resultados según regla del Especial Plus
+        # FILTRAR resultados según regla del Especial Plus (SIN AVISOS)
         resultados_finales = []
         for resultado in todos_resultados:
             # Si NO es Especial Plus, siempre se muestra
@@ -677,9 +760,6 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
                 umbral = resultado['umbral_especial_plus']
                 if max_ahorro < umbral:
                     resultados_finales.append(resultado)
-                    st.info(f"💡 **Plan ESPECIAL PLUS** aparece porque el máximo ahorro ({max_ahorro}€) es menor que el umbral ({umbral}€)")
-                else:
-                    st.info(f"💡 **Plan ESPECIAL PLUS** ocultado porque el máximo ahorro ({max_ahorro}€) es mayor que el umbral ({umbral}€)")
         
         # Mostrar resultados filtrados
         df_resultados = pd.DataFrame(resultados_finales)
@@ -692,7 +772,12 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
         mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
         
         st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
-        st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Días: {dias} | Consumo: {consumo}kWh")
+        
+        # Información sobre excedentes si aplica
+        if excedente_kwh > 0:
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | ☀️ **Excedentes:** {excedente_kwh}kWh x {precio_excedente}€/kWh = +{excedente_kwh * precio_excedente:.2f}€ | Días: {dias} | Consumo neto: {max(0, consumo - excedente_kwh):.1f}kWh")
+        else:
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Días: {dias} | Consumo: {consumo}kWh")
         
         # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
@@ -722,7 +807,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
 
-def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
+def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, excedente_mensual_kwh=0.0):
     """Calcula estimación anual - Muestra CON y SIN PI con ahorro vs actual"""
     try:
         # Cargar planes activos
@@ -732,6 +817,13 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
         if planes_activos.empty:
             st.warning("⚠️ No hay planes configurados. Contacta con el administrador.")
             return
+        
+        # Cargar precio de excedentes
+        try:
+            config_excedentes = pd.read_csv("data/config_excedentes.csv")
+            precio_excedente = config_excedentes.iloc[0]['precio_excedente_kwh']
+        except:
+            precio_excedente = 0.06
         
         st.success("🧮 Calculando estimación anual...")
         
@@ -767,14 +859,19 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                     precio_kwh = f"0.215€/0.105€*"
                     coste_consumo_anual = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA if tiene_pi else 0.0
-                    bonificacion_anual = calculo_ahorro['bonificacion']
+                    
+                    # NUEVO: Bonificación anual fija para Ahorro Automático
+                    if tiene_pi:
+                        bonificacion_anual = 10.00 * 12  # 10€/mes con PI = 120€/año
+                    else:
+                        bonificacion_anual = 8.33 * 12   # 8.33€/mes sin PI = 100€/año
                     
                     # Información adicional para mostrar
                     info_extra = ""
                     if tiene_pi:
-                        info_extra = f" | 🎁 +30€/trimestre"
+                        info_extra = f" | 🎁 +10€/mes bono"
                     else:
-                        info_extra = f" | 🎁 +25€/trimestre"
+                        info_extra = f" | 🎁 +8.33€/mes bono"
                     info_extra += f" | 📊 {calculo_ahorro['dias_bajo_precio']}d/año a 0.105€"
                     
                 else:
@@ -798,6 +895,22 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                 coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
                 coste_alquiler_anual = ALQUILER_CONTADOR
                 
+                # NUEVO: Cálculo de excedentes anuales
+                excedente_anual_kwh = excedente_mensual_kwh * 12
+                ingreso_excedentes_anual = excedente_anual_kwh * precio_excedente
+                consumo_neto_anual = max(0, consumo_anual - excedente_anual_kwh)
+                
+                # Si hay excedentes, recalcular el coste de consumo
+                if excedente_anual_kwh > 0:
+                    if es_ahorro_automatico:
+                        # Para ahorro automático, recalcular con consumo neto
+                        calculo_ahorro_neto = calcular_plan_ahorro_automatico(
+                            plan, consumo_neto_anual, DIAS_ANUAL, tiene_pi, es_anual=True
+                        )
+                        coste_consumo_anual = calculo_ahorro_neto['coste_consumo']
+                    else:
+                        coste_consumo_anual = consumo_neto_anual * (plan['con_pi_kwh'] if tiene_pi else plan['sin_pi_kwh'])
+                
                 # SUBTOTAL ANUAL
                 subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_pack
                 
@@ -805,9 +918,9 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                 impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
                 iva_anual = (subtotal_anual + impuesto_electrico_anual) * IVA
                 
-                # TOTAL ANUAL (con descuento bienvenida y bonificación si aplica)
+                # TOTAL ANUAL (con descuento bienvenida, bonificación e ingreso por excedentes)
                 total_bruto_anual = subtotal_anual + impuesto_electrico_anual + iva_anual
-                total_neto_anual = total_bruto_anual - DESCUENTO_PRIMERA_FACTURA - bonificacion_anual
+                total_neto_anual = total_bruto_anual - DESCUENTO_PRIMERA_FACTURA - bonificacion_anual - ingreso_excedentes_anual
                 
                 # Asegurar que no sea negativo
                 total_anual = max(0, total_neto_anual)
@@ -820,6 +933,10 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                 # Información para mostrar
                 pack_info = '✅ CON' if tiene_pi else '❌ SIN'
                 precio_display = f"{precio_kwh:.3f}€" if not isinstance(precio_kwh, str) else precio_kwh
+                
+                # Información adicional para excedentes
+                if excedente_anual_kwh > 0:
+                    info_extra += f" | ☀️ +{ingreso_excedentes_anual:.2f}€/año excedentes"
                 
                 # Añadir a resultados
                 todos_resultados.append({
@@ -834,14 +951,14 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                     'Estado': '💚 Ahorras' if ahorro_mensual > 0 else '🔴 Pagas más',
                     'Info Extra': info_extra,
                     'es_especial_plus': es_especial_plus,
-                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)  # Valor por defecto 15€
+                    'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)
                 })
         
         # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
         ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
         max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
         
-        # FILTRAR resultados según regla del Especial Plus
+        # FILTRAR resultados según regla del Especial Plus (SIN AVISOS)
         resultados_finales = []
         for resultado in todos_resultados:
             # Si NO es Especial Plus, siempre se muestra
@@ -852,9 +969,6 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
                 umbral = resultado['umbral_especial_plus']
                 if max_ahorro < umbral:
                     resultados_finales.append(resultado)
-                    st.info(f"💡 **Plan ESPECIAL PLUS** aparece porque el máximo ahorro ({max_ahorro}€) es menor que el umbral ({umbral}€)")
-                else:
-                    st.info(f"💡 **Plan ESPECIAL PLUS** ocultado porque el máximo ahorro ({max_ahorro}€) es mayor que el umbral ({umbral}€)")
         
         # Mostrar resultados filtrados
         df_resultados = pd.DataFrame(resultados_finales)
@@ -867,7 +981,12 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
         mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
-        st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Consumo anual: {consumo_anual}kWh")
+        
+        # Información sobre excedentes si aplica
+        if excedente_mensual_kwh > 0:
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | ☀️ **Excedentes:** {excedente_mensual_kwh}kWh/mes x {precio_excedente}€/kWh = +{excedente_mensual_kwh * precio_excedente * 12:.2f}€/año | Consumo neto anual: {max(0, consumo_anual - (excedente_mensual_kwh * 12)):.0f}kWh")
+        else:
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Consumo anual: {consumo_anual}kWh")
         
         # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
@@ -907,20 +1026,16 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
 def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anual=False):
     """
     Calcula el coste para el Plan Ahorro Automático
-    Tiene precio variable y bonificación trimestral
+    Tiene precio variable (sin bonificación trimestral ahora)
     """
     # Estimación: 2 días/semana a precio bajo, 5 días/semana a precio normal
-    # En un período de 'dias', calculamos cuántos días son de cada tipo
-    
     if es_anual:
-        # Para cálculo anual, usamos 365 días
         total_dias = 365
-        dias_bajo_precio = int((2 / 7) * total_dias)  # 2 días/semana
+        dias_bajo_precio = int((2 / 7) * total_dias)
         dias_precio_normal = total_dias - dias_bajo_precio
     else:
-        # Para cálculo exacto, proporción según días del período
         total_dias = dias
-        dias_bajo_precio = int((2 / 7) * total_dias)  # 2 días/semana
+        dias_bajo_precio = int((2 / 7) * total_dias)
         dias_precio_normal = total_dias - dias_bajo_precio
     
     # Estimación de consumo diario
@@ -939,25 +1054,8 @@ def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anua
     coste_consumo_bajo = consumo_bajo_precio * precio_bajo
     coste_consumo_total = coste_consumo_normal + coste_consumo_bajo
     
-    # Bonificación trimestral (cada 3 meses)
-    if tiene_pi:
-        bonificacion_trimestral = 30.00  # € con PI
-    else:
-        bonificacion_trimestral = 25.00  # € sin PI
-    
-    if es_anual:
-        # Para anual: 4 bonificaciones al año
-        bonificacion_total = bonificacion_trimestral * 4
-        bonificacion_mensual = bonificacion_total / 12
-    else:
-        # Para período exacto: calcular bonificación proporcional
-        meses_periodo = dias / 30
-        trimestres_periodo = meses_periodo / 3
-        bonificacion_total = bonificacion_trimestral * trimestres_periodo
-    
     return {
         'coste_consumo': coste_consumo_total,
-        'bonificacion': bonificacion_total,
         'dias_bajo_precio': dias_bajo_precio,
         'dias_precio_normal': dias_precio_normal,
         'consumo_bajo_precio': consumo_bajo_precio,
