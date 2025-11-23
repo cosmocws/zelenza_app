@@ -18,7 +18,8 @@ def inicializar_datos():
     if not os.path.exists("data/precios_luz.csv"):
         df_vacio = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
+            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+            'comunidades_autonomas'
         ])
         df_vacio.to_csv("data/precios_luz.csv", index=False)
     
@@ -126,6 +127,30 @@ def mostrar_panel_usuario():
     with tab3:
         calculadora_gas()
 
+# --- LISTA DE COMUNIDADES AUTÓNOMAS ---
+COMUNIDADES_AUTONOMAS = [
+    "Toda España",
+    "Andalucía",
+    "Aragón",
+    "Asturias",
+    "Baleares",
+    "Canarias",
+    "Cantabria",
+    "Castilla-La Mancha",
+    "Castilla y León",
+    "Cataluña",
+    "Comunidad Valenciana",
+    "Extremadura",
+    "Galicia",
+    "Madrid",
+    "Murcia",
+    "Navarra",
+    "País Vasco",
+    "La Rioja",
+    "Ceuta",
+    "Melilla"
+]
+
 # --- FUNCIONES DE ADMINISTRADOR (ACTUALIZADAS) ---
 def gestion_electricidad():
     st.subheader("⚡ Gestión de Planes de Electricidad")
@@ -150,7 +175,8 @@ def gestion_electricidad():
             if st.button("✅ SÍ, RESETEAR TODO", type="primary"):
                 df_vacio = pd.DataFrame(columns=[
                     'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                    'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
+                    'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+                    'comunidades_autonomas'
                 ])
                 df_vacio.to_csv("data/precios_luz.csv", index=False)
                 st.success("✅ Datos reseteados correctamente. Ahora puedes crear tus propios planes.")
@@ -185,14 +211,16 @@ def gestion_electricidad():
         if df_luz.empty:
             df_luz = pd.DataFrame(columns=[
                 'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-                'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
+                'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+                'comunidades_autonomas'
             ])
             st.info("📝 No hay planes configurados. ¡Crea el primero!")
     except (FileNotFoundError, pd.errors.EmptyDataError):
         st.warning("⚠️ No hay datos de electricidad. ¡Crea tu primer plan!")
         df_luz = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus'
+            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+            'comunidades_autonomas'
         ])
     
     # Mostrar datos actuales con opción de edición
@@ -234,7 +262,7 @@ def gestion_electricidad():
     else:
         st.info("No hay planes configurados aún")
     
-    # Formulario para añadir/editar planes (SIN UMBRAL ESPECIAL PLUS)
+    # Formulario para añadir/editar planes
     st.write("### ➕ Añadir/✏️ Editar Plan")
     
     # Inicializar estado de edición si no existe
@@ -258,7 +286,7 @@ def gestion_electricidad():
     if 'pending_action' not in st.session_state:
         st.session_state.pending_action = None
     
-    # FORMULARIO PRINCIPAL (SIN UMBRAL ESPECIAL PLUS)
+    # FORMULARIO PRINCIPAL
     with st.form("form_plan_electricidad"):
         col1, col2, col3 = st.columns(3)
         
@@ -295,6 +323,31 @@ def gestion_electricidad():
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
         
+        # NUEVO: Selección de comunidades autónomas
+        st.write("### 🗺️ Comunidades Autónomas Disponibles")
+        st.info("Selecciona en qué comunidades autónomas está disponible este plan")
+        
+        # Obtener comunidades actuales si estamos editando
+        comunidades_actuales = []
+        if st.session_state.editing_plan and 'comunidades_autonomas' in st.session_state.editing_plan:
+            if pd.notna(st.session_state.editing_plan['comunidades_autonomas']):
+                comunidades_actuales = st.session_state.editing_plan['comunidades_autonomas'].split(';')
+        
+        # Por defecto, seleccionar "Toda España" para nuevos planes
+        if not st.session_state.editing_plan:
+            comunidades_actuales = ["Toda España"]
+        
+        comunidades_seleccionadas = st.multiselect(
+            "Comunidades donde está disponible el plan:",
+            COMUNIDADES_AUTONOMAS,
+            default=comunidades_actuales,
+            help="Selecciona las comunidades autónomas donde este plan está disponible"
+        )
+        
+        # Si no se selecciona ninguna, mostrar advertencia
+        if not comunidades_seleccionadas:
+            st.warning("⚠️ Debes seleccionar al menos una comunidad autónoma")
+        
         # BOTÓN DE SUBMIT
         if st.session_state.editing_plan is not None:
             submitted = st.form_submit_button("💾 Guardar Cambios", type="primary")
@@ -306,6 +359,8 @@ def gestion_electricidad():
         if submitted:
             if not nombre_plan:
                 st.error("❌ El nombre del plan es obligatorio")
+            elif not comunidades_seleccionadas:
+                st.error("❌ Debes seleccionar al menos una comunidad autónoma")
             else:
                 # Preparar datos para confirmación
                 nuevo_plan_data = {
@@ -316,7 +371,8 @@ def gestion_electricidad():
                     'punta': punta,
                     'valle': valle,
                     'total_potencia': total_potencia,
-                    'activo': activo
+                    'activo': activo,
+                    'comunidades_autonomas': ';'.join(comunidades_seleccionadas)  # NUEVO CAMPO
                 }
                 
                 # Si estamos editando, mantener el umbral existente
@@ -570,14 +626,21 @@ def comparativa_exacta():
     with col2:
         costo_actual = st.number_input("¿Cuánto pagaste? (€)", min_value=0.0, value=50.0, key="costo_exacta")
         
-        # NUEVO: Checkbox para excedentes de placas solares
+        # NUEVO: Selección de comunidad autónoma
+        comunidad = st.selectbox(
+            "Selecciona tu Comunidad Autónoma", 
+            COMUNIDADES_AUTONOMAS,
+            key="comunidad_exacta"
+        )
+        
+        # Checkbox para excedentes de placas solares
         con_excedentes = st.checkbox("¿Tienes excedentes de placas solares?", key="excedentes_exacta")
         excedente_kwh = 0.0
         if con_excedentes:
             excedente_kwh = st.number_input("kWh de excedente este mes", min_value=0.0, value=50.0, key="excedente_exacta")
     
     if st.button("🔍 Comparar", type="primary", key="comparar_exacta"):
-        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente_kwh)
+        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad, excedente_kwh)
 
 def comparativa_estimada():
     st.subheader("📅 Comparativa ESTIMADA")
@@ -588,25 +651,32 @@ def comparativa_estimada():
     with col1:
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
         consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
-        # NUEVO: Lo que paga actualmente el cliente
+        # Lo que paga actualmente el cliente
         costo_mensual_actual = st.number_input("¿Cuánto pagas actualmente al mes? (€)", min_value=0.0, value=80.0, key="costo_actual_estimada")
     
     with col2:
-        # NUEVO: Checkbox para excedentes de placas solares
+        # NUEVO: Selección de comunidad autónoma
+        comunidad = st.selectbox(
+            "Selecciona tu Comunidad Autónoma", 
+            COMUNIDADES_AUTONOMAS,
+            key="comunidad_estimada"
+        )
+        
+        # Checkbox para excedentes de placas solares
         con_excedentes = st.checkbox("¿Tienes excedentes de placas solares?", key="excedentes_estimada")
         excedente_mensual_kwh = 0.0
         if con_excedentes:
             excedente_mensual_kwh = st.number_input("kWh de excedente mensual promedio", min_value=0.0, value=40.0, key="excedente_estimada")
     
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
-        calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, excedente_mensual_kwh)
+        calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh)
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
 
 # --- FUNCIONES DE CÁLCULO ACTUALIZADAS ---
-def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente_kwh=0.0):
+def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad, excedente_kwh=0.0):
     """Calcula comparación exacta con factura actual - Muestra CON y SIN PI"""
     try:
         # Cargar planes activos
@@ -638,6 +708,20 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
         
         for _, plan in planes_activos.iterrows():
             
+            # VERIFICAR SI EL PLAN ESTÁ DISPONIBLE EN LA COMUNIDAD SELECCIONADA
+            comunidades_plan = []
+            if pd.notna(plan.get('comunidades_autonomas')):
+                comunidades_plan = plan['comunidades_autonomas'].split(';')
+            
+            disponible_en_comunidad = (
+                'Toda España' in comunidades_plan or 
+                comunidad in comunidades_plan or
+                not comunidades_plan  # Por compatibilidad con planes antiguos
+            )
+            
+            if not disponible_en_comunidad:
+                continue  # Saltar planes no disponibles en esta comunidad
+            
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
             # VERIFICAR SI ES PLAN ESPECIAL PLUS
@@ -655,7 +739,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
                     coste_consumo = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA * (dias / 30) if tiene_pi else 0.0
                     
-                    # NUEVO: Bonificación mensual fija para Ahorro Automático
+                    # Bonificación mensual fija para Ahorro Automático
                     if tiene_pi:
                         bonificacion_mensual = 10.00 * (dias / 30)  # 10€/mes con PI
                     else:
@@ -677,7 +761,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
                 coste_potencia = potencia * plan['total_potencia'] * dias
                 coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
                 
-                # NUEVO: Cálculo de excedentes (se resta del consumo y se suma como ingreso)
+                # Cálculo de excedentes (se resta del consumo y se suma como ingreso)
                 ingreso_excedentes = excedente_kwh * precio_excedente
                 consumo_neto = max(0, consumo - excedente_kwh)
                 
@@ -731,6 +815,14 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
                 if excedente_kwh > 0:
                     info_extra += f" | ☀️ +{ingreso_excedentes:.2f}€ excedentes"
                 
+                # Información de disponibilidad por comunidad
+                if len(comunidades_plan) == 1 and 'Toda España' in comunidades_plan:
+                    info_extra += " | 🗺️ Toda España"
+                elif len(comunidades_plan) < 5:
+                    info_extra += f" | 🗺️ {', '.join(comunidades_plan)}"
+                else:
+                    info_extra += f" | 🗺️ {len(comunidades_plan)} CCAA"
+                
                 todos_resultados.append({
                     'plan_data': plan,
                     'Plan': plan['plan'],
@@ -765,7 +857,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
         df_resultados = pd.DataFrame(resultados_finales)
         
         if df_resultados.empty:
-            st.warning("ℹ️ No hay planes disponibles según los criterios de filtrado")
+            st.warning(f"ℹ️ No hay planes disponibles para {comunidad} según los criterios de filtrado")
             return
         
         # Encontrar mejor plan
@@ -773,11 +865,12 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
         
         st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
         
-        # Información sobre excedentes si aplica
+        # Información sobre comunidad y excedentes
+        info_comunidad = f" | 🗺️ **Comunidad:** {comunidad}"
         if excedente_kwh > 0:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | ☀️ **Excedentes:** {excedente_kwh}kWh x {precio_excedente}€/kWh = +{excedente_kwh * precio_excedente:.2f}€ | Días: {dias} | Consumo neto: {max(0, consumo - excedente_kwh):.1f}kWh")
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | ☀️ **Excedentes:** {excedente_kwh}kWh x {precio_excedente}€/kWh = +{excedente_kwh * precio_excedente:.2f}€ | Días: {dias} | Consumo neto: {max(0, consumo - excedente_kwh):.1f}kWh")
         else:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Días: {dias} | Consumo: {consumo}kWh")
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | Días: {dias} | Consumo: {consumo}kWh")
         
         # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
@@ -807,7 +900,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, excedente
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
 
-def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, excedente_mensual_kwh=0.0):
+def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh=0.0):
     """Calcula estimación anual - Muestra CON y SIN PI con ahorro vs actual"""
     try:
         # Cargar planes activos
@@ -843,6 +936,20 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
         
         for _, plan in planes_activos.iterrows():
             
+            # VERIFICAR SI EL PLAN ESTÁ DISPONIBLE EN LA COMUNIDAD SELECCIONADA
+            comunidades_plan = []
+            if pd.notna(plan.get('comunidades_autonomas')):
+                comunidades_plan = plan['comunidades_autonomas'].split(';')
+            
+            disponible_en_comunidad = (
+                'Toda España' in comunidades_plan or 
+                comunidad in comunidades_plan or
+                not comunidades_plan  # Por compatibilidad con planes antiguos
+            )
+            
+            if not disponible_en_comunidad:
+                continue  # Saltar planes no disponibles en esta comunidad
+            
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
             # VERIFICAR SI ES PLAN ESPECIAL PLUS
@@ -860,7 +967,7 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
                     coste_consumo_anual = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA if tiene_pi else 0.0
                     
-                    # NUEVO: Bonificación anual fija para Ahorro Automático
+                    # Bonificación anual fija para Ahorro Automático
                     if tiene_pi:
                         bonificacion_anual = 10.00 * 12  # 10€/mes con PI = 120€/año
                     else:
@@ -895,7 +1002,7 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
                 coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
                 coste_alquiler_anual = ALQUILER_CONTADOR
                 
-                # NUEVO: Cálculo de excedentes anuales
+                # Cálculo de excedentes anuales
                 excedente_anual_kwh = excedente_mensual_kwh * 12
                 ingreso_excedentes_anual = excedente_anual_kwh * precio_excedente
                 consumo_neto_anual = max(0, consumo_anual - excedente_anual_kwh)
@@ -938,6 +1045,14 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
                 if excedente_anual_kwh > 0:
                     info_extra += f" | ☀️ +{ingreso_excedentes_anual:.2f}€/año excedentes"
                 
+                # Información de disponibilidad por comunidad
+                if len(comunidades_plan) == 1 and 'Toda España' in comunidades_plan:
+                    info_extra += " | 🗺️ Toda España"
+                elif len(comunidades_plan) < 5:
+                    info_extra += f" | 🗺️ {', '.join(comunidades_plan)}"
+                else:
+                    info_extra += f" | 🗺️ {len(comunidades_plan)} CCAA"
+                
                 # Añadir a resultados
                 todos_resultados.append({
                     'plan_data': plan,
@@ -974,7 +1089,7 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
         df_resultados = pd.DataFrame(resultados_finales)
         
         if df_resultados.empty:
-            st.warning("ℹ️ No hay planes disponibles según los criterios de filtrado")
+            st.warning(f"ℹ️ No hay planes disponibles para {comunidad} según los criterios de filtrado")
             return
         
         # Encontrar plan más económico (mayor ahorro mensual)
@@ -982,11 +1097,12 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, exc
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
         
-        # Información sobre excedentes si aplica
+        # Información sobre comunidad y excedentes
+        info_comunidad = f" | 🗺️ **Comunidad:** {comunidad}"
         if excedente_mensual_kwh > 0:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | ☀️ **Excedentes:** {excedente_mensual_kwh}kWh/mes x {precio_excedente}€/kWh = +{excedente_mensual_kwh * precio_excedente * 12:.2f}€/año | Consumo neto anual: {max(0, consumo_anual - (excedente_mensual_kwh * 12)):.0f}kWh")
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | ☀️ **Excedentes:** {excedente_mensual_kwh}kWh/mes x {precio_excedente}€/kWh = +{excedente_mensual_kwh * precio_excedente * 12:.2f}€/año | Consumo neto anual: {max(0, consumo_anual - (excedente_mensual_kwh * 12)):.0f}kWh")
         else:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Consumo anual: {consumo_anual}kWh")
+            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | Consumo anual: {consumo_anual}kWh")
         
         # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
