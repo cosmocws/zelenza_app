@@ -582,6 +582,49 @@ def gestion_modelos_factura():
             st.success(f"✅ Modelo para {empresa_seleccionada} guardado correctamente")
             if archivo.type.startswith('image'):
                 st.image(archivo, caption=f"Modelo de factura - {empresa_seleccionada}", use_column_width=True)
+    
+    # GESTIÓN Y ELIMINACIÓN DE EMPRESAS Y ARCHIVOS
+    if empresas_existentes:
+        st.write("### 🗑️ Gestión de Empresas y Archivos")
+        
+        empresa_gestion = st.selectbox("Seleccionar empresa para gestionar", empresas_existentes, key="gestion_empresa")
+        carpeta_empresa = f"modelos_facturas/{empresa_gestion}"
+        
+        # Mostrar archivos de la empresa seleccionada
+        archivos_empresa = os.listdir(carpeta_empresa) if os.path.exists(carpeta_empresa) else []
+        
+        if archivos_empresa:
+            st.write(f"**Archivos en {empresa_gestion}:**")
+            for archivo in archivos_empresa:
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.write(f"📄 {archivo}")
+                with col2:
+                    if st.button("🗑️", key=f"del_{archivo}"):
+                        ruta_archivo = os.path.join(carpeta_empresa, archivo)
+                        os.remove(ruta_archivo)
+                        st.success(f"✅ Archivo '{archivo}' eliminado")
+                        st.rerun()
+            
+            # Botón para eliminar todos los archivos de la empresa
+            if st.button("🗑️ Eliminar todos los archivos de esta empresa", type="secondary"):
+                for archivo in archivos_empresa:
+                    ruta_archivo = os.path.join(carpeta_empresa, archivo)
+                    os.remove(ruta_archivo)
+                st.success(f"✅ Todos los archivos de {empresa_gestion} eliminados")
+                st.rerun()
+        else:
+            st.info(f"ℹ️ No hay archivos en {empresa_gestion}")
+        
+        # Botón para eliminar la empresa completa (solo si está vacía)
+        st.markdown("---")
+        if not archivos_empresa:
+            if st.button("🗑️ Eliminar esta empresa", type="primary"):
+                os.rmdir(carpeta_empresa)
+                st.success(f"✅ Empresa '{empresa_gestion}' eliminada")
+                st.rerun()
+        else:
+            st.warning("⚠️ No se puede eliminar la empresa porque tiene archivos. Elimina primero todos los archivos.")
 
 def gestion_excedentes():
     """Gestión del pago por excedentes de placas solares"""
