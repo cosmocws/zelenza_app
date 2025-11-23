@@ -101,19 +101,19 @@ def mostrar_panel_usuario():
     """Panel del usuario normal"""
     st.header("👤 Portal del Cliente")
     
-    # PRIMERA PANTALLA: Consultar modelos de factura (como querías)
+    # PRIMERA PANTALLA: Consultar modelos de factura
     consultar_modelos_factura()
     
     st.markdown("---")
     
-    # Otras calculadoras
-    st.subheader("🧮 Calculadoras")
-    tab1, tab2, tab3 = st.tabs(["⚡ Calculadora Diaria", "📅 Calculadora Anual", "🔥 Calculadora Gas"])
+    # Comparativas
+    st.subheader("🧮 Comparativas")
+    tab1, tab2, tab3 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas"])
     
     with tab1:
-        calculadora_diaria_simple()
+        comparativa_exacta()
     with tab2:
-        calculadora_anual_simple()
+        comparativa_estimada()
     with tab3:
         calculadora_gas()
 
@@ -441,32 +441,204 @@ def consultar_modelos_factura():
     else:
         st.warning(f"⚠️ No hay modelos de factura disponibles para {empresa_seleccionada}")
 
-def calculadora_diaria_simple():
-    st.subheader("⚡ Calculadora Diaria")
+def comparativa_exacta():
+    st.subheader("⚡ Comparativa EXACTA")
+    st.info("Compara tu consumo exacto con nuestros planes")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        dias = st.number_input("Días del período", min_value=1, value=30)
-        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3)
+        dias = st.number_input("Días del período", min_value=1, value=30, key="dias_exacta")
+        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_exacta")
     
     with col2:
-        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0)
-        tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"])
+        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_exacta")
+        # Quitamos PI y añadimos costo actual para comparar
+        costo_actual = st.number_input("¿Cuánto pagaste? (€)", min_value=0.0, value=50.0, key="costo_exacta")
     
-    if st.button("Calcular", type="primary"):
-        st.success("✅ Cálculo completado (funcionalidad básica)")
-        st.info("Los cálculos completos se activarán cuando solucionemos el error del código postal")
+    if st.button("🔍 Comparar", type="primary", key="comparar_exacta"):
+        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual)
 
-def calculadora_anual_simple():
-    st.subheader("📅 Calculadora Anual")
+def comparativa_estimada():
+    st.subheader("📅 Comparativa ESTIMADA")
+    st.info("Estima tu consumo anual con nuestros planes")
     
-    potencia = st.number_input("Potencia anual (kW)", min_value=1.0, value=3.3, key="pot_anual")
-    consumo = st.number_input("Consumo anual (kWh)", min_value=0.0, value=7500.0, key="consumo_anual")
-    tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_anual")
+    col1, col2 = st.columns(2)
     
-    if st.button("Calcular Anual", type="primary"):
-        st.success("✅ Cálculo anual completado (funcionalidad básica)")
+    with col1:
+        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
+    
+    with col2:
+        consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
+    
+    if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
+        calcular_estimacion_anual(potencia, consumo_anual)
+
+def calculadora_gas():
+    st.subheader("🔥 Calculadora de Gas")
+    st.info("Funcionalidad en desarrollo...")
+
+# --- FUNCIONES DE CÁLCULO REALES ---
+def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
+    """Calcula comparación exacta con factura actual"""
+    try:
+        # Cargar planes activos
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        planes_activos = df_luz[df_luz['activo'] == True]
+        
+        if planes_activos.empty:
+            st.warning("⚠️ No hay planes configurados. Contacta con el administrador.")
+            return
+        
+        st.success("🧮 Calculando comparativa...")
+        
+        # CONSTANTES (las mismas que nos diste)
+        ALQUILER_CONTADOR = 0.81  # €/mes
+        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
+        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
+        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        IVA = 0.21  # 21% (para península)
+        
+        resultados = []
+        
+        for _, plan in planes_activos.iterrows():
+            # Usamos el precio sin PI (ya que quitamos esa opción)
+            precio_kwh = plan['sin_pi_kwh']
+            
+            # CÁLCULOS EXACTOS
+            coste_consumo = consumo * precio_kwh
+            coste_potencia = potencia * plan['total_potencia'] * dias
+            coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
+            coste_financiacion = FINANCIACION_BONO_SOCIAL * dias
+            
+            # SUBTOTAL
+            subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_financiacion
+            
+            # IMPUESTOS
+            impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
+            iva_total = (subtotal + impuesto_electrico) * IVA
+            
+            # TOTAL FINAL
+            total_nuevo = subtotal + impuesto_electrico + iva_total - DESCUENTO_PRIMERA_FACTURA
+            
+            # Calcular ahorro
+            ahorro = costo_actual - total_nuevo
+            
+            resultados.append({
+                'Plan': plan['plan'],
+                'Precio kWh': f"{precio_kwh:.3f}€",
+                'Coste Nuevo': round(total_nuevo, 2),
+                'Ahorro': round(ahorro, 2),
+                'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más'
+            })
+        
+        # Mostrar resultados
+        df_resultados = pd.DataFrame(resultados)
+        
+        # Encontrar mejor plan
+        mejor_plan = df_resultados.loc[df_resultados['Ahorro'].idxmax()]
+        
+        st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
+        
+        # Métricas principales
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💶 Coste Actual", f"{costo_actual}€")
+        with col2:
+            st.metric("💰 Coste Nuevo", f"{mejor_plan['Coste Nuevo']}€")
+        with col3:
+            st.metric("📈 Ahorro", f"{mejor_plan['Ahorro']}€", 
+                     delta=f"{mejor_plan['Ahorro']}€" if mejor_plan['Ahorro'] > 0 else None)
+        
+        # Tabla comparativa
+        st.dataframe(df_resultados, use_container_width=True)
+        
+        # Recomendación
+        if mejor_plan['Ahorro'] > 0:
+            st.success(f"🎯 **RECOMENDACIÓN**: {mejor_plan['Plan']} - Ahorras {mejor_plan['Ahorro']}€")
+        else:
+            st.warning("ℹ️ Todos los planes son más caros que tu factura actual")
+            
+    except Exception as e:
+        st.error(f"❌ Error en el cálculo: {e}")
+
+def calcular_estimacion_anual(potencia, consumo_anual):
+    """Calcula estimación anual"""
+    try:
+        # Cargar planes activos
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        planes_activos = df_luz[df_luz['activo'] == True]
+        
+        if planes_activos.empty:
+            st.warning("⚠️ No hay planes configurados. Contacta con el administrador.")
+            return
+        
+        st.success("🧮 Calculando estimación anual...")
+        
+        # CONSTANTES
+        ALQUILER_CONTADOR = 0.81 * 12  # €/año
+        FINANCIACION_BONO_SOCIAL = 0.03 * 365  # €/año
+        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
+        DESCUENTO_PRIMERA_FACTURA = 5.00  # € (solo primera factura)
+        IVA = 0.21  # 21%
+        DIAS_ANUAL = 365
+        
+        resultados = []
+        
+        for _, plan in planes_activos.iterrows():
+            precio_kwh = plan['sin_pi_kwh']
+            
+            # CÁLCULOS ANUALES
+            coste_consumo_anual = consumo_anual * precio_kwh
+            coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
+            coste_alquiler_anual = ALQUILER_CONTADOR
+            coste_financiacion_anual = FINANCIACION_BONO_SOCIAL
+            
+            # SUBTOTAL ANUAL
+            subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_financiacion_anual
+            
+            # IMPUESTOS ANUALES
+            impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
+            iva_anual = (subtotal_anual + impuesto_electrico_anual) * IVA
+            
+            # TOTAL ANUAL (solo un descuento de primera factura)
+            total_anual = subtotal_anual + impuesto_electrico_anual + iva_anual - DESCUENTO_PRIMERA_FACTURA
+            mensual = total_anual / 12
+            
+            resultados.append({
+                'Plan': plan['plan'],
+                'Precio kWh': f"{precio_kwh:.3f}€",
+                'Anual': round(total_anual, 2),
+                'Mensual': round(mensual, 2)
+            })
+        
+        # Mostrar resultados
+        df_resultados = pd.DataFrame(resultados)
+        
+        # Encontrar plan más económico
+        mejor_plan = df_resultados.loc[df_resultados['Anual'].idxmin()]
+        
+        st.write("### 📊 ESTIMACIÓN ANUAL")
+        
+        # Métricas
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("💶 Coste Anual Estimado", f"{mejor_plan['Anual']}€")
+        with col2:
+            st.metric("💰 Mensual Estimado", f"{mejor_plan['Mensual']}€")
+        
+        # Tabla comparativa
+        st.dataframe(df_resultados, use_container_width=True)
+        
+        st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['Anual']}€/año")
+        
+        # Gráfico comparativo
+        st.write("### 📈 Comparativa Visual")
+        chart_data = df_resultados.set_index('Plan')['Anual']
+        st.bar_chart(chart_data)
+            
+    except Exception as e:
+        st.error(f"❌ Error en el cálculo anual: {e}")
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
