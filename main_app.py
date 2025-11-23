@@ -207,17 +207,44 @@ def mostrar_panel_usuario():
 def gestion_electricidad():
     st.subheader("⚡ Gestión de Planes de Electricidad")
     
-    # --- RESET TEMPORAL - ELIMINAR DESPUÉS ---
+    # --- RESET TEMPORAL CON CONFIRMACIÓN ---
     st.error("🚨 RESET TEMPORAL DE DATOS")
-    if st.button("🔄 Resetear datos a vacío (SOLO PRIMERA VEZ)"):
-        df_vacio = pd.DataFrame(columns=[
-            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
-        ])
-        df_vacio.to_csv("data/precios_luz.csv", index=False)
-        st.success("✅ Datos reseteados. Ahora puedes crear tus propios planes.")
-        st.rerun()
-    # --- FIN RESET TEMPORAL ---
+    
+    # Inicializar estado de confirmación de reset
+    if 'show_reset_confirmation' not in st.session_state:
+        st.session_state.show_reset_confirmation = False
+    
+    if not st.session_state.show_reset_confirmation:
+        if st.button("🔄 Resetear datos a vacío (SOLO PRIMERA VEZ)", type="secondary"):
+            st.session_state.show_reset_confirmation = True
+            st.rerun()
+    else:
+        st.warning("⚠️ ¿ESTÁS SEGURO DE QUE QUIERES RESETEAR LOS DATOS?")
+        st.error("🚨 ESTA ACCIÓN ELIMINARÁ TODOS LOS PLANES EXISTENTES Y NO SE PUEDE DESHACER")
+        
+        col_reset_confirm, col_reset_cancel = st.columns(2)
+        with col_reset_confirm:
+            if st.button("✅ SÍ, RESETEAR TODO", type="primary"):
+                df_vacio = pd.DataFrame(columns=[
+                    'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+                    'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+                ])
+                df_vacio.to_csv("data/precios_luz.csv", index=False)
+                st.success("✅ Datos reseteados correctamente. Ahora puedes crear tus propios planes.")
+                st.session_state.show_reset_confirmation = False
+                # Limpiar también otros estados si existen
+                if hasattr(st.session_state, 'editing_plan'):
+                    st.session_state.editing_plan = None
+                if hasattr(st.session_state, 'show_confirmation'):
+                    st.session_state.show_confirmation = False
+                st.rerun()
+        
+        with col_reset_cancel:
+            if st.button("❌ Cancelar reset", type="secondary"):
+                st.session_state.show_reset_confirmation = False
+                st.info("Reset cancelado")
+                st.rerun()
+    # --- FIN RESET TEMPORAL CON CONFIRMACIÓN ---
     
     # Explicación del campo "activo"
     with st.expander("💡 ¿Qué significa 'Plan activo'?"):
@@ -308,7 +335,7 @@ def gestion_electricidad():
     if 'pending_action' not in st.session_state:
         st.session_state.pending_action = None
     
-    # FORMULARIO PRINCIPAL
+    # FORMULARIO PRINCIPAL - CORREGIDO
     with st.form("form_plan_electricidad"):
         col1, col2, col3 = st.columns(3)
         
@@ -341,15 +368,18 @@ def gestion_electricidad():
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
             
-            # NUEVO CAMPO: Comunidades autónomas
+            # NUEVO CAMPO: Comunidades autónomas - CORREGIDO
             # Manejar el caso cuando comunidades es string (legado) o lista
             comunidades_default = ["Toda España"]
             if st.session_state.editing_plan:
-                if isinstance(st.session_state.editing_plan['comunidades'], list):
-                    comunidades_default = st.session_state.editing_plan['comunidades']
-                elif st.session_state.editing_plan['comunidades'] and isinstance(st.session_state.editing_plan['comunidades'], str):
+                comunidades_value = st.session_state.editing_plan['comunidades']
+                if isinstance(comunidades_value, list):
+                    comunidades_default = comunidades_value
+                elif isinstance(comunidades_value, str) and comunidades_value:
                     # Convertir string a lista si es necesario
-                    comunidades_default = [st.session_state.editing_plan['comunidades']]
+                    comunidades_default = [comunidades_value]
+                # Asegurarse de que los valores por defecto existen en las opciones
+                comunidades_default = [c for c in comunidades_default if c in COMUNIDADES_AUTONOMAS]
             
             comunidades = st.multiselect(
                 "Comunidades Autónomas*",
@@ -358,7 +388,7 @@ def gestion_electricidad():
             )
             st.caption("Selecciona 'Toda España' o comunidades específicas")
         
-        # Botón de envío del formulario
+        # BOTÓN DE SUBMIT CORREGIDO - usa st.form_submit_button()
         if st.session_state.editing_plan is not None:
             submitted = st.form_submit_button("💾 Guardar Cambios", type="primary")
             action_type = "actualizar"
