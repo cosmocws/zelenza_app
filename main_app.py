@@ -443,7 +443,7 @@ def consultar_modelos_factura():
 
 def comparativa_exacta():
     st.subheader("⚡ Comparativa EXACTA")
-    st.info("Compara tu consumo exacto con nuestros planes")
+    st.info("Compara tu consumo exacto con nuestros planes - Se muestran ambos precios CON y SIN Pack Iberdrola")
     
     col1, col2 = st.columns(2)
     
@@ -454,38 +454,32 @@ def comparativa_exacta():
     with col2:
         consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_exacta")
         costo_actual = st.number_input("¿Cuánto pagaste? (€)", min_value=0.0, value=50.0, key="costo_exacta")
-        # CORREGIDO: Pack Iberdrola en lugar de Pensión Igualatoria
-        tiene_pi = st.checkbox("¿Incluir Pack Iberdrola?", value=False, 
-                              help="Activa esta opción para incluir el Pack Iberdrola (+3.95€/mes)")
     
     if st.button("🔍 Comparar", type="primary", key="comparar_exacta"):
-        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, tiene_pi)
+        calcular_comparacion_exacta(dias, potencia, consumo, costo_actual)
 
 def comparativa_estimada():
     st.subheader("📅 Comparativa ESTIMADA")
-    st.info("Estima tu consumo anual con nuestros planes")
+    st.info("Estima tu consumo anual con nuestros planes - Se muestran ambos precios CON y SIN Pack Iberdrola")
     
     col1, col2 = st.columns(2)
     
     with col1:
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
-        # CORREGIDO: Pack Iberdrola en lugar de Pensión Igualatoria
-        tiene_pi = st.checkbox("¿Incluir Pack Iberdrola?", value=False, key="pi_estimada",
-                              help="Activa esta opción para incluir el Pack Iberdrola (+3.95€/mes)")
     
     with col2:
         consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
     
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
-        calcular_estimacion_anual(potencia, consumo_anual, tiene_pi)
+        calcular_estimacion_anual(potencia, consumo_anual)
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Funcionalidad en desarrollo...")
 
 # --- FUNCIONES DE CÁLCULO REALES ---
-def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, tiene_pi):
-    """Calcula comparación exacta con factura actual"""
+def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
+    """Calcula comparación exacta con factura actual - Muestra CON y SIN PI"""
     try:
         # Cargar planes activos
         df_luz = pd.read_csv("data/precios_luz.csv")
@@ -499,89 +493,104 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, tiene_pi)
         
         # CONSTANTES
         ALQUILER_CONTADOR = 0.81  # €/mes
-        PACK_IBERDROLA = 3.95  # €/mes (solo si tiene PI activado)
+        PACK_IBERDROLA = 3.95  # €/mes (para cálculo CON PI)
         IMPUESTO_ELECTRICO = 0.0511  # 5.11%
-        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        DESCUENTO_PRIMERA_FACTURA = 5.00  # € (SÍ incluimos descuento bienvenida)
         IVA = 0.21  # 21% (para península)
         
         resultados = []
         
         for _, plan in planes_activos.iterrows():
-            # Determinar precio según PI
-            if tiene_pi:
-                precio_kwh = plan['con_pi_kwh']  # Precio CON Pack Iberdrola
-                coste_pack = PACK_IBERDROLA  # Se añade el pack si tiene PI
-            else:
-                precio_kwh = plan['sin_pi_kwh']  # Precio SIN Pack Iberdrola
-                coste_pack = 0.0  # Sin pack si no tiene PI
+            # CALCULAR AMBAS OPCIONES: CON PI y SIN PI
             
-            # CÁLCULOS EXACTOS
-            coste_consumo = consumo * precio_kwh
-            coste_potencia = potencia * plan['total_potencia'] * dias
-            coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
-            coste_pack_total = coste_pack * (dias / 30)  # Pack proporcional a días
+            # --- OPCIÓN CON PACK IBERDROLA ---
+            precio_kwh_con = plan['con_pi_kwh']
+            coste_pack_con = PACK_IBERDROLA * (dias / 30)
             
-            # SUBTOTAL
-            subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_pack_total
+            coste_consumo_con = consumo * precio_kwh_con
+            coste_potencia_con = potencia * plan['total_potencia'] * dias
+            coste_alquiler_con = ALQUILER_CONTADOR * (dias / 30)
             
-            # IMPUESTOS
-            impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
-            iva_total = (subtotal + impuesto_electrico) * IVA
+            subtotal_con = coste_consumo_con + coste_potencia_con + coste_alquiler_con + coste_pack_con
+            impuesto_electrico_con = subtotal_con * IMPUESTO_ELECTRICO
+            iva_total_con = (subtotal_con + impuesto_electrico_con) * IVA
+            total_nuevo_con = subtotal_con + impuesto_electrico_con + iva_total_con - DESCUENTO_PRIMERA_FACTURA
             
-            # TOTAL FINAL
-            total_nuevo = subtotal + impuesto_electrico + iva_total - DESCUENTO_PRIMERA_FACTURA
+            ahorro_con = costo_actual - total_nuevo_con
+            ahorro_anual_con = ahorro_con * (365 / dias)  # Proyección anual
             
-            # Calcular ahorro
-            ahorro = costo_actual - total_nuevo
+            # --- OPCIÓN SIN PACK IBERDROLA ---
+            precio_kwh_sin = plan['sin_pi_kwh']
+            coste_pack_sin = 0.0
             
-            # MOSTRAR AMBOS PRECIOS en la tabla
-            precios_info = f"{plan['con_pi_kwh']:.3f}€ / {plan['sin_pi_kwh']:.3f}€"
+            coste_consumo_sin = consumo * precio_kwh_sin
+            coste_potencia_sin = potencia * plan['total_potencia'] * dias
+            coste_alquiler_sin = ALQUILER_CONTADOR * (dias / 30)
+            
+            subtotal_sin = coste_consumo_sin + coste_potencia_sin + coste_alquiler_sin + coste_pack_sin
+            impuesto_electrico_sin = subtotal_sin * IMPUESTO_ELECTRICO
+            iva_total_sin = (subtotal_sin + impuesto_electrico_sin) * IVA
+            total_nuevo_sin = subtotal_sin + impuesto_electrico_sin + iva_total_sin - DESCUENTO_PRIMERA_FACTURA
+            
+            ahorro_sin = costo_actual - total_nuevo_sin
+            ahorro_anual_sin = ahorro_sin * (365 / dias)  # Proyección anual
+            
+            # Añadir ambas opciones a resultados
+            resultados.append({
+                'Plan': plan['plan'],
+                'Pack Iberdrola': '✅ CON',
+                'Precio kWh': f"{precio_kwh_con:.3f}€",
+                'Coste Nuevo': round(total_nuevo_con, 2),
+                'Ahorro Mensual': round(ahorro_con, 2),
+                'Ahorro Anual': round(ahorro_anual_con, 2),
+                'Estado': '💚 Ahorras' if ahorro_con > 0 else '🔴 Pagas más'
+            })
             
             resultados.append({
                 'Plan': plan['plan'],
-                'Precios (con/sin PI)': precios_info,
-                'Pack Iberdrola': "✅ Sí" if tiene_pi else "❌ No",
-                'Coste Nuevo': round(total_nuevo, 2),
-                'Ahorro': round(ahorro, 2),
-                'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más'
+                'Pack Iberdrola': '❌ SIN', 
+                'Precio kWh': f"{precio_kwh_sin:.3f}€",
+                'Coste Nuevo': round(total_nuevo_sin, 2),
+                'Ahorro Mensual': round(ahorro_sin, 2),
+                'Ahorro Anual': round(ahorro_anual_sin, 2),
+                'Estado': '💚 Ahorras' if ahorro_sin > 0 else '🔴 Pagas más'
             })
         
         # Mostrar resultados
         df_resultados = pd.DataFrame(resultados)
         
-        # Encontrar mejor plan
-        mejor_plan = df_resultados.loc[df_resultados['Ahorro'].idxmax()]
+        # Encontrar mejor plan (mayor ahorro mensual)
+        mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
         
         st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
-        
-        # Información de configuración
-        st.info(f"**Configuración:** {'Con Pack Iberdrola' if tiene_pi else 'Sin Pack Iberdrola'} | Días: {dias} | Consumo: {consumo}kWh")
+        st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Días: {dias} | Consumo: {consumo}kWh")
         
         # Métricas principales
-        col1, col2, col3 = st.columns(3)
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("💶 Coste Actual", f"{costo_actual}€")
         with col2:
             st.metric("💰 Coste Nuevo", f"{mejor_plan['Coste Nuevo']}€")
         with col3:
-            st.metric("📈 Ahorro", f"{mejor_plan['Ahorro']}€", 
-                     delta=f"{mejor_plan['Ahorro']}€" if mejor_plan['Ahorro'] > 0 else None)
+            st.metric("📈 Ahorro Mensual", f"{mejor_plan['Ahorro Mensual']}€", 
+                     delta=f"{mejor_plan['Ahorro Mensual']}€" if mejor_plan['Ahorro Mensual'] > 0 else None)
+        with col4:
+            st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
         
         # Tabla comparativa
         st.dataframe(df_resultados, use_container_width=True)
         
         # Recomendación
-        if mejor_plan['Ahorro'] > 0:
-            st.success(f"🎯 **RECOMENDACIÓN**: {mejor_plan['Plan']} - Ahorras {mejor_plan['Ahorro']}€")
-            st.info(f"💡 **Incluye:** Pack Iberdrola: {mejor_plan['Pack Iberdrola']}")
+        if mejor_plan['Ahorro Mensual'] > 0:
+            st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack - Ahorras {mejor_plan['Ahorro Mensual']}€/mes ({mejor_plan['Ahorro Anual']}€/año)")
         else:
             st.warning("ℹ️ Todos los planes son más caros que tu factura actual")
             
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
 
-def calcular_estimacion_anual(potencia, consumo_anual, tiene_pi):
-    """Calcula estimación anual"""
+def calcular_estimacion_anual(potencia, consumo_anual):
+    """Calcula estimación anual - Muestra CON y SIN PI"""
     try:
         # Cargar planes activos
         df_luz = pd.read_csv("data/precios_luz.csv")
@@ -595,7 +604,7 @@ def calcular_estimacion_anual(potencia, consumo_anual, tiene_pi):
         
         # CONSTANTES
         ALQUILER_CONTADOR = 0.81 * 12  # €/año
-        PACK_IBERDROLA = 3.95 * 12  # €/año (solo si tiene PI activado)
+        PACK_IBERDROLA = 3.95 * 12  # €/año (para cálculo CON PI)
         IMPUESTO_ELECTRICO = 0.0511  # 5.11%
         DESCUENTO_PRIMERA_FACTURA = 5.00  # € (solo primera factura)
         IVA = 0.21  # 21%
@@ -604,67 +613,78 @@ def calcular_estimacion_anual(potencia, consumo_anual, tiene_pi):
         resultados = []
         
         for _, plan in planes_activos.iterrows():
-            # Determinar precio según PI
-            if tiene_pi:
-                precio_kwh = plan['con_pi_kwh']  # Precio CON Pack Iberdrola
-                coste_pack = PACK_IBERDROLA  # Pack anual si tiene PI
-            else:
-                precio_kwh = plan['sin_pi_kwh']  # Precio SIN Pack Iberdrola
-                coste_pack = 0.0  # Sin pack si no tiene PI
+            # CALCULAR AMBAS OPCIONES: CON PI y SIN PI
             
-            # CÁLCULOS ANUALES
-            coste_consumo_anual = consumo_anual * precio_kwh
-            coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
-            coste_alquiler_anual = ALQUILER_CONTADOR
+            # --- OPCIÓN CON PACK IBERDROLA ---
+            precio_kwh_con = plan['con_pi_kwh']
+            coste_pack_con = PACK_IBERDROLA
             
-            # SUBTOTAL ANUAL
-            subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_pack
+            coste_consumo_anual_con = consumo_anual * precio_kwh_con
+            coste_potencia_anual_con = potencia * plan['total_potencia'] * DIAS_ANUAL
+            coste_alquiler_anual_con = ALQUILER_CONTADOR
             
-            # IMPUESTOS ANUALES
-            impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
-            iva_anual = (subtotal_anual + impuesto_electrico_anual) * IVA
+            subtotal_anual_con = coste_consumo_anual_con + coste_potencia_anual_con + coste_alquiler_anual_con + coste_pack_con
+            impuesto_electrico_anual_con = subtotal_anual_con * IMPUESTO_ELECTRICO
+            iva_anual_con = (subtotal_anual_con + impuesto_electrico_anual_con) * IVA
+            total_anual_con = subtotal_anual_con + impuesto_electrico_anual_con + iva_anual_con - DESCUENTO_PRIMERA_FACTURA
+            mensual_con = total_anual_con / 12
             
-            # TOTAL ANUAL (solo un descuento de primera factura)
-            total_anual = subtotal_anual + impuesto_electrico_anual + iva_anual - DESCUENTO_PRIMERA_FACTURA
-            mensual = total_anual / 12
+            # --- OPCIÓN SIN PACK IBERDROLA ---
+            precio_kwh_sin = plan['sin_pi_kwh']
+            coste_pack_sin = 0.0
             
-            # MOSTRAR AMBOS PRECIOS en la tabla
-            precios_info = f"{plan['con_pi_kwh']:.3f}€ / {plan['sin_pi_kwh']:.3f}€"
+            coste_consumo_anual_sin = consumo_anual * precio_kwh_sin
+            coste_potencia_anual_sin = potencia * plan['total_potencia'] * DIAS_ANUAL
+            coste_alquiler_anual_sin = ALQUILER_CONTADOR
+            
+            subtotal_anual_sin = coste_consumo_anual_sin + coste_potencia_anual_sin + coste_alquiler_anual_sin + coste_pack_sin
+            impuesto_electrico_anual_sin = subtotal_anual_sin * IMPUESTO_ELECTRICO
+            iva_anual_sin = (subtotal_anual_sin + impuesto_electrico_anual_sin) * IVA
+            total_anual_sin = subtotal_anual_sin + impuesto_electrico_anual_sin + iva_anual_sin - DESCUENTO_PRIMERA_FACTURA
+            mensual_sin = total_anual_sin / 12
+            
+            # Añadir ambas opciones a resultados
+            resultados.append({
+                'Plan': plan['plan'],
+                'Pack Iberdrola': '✅ CON',
+                'Precio kWh': f"{precio_kwh_con:.3f}€",
+                'Mensual Normal': round(mensual_con, 2),
+                'Anual': round(total_anual_con, 2)
+            })
             
             resultados.append({
                 'Plan': plan['plan'],
-                'Precios (con/sin PI)': precios_info,
-                'Pack Iberdrola': "✅ Sí" if tiene_pi else "❌ No",
-                'Anual': round(total_anual, 2),
-                'Mensual': round(mensual, 2)
+                'Pack Iberdrola': '❌ SIN',
+                'Precio kWh': f"{precio_kwh_sin:.3f}€", 
+                'Mensual Normal': round(mensual_sin, 2),
+                'Anual': round(total_anual_sin, 2)
             })
         
         # Mostrar resultados
         df_resultados = pd.DataFrame(resultados)
         
-        # Encontrar plan más económico
+        # Encontrar plan más económico (menor coste anual)
         mejor_plan = df_resultados.loc[df_resultados['Anual'].idxmin()]
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
-        
-        # Información de configuración
-        st.info(f"**Configuración:** {'Con Pack Iberdrola' if tiene_pi else 'Sin Pack Iberdrola'} | Consumo anual: {consumo_anual}kWh")
+        st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Consumo anual: {consumo_anual}kWh")
         
         # Métricas
-        col1, col2 = st.columns(2)
+        col1, col2, col3 = st.columns(3)
         with col1:
-            st.metric("💶 Coste Anual Estimado", f"{mejor_plan['Anual']}€")
+            st.metric("💶 Coste Anual", f"{mejor_plan['Anual']}€")
         with col2:
-            st.metric("💰 Mensual Estimado", f"{mejor_plan['Mensual']}€")
+            st.metric("💰 Mensual Normal", f"{mejor_plan['Mensual Normal']}€")
+        with col3:
+            st.metric("🎯 Pack Iberdrola", mejor_plan['Pack Iberdrola'])
         
         # Tabla comparativa
         st.dataframe(df_resultados, use_container_width=True)
         
-        st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['Anual']}€/año")
-        st.info(f"💡 **Incluye:** Pack Iberdrola: {mejor_plan['Pack Iberdrola']}")
+        st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack - {mejor_plan['Anual']}€/año ({mejor_plan['Mensual Normal']}€/mes)")
         
         # Gráfico comparativo
-        st.write("### 📈 Comparativa Visual")
+        st.write("### 📈 Comparativa Visual (Coste Anual)")
         chart_data = df_resultados.set_index('Plan')['Anual']
         st.bar_chart(chart_data)
             
