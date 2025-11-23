@@ -573,16 +573,16 @@ def calculadora_diaria():
     col1, col2 = st.columns(2)
     
     with col1:
-        codigo_postal = st.text_input("Código Postal*", placeholder="28001", max_length=5)
-        dias = st.number_input("Días del período", min_value=1, value=30)
-        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3)
+        codigo_postal = st.text_input("Código Postal*", placeholder="28001", max_length=5, key="cp_diario")
+        dias = st.number_input("Días del período", min_value=1, value=30, key="dias_diario")
+        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_diario")
     
     with col2:
-        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0)
-        tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"])
+        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0, key="consumo_diario")
+        tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_diario")
     
     # Validar código postal
-    if st.button("Calcular", type="primary"):
+    if st.button("Calcular", type="primary", key="calcular_diario"):
         if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
             st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
         else:
@@ -606,10 +606,10 @@ def calculadora_anual():
         potencia_anual = st.number_input("Potencia contratada anual (kW)", min_value=1.0, value=3.3, key="pot_anual")
     
     with col2:
-        consumo_anual = st.number_input("Consumo anual (kWh)", min_value=0.0, value=7500.0)
+        consumo_anual = st.number_input("Consumo anual (kWh)", min_value=0.0, value=7500.0, key="consumo_anual")
         tiene_pi_anual = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_anual")
     
-    if st.button("Calcular Anual", type="primary"):
+    if st.button("Calcular Anual", type="primary", key="calcular_anual"):
         if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
             st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
         else:
