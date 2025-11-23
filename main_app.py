@@ -466,12 +466,14 @@ def comparativa_estimada():
     
     with col1:
         potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3, key="potencia_estimada")
+        # NUEVO: Lo que paga actualmente el cliente
+        costo_mensual_actual = st.number_input("¿Cuánto pagas actualmente al mes? (€)", min_value=0.0, value=80.0, key="costo_actual_estimada")
     
     with col2:
         consumo_anual = st.number_input("Consumo anual estimado (kWh)", min_value=0.0, value=7500.0, key="consumo_estimada")
     
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
-        calcular_estimacion_anual(potencia, consumo_anual)
+        calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual)
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
@@ -589,8 +591,8 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual):
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
 
-def calcular_estimacion_anual(potencia, consumo_anual):
-    """Calcula estimación anual - Muestra CON y SIN PI"""
+def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual):
+    """Calcula estimación anual - Muestra CON y SIN PI con ahorro vs actual"""
     try:
         # Cargar planes activos
         df_luz = pd.read_csv("data/precios_luz.csv")
@@ -609,6 +611,9 @@ def calcular_estimacion_anual(potencia, consumo_anual):
         DESCUENTO_PRIMERA_FACTURA = 5.00  # € (solo primera factura)
         IVA = 0.21  # 21%
         DIAS_ANUAL = 365
+        
+        # Calcular costo anual actual del cliente
+        costo_anual_actual = costo_mensual_actual * 12
         
         resultados = []
         
@@ -629,6 +634,10 @@ def calcular_estimacion_anual(potencia, consumo_anual):
             total_anual_con = subtotal_anual_con + impuesto_electrico_anual_con + iva_anual_con - DESCUENTO_PRIMERA_FACTURA
             mensual_con = total_anual_con / 12
             
+            # Calcular ahorro vs actual
+            ahorro_anual_con = costo_anual_actual - total_anual_con
+            ahorro_mensual_con = ahorro_anual_con / 12
+            
             # --- OPCIÓN SIN PACK IBERDROLA ---
             precio_kwh_sin = plan['sin_pi_kwh']
             coste_pack_sin = 0.0
@@ -643,13 +652,20 @@ def calcular_estimacion_anual(potencia, consumo_anual):
             total_anual_sin = subtotal_anual_sin + impuesto_electrico_anual_sin + iva_anual_sin - DESCUENTO_PRIMERA_FACTURA
             mensual_sin = total_anual_sin / 12
             
+            # Calcular ahorro vs actual
+            ahorro_anual_sin = costo_anual_actual - total_anual_sin
+            ahorro_mensual_sin = ahorro_anual_sin / 12
+            
             # Añadir ambas opciones a resultados
             resultados.append({
                 'Plan': plan['plan'],
                 'Pack Iberdrola': '✅ CON',
                 'Precio kWh': f"{precio_kwh_con:.3f}€",
                 'Mensual Normal': round(mensual_con, 2),
-                'Anual': round(total_anual_con, 2)
+                'Anual': round(total_anual_con, 2),
+                'Ahorro Mensual': round(ahorro_mensual_con, 2),
+                'Ahorro Anual': round(ahorro_anual_con, 2),
+                'Estado': '💚 Ahorras' if ahorro_mensual_con > 0 else '🔴 Pagas más'
             })
             
             resultados.append({
@@ -657,31 +673,42 @@ def calcular_estimacion_anual(potencia, consumo_anual):
                 'Pack Iberdrola': '❌ SIN',
                 'Precio kWh': f"{precio_kwh_sin:.3f}€", 
                 'Mensual Normal': round(mensual_sin, 2),
-                'Anual': round(total_anual_sin, 2)
+                'Anual': round(total_anual_sin, 2),
+                'Ahorro Mensual': round(ahorro_mensual_sin, 2),
+                'Ahorro Anual': round(ahorro_anual_sin, 2),
+                'Estado': '💚 Ahorras' if ahorro_mensual_sin > 0 else '🔴 Pagas más'
             })
         
         # Mostrar resultados
         df_resultados = pd.DataFrame(resultados)
         
-        # Encontrar plan más económico (menor coste anual)
-        mejor_plan = df_resultados.loc[df_resultados['Anual'].idxmin()]
+        # Encontrar plan más económico (mayor ahorro mensual)
+        mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
         st.info(f"💡 **Incluye descuento de 5€ de bienvenida** | Consumo anual: {consumo_anual}kWh")
         
-        # Métricas
-        col1, col2, col3 = st.columns(3)
+        # Métricas principales
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("💶 Coste Anual", f"{mejor_plan['Anual']}€")
+            st.metric("💶 Actual Mensual", f"{costo_mensual_actual}€")
         with col2:
-            st.metric("💰 Mensual Normal", f"{mejor_plan['Mensual Normal']}€")
+            st.metric("💰 Nuevo Mensual", f"{mejor_plan['Mensual Normal']}€")
         with col3:
-            st.metric("🎯 Pack Iberdrola", mejor_plan['Pack Iberdrola'])
+            st.metric("📈 Ahorro Mensual", f"{mejor_plan['Ahorro Mensual']}€", 
+                     delta=f"{mejor_plan['Ahorro Mensual']}€" if mejor_plan['Ahorro Mensual'] > 0 else None)
+        with col4:
+            st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
         
         # Tabla comparativa
         st.dataframe(df_resultados, use_container_width=True)
         
-        st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack - {mejor_plan['Anual']}€/año ({mejor_plan['Mensual Normal']}€/mes)")
+        # Recomendación
+        if mejor_plan['Ahorro Mensual'] > 0:
+            st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack")
+            st.info(f"💡 Ahorras {mejor_plan['Ahorro Mensual']}€/mes ({mejor_plan['Ahorro Anual']}€/año) - Pagarías {mejor_plan['Mensual Normal']}€/mes")
+        else:
+            st.warning(f"ℹ️ Todos los planes son más caros que lo que pagas actualmente ({costo_mensual_actual}€/mes)")
         
         # Gráfico comparativo
         st.write("### 📈 Comparativa Visual (Coste Anual)")
