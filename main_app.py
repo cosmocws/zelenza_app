@@ -169,19 +169,6 @@ def gestion_electricidad():
         *Útil para desactivar planes temporales o promociones finalizadas sin eliminarlos.*
         """)
     
-    # Explicación del campo "umbral_especial_plus"
-    with st.expander("🎯 ¿Qué significa 'Umbral Especial PLUS'?"):
-        st.info("""
-        **Regla ESPECIAL PLUS**: Este plan solo aparece si el máximo ahorro de otros planes es MENOR que este umbral.
-        
-        **Ejemplo**:
-        - Umbral: 15€
-        - Ahorro máximo otros planes: 17€ → ❌ ESPECIAL PLUS NO aparece (17 > 15)
-        - Ahorro máximo otros planes: 14€ → ✅ ESPECIAL PLUS SÍ aparece (14 < 15)
-        
-        *Útil para mostrar planes con permanencia solo cuando el ahorro es limitado.*
-        """)
-    
     # Cargar datos actuales
     try:
         df_luz = pd.read_csv("data/precios_luz.csv")
@@ -238,7 +225,7 @@ def gestion_electricidad():
     else:
         st.info("No hay planes configurados aún")
     
-    # Formulario para añadir/editar planes
+    # Formulario para añadir/editar planes (SIN UMBRAL ESPECIAL PLUS)
     st.write("### ➕ Añadir/✏️ Editar Plan")
     
     # Inicializar estado de edición si no existe
@@ -262,7 +249,7 @@ def gestion_electricidad():
     if 'pending_action' not in st.session_state:
         st.session_state.pending_action = None
     
-    # FORMULARIO PRINCIPAL
+    # FORMULARIO PRINCIPAL (SIN UMBRAL ESPECIAL PLUS)
     with st.form("form_plan_electricidad"):
         col1, col2, col3 = st.columns(3)
         
@@ -298,12 +285,6 @@ def gestion_electricidad():
             
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
-            
-            # NUEVO CAMPO: Umbral Especial PLUS
-            umbral_especial_plus = st.number_input("Umbral Especial PLUS (€)", min_value=0.0, format="%.2f",
-                                                 value=st.session_state.editing_plan['umbral_especial_plus'] if st.session_state.editing_plan and 'umbral_especial_plus' in st.session_state.editing_plan else 15.00,
-                                                 help="Aparece solo si el ahorro del cliente es MENOR a este valor")
-            st.caption("Plan ESPECIAL PLUS: Aparece si ahorro < este valor")
         
         # BOTÓN DE SUBMIT
         if st.session_state.editing_plan is not None:
@@ -318,7 +299,7 @@ def gestion_electricidad():
                 st.error("❌ El nombre del plan es obligatorio")
             else:
                 # Preparar datos para confirmación
-                st.session_state.pending_plan = {
+                nuevo_plan_data = {
                     'plan': nombre_plan,
                     'precio_original_kwh': precio_original,
                     'con_pi_kwh': con_pi,
@@ -326,9 +307,20 @@ def gestion_electricidad():
                     'punta': punta,
                     'valle': valle,
                     'total_potencia': total_potencia,
-                    'activo': activo,
-                    'umbral_especial_plus': umbral_especial_plus  # NUEVO CAMPO
+                    'activo': activo
                 }
+                
+                # Si estamos editando, mantener el umbral existente
+                if st.session_state.editing_plan is not None and 'umbral_especial_plus' in st.session_state.editing_plan:
+                    nuevo_plan_data['umbral_especial_plus'] = st.session_state.editing_plan['umbral_especial_plus']
+                else:
+                    # Para nuevos planes, establecer umbral por defecto solo si es ESPECIAL PLUS
+                    if "ESPECIAL PLUS" in nombre_plan.upper():
+                        nuevo_plan_data['umbral_especial_plus'] = 15.00
+                    else:
+                        nuevo_plan_data['umbral_especial_plus'] = 0.00
+                
+                st.session_state.pending_plan = nuevo_plan_data
                 st.session_state.pending_action = action_type
                 st.session_state.show_confirmation = True
                 st.rerun()
@@ -377,8 +369,70 @@ def gestion_electricidad():
                 st.info("Operación cancelada")
                 st.rerun()
     
+    # --- NUEVA SECCIÓN: CONFIGURACIÓN UMBRAL ESPECIAL PLUS ---
+    st.markdown("---")
+    st.write("### 🎯 Configuración Especial - Plan ESPECIAL PLUS")
+    
+    with st.expander("💡 ¿Qué es el Umbral Especial PLUS?"):
+        st.info("""
+        **Regla ESPECIAL PLUS**: Este plan solo aparece si el máximo ahorro de otros planes es MENOR que este umbral.
+        
+        **Ejemplo**:
+        - Umbral: 15€
+        - Ahorro máximo otros planes: 17€ → ❌ ESPECIAL PLUS NO aparece (17 > 15)
+        - Ahorro máximo otros planes: 14€ → ✅ ESPECIAL PLUS SÍ aparece (14 < 15)
+        
+        *Útil para mostrar planes con permanencia solo cuando el ahorro es limitado.*
+        """)
+    
+    # Buscar si existe el plan ESPECIAL PLUS
+    plan_especial_plus = None
+    if not df_luz.empty:
+        especial_plus_planes = df_luz[df_luz['plan'].str.contains('ESPECIAL PLUS', case=False, na=False)]
+        if not especial_plus_planes.empty:
+            plan_especial_plus = especial_plus_planes.iloc[0]
+    
+    if plan_especial_plus is not None:
+        st.write(f"**Plan encontrado:** {plan_especial_plus['plan']}")
+        
+        # Formulario para configurar el umbral
+        with st.form("form_umbral_especial_plus"):
+            col_umb1, col_umb2 = st.columns([2, 1])
+            
+            with col_umb1:
+                nuevo_umbral = st.number_input(
+                    "Umbral de aparición (€)", 
+                    min_value=0.0, 
+                    max_value=100.0, 
+                    value=float(plan_especial_plus.get('umbral_especial_plus', 15.00)),
+                    format="%.2f",
+                    help="El plan ESPECIAL PLUS aparecerá solo si el ahorro máximo de otros planes es menor a este valor"
+                )
+            
+            with col_umb2:
+                st.write("")  # Espacio vertical
+                st.write("")  # Espacio vertical
+                submitted_umbral = st.form_submit_button("💾 Guardar Umbral", type="primary")
+            
+            if submitted_umbral:
+                # Actualizar el umbral en el plan ESPECIAL PLUS
+                idx = df_luz[df_luz['plan'] == plan_especial_plus['plan']].index[0]
+                df_luz.at[idx, 'umbral_especial_plus'] = nuevo_umbral
+                df_luz.to_csv("data/precios_luz.csv", index=False)
+                st.success(f"✅ Umbral actualizado a {nuevo_umbral}€ para {plan_especial_plus['plan']}")
+                st.rerun()
+        
+        # Mostrar estado actual
+        umbral_actual = plan_especial_plus.get('umbral_especial_plus', 15.00)
+        st.info(f"**Estado actual:** Umbral = {umbral_actual}€ | El plan aparecerá si el ahorro máximo es < {umbral_actual}€")
+    
+    else:
+        st.warning("⚠️ No se encontró ningún plan 'ESPECIAL PLUS'")
+        st.info("Para usar esta función, crea un plan que contenga 'ESPECIAL PLUS' en su nombre")
+    
     # Opción para eliminar planes (FUERA DE CUALQUIER FORM)
     if not df_luz.empty and st.session_state.editing_plan is None and not st.session_state.show_confirmation:
+        st.markdown("---")
         st.write("### 🗑️ Eliminar Plan")
         plan_a_eliminar = st.selectbox("Selecciona plan a eliminar", df_luz['plan'].unique())
         
