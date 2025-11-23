@@ -338,7 +338,7 @@ def gestion_electricidad():
     if 'pending_action' not in st.session_state:
         st.session_state.pending_action = None
     
-    # FORMULARIO PRINCIPAL - CORREGIDO
+    # FORMULARIO PRINCIPAL
     with st.form("form_plan_electricidad"):
         col1, col2, col3 = st.columns(3)
         
@@ -376,17 +376,14 @@ def gestion_electricidad():
                                            value=st.session_state.editing_plan['pack_iberdrola'] if st.session_state.editing_plan else 3.95)
             st.caption("Precio mensual del Pack Iberdrola")
             
-            # NUEVO CAMPO: Comunidades autónomas - CORREGIDO
-            # Manejar el caso cuando comunidades es string (legado) o lista
+            # NUEVO CAMPO: Comunidades autónomas
             comunidades_default = ["Toda España"]
             if st.session_state.editing_plan:
                 comunidades_value = st.session_state.editing_plan['comunidades']
                 if isinstance(comunidades_value, list):
                     comunidades_default = comunidades_value
                 elif isinstance(comunidades_value, str) and comunidades_value:
-                    # Convertir string a lista si es necesario
                     comunidades_default = [comunidades_value]
-                # Asegurarse de que los valores por defecto existen en las opciones
                 comunidades_default = [c for c in comunidades_default if c in COMUNIDADES_AUTONOMAS]
             
             comunidades = st.multiselect(
@@ -396,7 +393,7 @@ def gestion_electricidad():
             )
             st.caption("Selecciona 'Toda España' o comunidades específicas")
         
-        # BOTÓN DE SUBMIT CORREGIDO - usa st.form_submit_button()
+        # BOTÓN DE SUBMIT
         if st.session_state.editing_plan is not None:
             submitted = st.form_submit_button("💾 Guardar Cambios", type="primary")
             action_type = "actualizar"
@@ -410,7 +407,6 @@ def gestion_electricidad():
             elif not comunidades:
                 st.error("❌ Debes seleccionar al menos una comunidad autónoma")
             else:
-                # Preparar datos para confirmación
                 st.session_state.pending_plan = {
                     'plan': nombre_plan,
                     'precio_original_kwh': precio_original,
@@ -440,22 +436,17 @@ def gestion_electricidad():
         col_confirm, col_cancel = st.columns(2)
         with col_confirm:
             if st.button("✅ Sí, confirmar", type="primary", key="confirm_yes"):
-                # Ejecutar la acción
                 nuevo_plan = st.session_state.pending_plan
                 
-                # Añadir o actualizar el plan
                 if nuevo_plan['plan'] in df_luz['plan'].values:
-                    # Actualizar plan existente
                     idx = df_luz[df_luz['plan'] == nuevo_plan['plan']].index[0]
                     for key, value in nuevo_plan.items():
                         df_luz.at[idx, key] = value
                     st.success(f"✅ Plan '{nuevo_plan['plan']}' actualizado correctamente")
                 else:
-                    # Añadir nuevo plan
                     df_luz = pd.concat([df_luz, pd.DataFrame([nuevo_plan])], ignore_index=True)
                     st.success(f"✅ Plan '{nuevo_plan['plan']}' añadido correctamente")
                 
-                # Guardar y limpiar estado
                 df_luz.to_csv("data/precios_luz.csv", index=False)
                 st.session_state.editing_plan = None
                 st.session_state.show_confirmation = False
@@ -471,7 +462,7 @@ def gestion_electricidad():
                 st.info("Operación cancelada")
                 st.rerun()
     
-    # Opción para eliminar planes (FUERA DE CUALQUIER FORM)
+    # Opción para eliminar planes
     if not df_luz.empty and st.session_state.editing_plan is None and not st.session_state.show_confirmation:
         st.write("### 🗑️ Eliminar Plan")
         plan_a_eliminar = st.selectbox("Selecciona plan a eliminar", df_luz['plan'].unique())
@@ -510,7 +501,6 @@ def gestion_gas():
 def gestion_modelos_factura():
     st.subheader("📄 Gestión de Modelos de Factura")
     
-    # Lista completa de empresas disponibles
     EMPRESAS_ELECTRICAS = [
         "Iberdrola", "Endesa", "Naturgy", "TotalEnergies", 
         "Repsol", "EDP", "Viesgo", "Holaluz", "Factor Energía",
@@ -526,19 +516,15 @@ def gestion_modelos_factura():
                               key=f"upload_{empresa}")
     
     if archivo is not None:
-        # Crear carpeta si no existe
         carpeta_empresa = f"modelos_facturas/{empresa.lower().replace(' ', '_')}"
         os.makedirs(carpeta_empresa, exist_ok=True)
         
-        # Guardar el archivo
         ruta_archivo = os.path.join(carpeta_empresa, archivo.name)
         
         with open(ruta_archivo, "wb") as f:
             f.write(archivo.getbuffer())
         
         st.success(f"✅ Modelo de factura para {empresa} guardado correctamente")
-        
-        # Mostrar preview
         st.image(archivo, caption=f"Modelo de factura - {empresa}", use_column_width=True)
 
 # --- FUNCIONES DE USUARIO ---
@@ -546,7 +532,6 @@ def consultar_modelos_factura():
     st.subheader("📊 Modelos de Factura")
     st.info("Consulta los modelos de factura para identificar los datos necesarios")
     
-    # Misma lista de empresas que en admin
     EMPRESAS_ELECTRICAS = [
         "Iberdrola", "Endesa", "Naturgy", "TotalEnergies", 
         "Repsol", "EDP", "Viesgo", "Holaluz", "Factor Energía",
@@ -555,7 +540,6 @@ def consultar_modelos_factura():
     
     empresa = st.selectbox("Selecciona tu compañía eléctrica", EMPRESAS_ELECTRICAS)
     
-    # Mostrar modelos disponibles para esa empresa
     carpeta_empresa = f"modelos_facturas/{empresa.lower().replace(' ', '_')}"
     
     if os.path.exists(carpeta_empresa):
@@ -565,11 +549,9 @@ def consultar_modelos_factura():
             
             for archivo in archivos:
                 ruta_completa = os.path.join(carpeta_empresa, archivo)
-                
-                # Mostrar cada imagen en tamaño completo
                 st.write(f"**Modelo:** {archivo}")
                 st.image(ruta_completa, use_column_width=True)
-                st.markdown("---")  # Línea separadora
+                st.markdown("---")
         else:
             st.warning(f"⚠️ No hay modelos de factura disponibles para {empresa}")
             st.info("Contacta con el administrador para que suba modelos de referencia")
@@ -592,7 +574,6 @@ def calculadora_diaria():
         tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_diario")
         pack_iberdrola = st.radio("¿Pack Iberdrola?", ["Sí", "No"], key="pack_diario")
     
-    # Validar código postal
     if st.button("Calcular", type="primary", key="calcular_diario"):
         if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
             st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
@@ -648,7 +629,6 @@ def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdro
     st.success("🧮 Calculando costes...")
     
     try:
-        # Cargar planes activos que coincidan con la comunidad
         df_luz = pd.read_csv("data/precios_luz.csv")
         planes_disponibles = df_luz[
             (df_luz['activo'] == True) & 
@@ -664,42 +644,32 @@ def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdro
         
         st.write(f"### 📊 Resultados para {dias} días en {comunidad}")
         
-        # CONSTANTES DE CÁLCULO
-        ALQUILER_CONTADOR = 0.81  # €/mes
-        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
-        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
-        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        ALQUILER_CONTADOR = 0.81
+        FINANCIACION_BONO_SOCIAL = 0.03
+        IMPUESTO_ELECTRICO = 0.0511
+        DESCUENTO_PRIMERA_FACTURA = 5.00
         
-        # Determinar IVA según ubicación
-        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21  # 21% península, 0% Canarias
+        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21
         
-        # Calcular costes para cada plan
         resultados = []
         
         for _, plan in planes_disponibles.iterrows():
-            # Determinar precio según PI y Pack Iberdrola
             if tiene_pi == "Sí":
                 precio_kwh = plan['con_pi_kwh']
                 coste_pack = plan['pack_iberdrola'] if pack_iberdrola == "Sí" else 0.0
             else:
                 precio_kwh = plan['sin_pi_kwh'] 
-                coste_pack = 0.0  # Sin Pack Iberdrola si no tiene PI
+                coste_pack = 0.0
             
-            # CÁLCULOS PRINCIPALES
             coste_consumo = consumo * precio_kwh
             coste_potencia = potencia * plan['total_potencia'] * dias
             coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
             coste_financiacion = FINANCIACION_BONO_SOCIAL * dias
             coste_pack_total = coste_pack * (dias / 30)
             
-            # SUBTOTAL
             subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_financiacion + coste_pack_total
-            
-            # IMPUESTOS
             impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
             iva = (subtotal + impuesto_electrico) * iva_porcentaje
-            
-            # TOTAL FINAL
             total = subtotal + impuesto_electrico + iva - DESCUENTO_PRIMERA_FACTURA
             
             resultados.append({
@@ -716,31 +686,16 @@ def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, pack_iberdro
                 'TOTAL': round(total, 2) if total > 0 else 0
             })
         
-        # Mostrar resultados en tabla
         df_resultados = pd.DataFrame(resultados)
         st.dataframe(df_resultados, use_container_width=True)
         
-        # Mostrar el plan más económico
         if not df_resultados.empty:
             mejor_plan = df_resultados.loc[df_resultados['TOTAL'].idxmin()]
             st.success(f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} - {mejor_plan['TOTAL']}€ total")
             
-            # Gráfico comparativo
             st.write("### 📈 Comparativa de Planes")
             chart_data = df_resultados.set_index('Plan')['TOTAL']
             st.bar_chart(chart_data)
-            
-            # Desglose del mejor plan
-            st.write("### 💰 Desglose del Mejor Plan")
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric("Coste Consumo", f"{mejor_plan['Consumo']}€")
-                st.metric("Coste Potencia", f"{mejor_plan['Potencia']}€")
-                st.metric("Alquiler Contador", f"{mejor_plan['Alquiler']}€")
-            with col2:
-                st.metric("Bono Social", f"{mejor_plan['Bono Social']}€")
-                st.metric("Pack Iberdrola", f"{mejor_plan['Pack Iberdrola']}€")
-                st.metric("Descuento Primera Factura", f"{mejor_plan['Descuento']}€")
             
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {str(e)}")
@@ -749,7 +704,6 @@ def calcular_electricidad_anual(potencia, consumo, tiene_pi, pack_iberdrola, cod
     st.success("🧮 Calculando coste anual...")
     
     try:
-        # Cargar planes activos que coincidan con la comunidad
         df_luz = pd.read_csv("data/precios_luz.csv")
         planes_disponibles = df_luz[
             (df_luz['activo'] == True) & 
@@ -765,43 +719,33 @@ def calcular_electricidad_anual(potencia, consumo, tiene_pi, pack_iberdrola, cod
         
         st.write(f"### 📊 Resultados Anuales para {comunidad}")
         
-        # CONSTANTES DE CÁLCULO
-        ALQUILER_CONTADOR = 0.81  # €/mes
-        FINANCIACION_BONO_SOCIAL = 0.03  # €/día
-        IMPUESTO_ELECTRICO = 0.0511  # 5.11%
-        DESCUENTO_PRIMERA_FACTURA = 5.00  # €
+        ALQUILER_CONTADOR = 0.81
+        FINANCIACION_BONO_SOCIAL = 0.03
+        IMPUESTO_ELECTRICO = 0.0511
+        DESCUENTO_PRIMERA_FACTURA = 5.00
         DIAS_ANUAL = 365
         
-        # Determinar IVA según ubicación
-        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21  # 21% península, 0% Canarias
+        iva_porcentaje = 0.0 if comunidad == "Canarias" else 0.21
         
-        # Calcular costes anuales para cada plan
         resultados = []
         
         for _, plan in planes_disponibles.iterrows():
-            # Determinar precio según PI y Pack Iberdrola
             if tiene_pi == "Sí":
                 precio_kwh = plan['con_pi_kwh']
                 coste_pack = plan['pack_iberdrola'] if pack_iberdrola == "Sí" else 0.0
             else:
                 precio_kwh = plan['sin_pi_kwh'] 
-                coste_pack = 0.0  # Sin Pack Iberdrola si no tiene PI
+                coste_pack = 0.0
             
-            # CÁLCULOS ANUALES
             coste_consumo_anual = consumo * precio_kwh
             coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
-            coste_alquiler_anual = ALQUILER_CONTADOR * 12  # 12 meses
+            coste_alquiler_anual = ALQUILER_CONTADOR * 12
             coste_financiacion_anual = FINANCIACION_BONO_SOCIAL * DIAS_ANUAL
-            coste_pack_anual = coste_pack * 12  # 12 meses
+            coste_pack_anual = coste_pack * 12
             
-            # SUBTOTAL ANUAL
             subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_financiacion_anual + coste_pack_anual
-            
-            # IMPUESTOS ANUALES
             impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
             iva_anual = (subtotal_anual + impuesto_electrico_anual) * iva_porcentaje
-            
-            # TOTAL ANUAL (solo un descuento de primera factura)
             total_anual = subtotal_anual + impuesto_electrico_anual + iva_anual - DESCUENTO_PRIMERA_FACTURA
             mensual = total_anual / 12
             
@@ -820,17 +764,14 @@ def calcular_electricidad_anual(potencia, consumo, tiene_pi, pack_iberdrola, cod
                 'Mensual': round(mensual, 2)
             })
         
-        # Mostrar resultados en tabla
         df_resultados = pd.DataFrame(resultados)
         st.dataframe(df_resultados, use_container_width=True)
         
-        # Mostrar el plan más económico
         if not df_resultados.empty:
             mejor_plan = df_resultados.loc[df_resultados['Total Anual'].idxmin()]
             st.success(f"🎯 **MEJOR OPCIÓN ANUAL**: {mejor_plan['Plan']}")
             st.info(f"💶 **{mejor_plan['Total Anual']}€/año** ({mejor_plan['Mensual']}€/mes)")
             
-            # Gráfico comparativo
             st.write("### 📈 Comparativa Anual")
             chart_data = df_resultados.set_index('Plan')['Total Anual']
             st.bar_chart(chart_data)
@@ -844,8 +785,6 @@ def calcular_gas(consumo, tipo_red, tiene_pmg):
     st.write(f"- **Consumo**: {consumo} kWh")
     st.write(f"- **Tipo Red**: {tipo_red}")
     st.write(f"- **PMG**: {tiene_pmg}")
-    
-    # Aquí implementaremos la lógica específica del gas cuando tengamos los datos
     st.warning("⚠️ Los cálculos de gas estarán disponibles pronto")
 
 if __name__ == "__main__":
