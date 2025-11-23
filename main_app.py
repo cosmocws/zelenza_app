@@ -3,6 +3,30 @@ import pandas as pd
 import os
 from auth import authenticate
 
+# Lista de comunidades autónomas españolas
+COMUNIDADES_AUTONOMAS = [
+    "Toda España",
+    "Andalucía",
+    "Aragón",
+    "Asturias",
+    "Baleares",
+    "Canarias",
+    "Cantabria",
+    "Castilla-La Mancha",
+    "Castilla y León",
+    "Cataluña",
+    "Comunidad Valenciana",
+    "Extremadura",
+    "Galicia",
+    "Madrid",
+    "Murcia",
+    "Navarra",
+    "País Vasco",
+    "La Rioja",
+    "Ceuta",
+    "Melilla"
+]
+
 # Configuración inicial de la página
 st.set_page_config(
     page_title="Zelenza CEX - Iberdrola",
@@ -20,20 +44,53 @@ def inicializar_datos():
     os.makedirs("modelos_facturas/naturgy", exist_ok=True)
     os.makedirs("modelos_facturas/otros", exist_ok=True)
     
-    # Datos iniciales de electricidad si no existen
+    # Crear archivo VACÍO de electricidad si no existe
     if not os.path.exists("data/precios_luz.csv"):
-        datos_luz = {
-            'plan': ['IMPULSA 24h', 'ESTABLE', 'PLANAZO', 'HOGAR', 'ESPECIAL PLUS'],
-            'precio_original_kwh': [0.173, 0.175, 0.189, 0.189, 0.148],
-            'con_pi_kwh': [0.130, 0.140, 0.151, 0.151, 0.118],
-            'sin_pi_kwh': [0.138, 0.149, 0.161, 0.161, 0.125],
-            'punta': [0.116, 0.108, 0.108, 0.085, 0.108],
-            'valle': [0.046, 0.046, 0.046, 0.046, 0.046],
-            'total_potencia': [0.162, 0.154, 0.154, 0.131, 0.154],
-            'activo': [True, True, True, True, True]
-        }
-        pd.DataFrame(datos_luz).to_csv("data/precios_luz.csv", index=False)
-        st.sidebar.success("✅ Datos iniciales de electricidad creados")
+        df_vacio = pd.DataFrame(columns=[
+            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+        ])
+        df_vacio.to_csv("data/precios_luz.csv", index=False)
+
+def obtener_comunidad_por_cp(codigo_postal):
+    """
+    Determina la comunidad autónoma basándose en el código postal
+    (Simplificado - en producción usarías una base de datos completa)
+    """
+    try:
+        cp = int(codigo_postal)
+    except:
+        return None
+    
+    # Mapeo simplificado de códigos postales a comunidades
+    comunidades_cp = {
+        "Andalucía": [range(1000, 2399), range(29000, 29999), range(41000, 41999)],
+        "Aragón": [range(22000, 22999), range(50000, 50999)],
+        "Asturias": [range(33000, 33999)],
+        "Baleares": [range(7000, 7999)],
+        "Canarias": [range(35000, 35999), range(38000, 38999)],
+        "Cantabria": [range(39000, 39999)],
+        "Castilla-La Mancha": [range(2000, 4999), range(13000, 13999), range(16000, 16999), range(19000, 19999)],
+        "Castilla y León": [range(500, 999), range(9000, 4999), range(24000, 24999), range(37000, 37999), range(40000, 40999), range(42000, 42999), range(47000, 47999), range(49000, 49999)],
+        "Cataluña": [range(8000, 8999), range(17000, 17999), range(25000, 25999), range(43000, 43999)],
+        "Comunidad Valenciana": [range(3000, 6999), range(12000, 12999), range(46000, 46999)],
+        "Extremadura": [range(6000, 6999), range(10000, 10999)],
+        "Galicia": [range(15000, 15999), range(27000, 27999), range(32000, 32999), range(36000, 36999)],
+        "Madrid": [range(28000, 28999)],
+        "Murcia": [range(30000, 30999)],
+        "Navarra": [range(31000, 31999)],
+        "País Vasco": [range(100, 199), range(48000, 48999)],
+        "La Rioja": [range(26000, 26999)],
+        "Ceuta": [range(51000, 51999)],
+        "Melilla": [range(52000, 52999)]
+    }
+    
+    for comunidad, rangos in comunidades_cp.items():
+        for rango in rangos:
+            if cp in rango:
+                return comunidad
+    
+    return None
 
 def main():
     # Inicializar datos
@@ -159,15 +216,21 @@ def gestion_electricidad():
         *Útil para desactivar planes temporales o promociones finalizadas sin eliminarlos.*
         """)
     
-    # Cargar datos actuales
+    # Cargar datos actuales - MANEJO MEJORADO PARA ARCHIVOS VACÍOS
     try:
         df_luz = pd.read_csv("data/precios_luz.csv")
-        st.success("✅ Datos de electricidad cargados correctamente")
-    except FileNotFoundError:
-        st.warning("⚠️ No hay datos de electricidad. Se crearán datos iniciales.")
+        # Si el DataFrame está vacío, crear uno nuevo
+        if df_luz.empty:
+            df_luz = pd.DataFrame(columns=[
+                'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+                'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
+            ])
+            st.info("📝 No hay planes configurados. ¡Crea el primero!")
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        st.warning("⚠️ No hay datos de electricidad. ¡Crea tu primer plan!")
         df_luz = pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo'
+            'punta', 'valle', 'total_potencia', 'activo', 'comunidades'
         ])
     
     # Mostrar datos actuales con opción de edición
@@ -256,6 +319,23 @@ def gestion_electricidad():
                                            value=st.session_state.editing_plan['total_potencia'] if st.session_state.editing_plan else 0.162)
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan['activo'] if st.session_state.editing_plan else True)
+            
+            # NUEVO CAMPO: Comunidades autónomas
+            # Manejar el caso cuando comunidades es string (legado) o lista
+            comunidades_default = ["Toda España"]
+            if st.session_state.editing_plan:
+                if isinstance(st.session_state.editing_plan['comunidades'], list):
+                    comunidades_default = st.session_state.editing_plan['comunidades']
+                elif st.session_state.editing_plan['comunidades'] and isinstance(st.session_state.editing_plan['comunidades'], str):
+                    # Convertir string a lista si es necesario
+                    comunidades_default = [st.session_state.editing_plan['comunidades']]
+            
+            comunidades = st.multiselect(
+                "Comunidades Autónomas*",
+                options=COMUNIDADES_AUTONOMAS,
+                default=comunidades_default
+            )
+            st.caption("Selecciona 'Toda España' o comunidades específicas")
         
         # Botones diferentes según si estamos editando o creando
         if st.session_state.editing_plan is not None:
@@ -270,6 +350,8 @@ def gestion_electricidad():
         if submitted:
             if not nombre_plan:
                 st.error("❌ El nombre del plan es obligatorio")
+            elif not comunidades:
+                st.error("❌ Debes seleccionar al menos una comunidad autónoma")
             else:
                 # Mostrar confirmación
                 with st.container():
@@ -288,7 +370,8 @@ def gestion_electricidad():
                                 'punta': punta,
                                 'valle': valle,
                                 'total_potencia': total_potencia,
-                                'activo': activo
+                                'activo': activo,
+                                'comunidades': comunidades  # NUEVO CAMPO
                             }
                             
                             # Añadir o actualizar el plan
@@ -335,9 +418,8 @@ def gestion_electricidad():
                         st.info("Eliminación cancelada")
 
 def gestion_gas():
-    st.subheader("Gestión de Planes de Gas")
-    st.info("Aquí podrás configurar los precios de los planes de gas")
-    # (Implementaremos en el siguiente paso)
+    st.subheader("🔥 Gestión de Planes de Gas")
+    st.info("Funcionalidad en desarrollo...")
 
 def gestion_modelos_factura():
     st.subheader("📄 Gestión de Modelos de Factura")
@@ -410,18 +492,84 @@ def consultar_modelos_factura():
 
 def calculadora_diaria():
     st.subheader("⚡ Calculadora Diaria de Electricidad")
-    st.info("Calcula el coste para un período específico")
-    # (Implementaremos en el siguiente paso)
+    st.info("Calcula el coste para un período específico según tu ubicación")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        codigo_postal = st.text_input("Código Postal*", placeholder="28001", max_length=5)
+        dias = st.number_input("Días del período", min_value=1, value=30)
+        potencia = st.number_input("Potencia contratada (kW)", min_value=1.0, value=3.3)
+    
+    with col2:
+        consumo = st.number_input("Consumo (kWh)", min_value=0.0, value=250.0)
+        tiene_pi = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"])
+    
+    # Validar código postal
+    if st.button("Calcular", type="primary"):
+        if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
+            st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
+        else:
+            # Aquí irá la lógica de cálculo filtrada por comunidad autónoma
+            comunidad = obtener_comunidad_por_cp(codigo_postal)
+            if comunidad:
+                st.success(f"📍 Ubicación detectada: {comunidad}")
+                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, comunidad)
+            else:
+                st.error("❌ No se pudo determinar la comunidad autónoma. Usando cálculo general.")
+                calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, "Toda España")
 
 def calculadora_anual():
     st.subheader("📅 Calculadora Anual de Electricidad")
     st.info("Calcula el coste anual estimado")
-    # (Implementaremos en el siguiente paso)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        codigo_postal = st.text_input("Código Postal*", placeholder="28001", max_length=5, key="cp_anual")
+        potencia_anual = st.number_input("Potencia contratada anual (kW)", min_value=1.0, value=3.3, key="pot_anual")
+    
+    with col2:
+        consumo_anual = st.number_input("Consumo anual (kWh)", min_value=0.0, value=7500.0)
+        tiene_pi_anual = st.radio("¿Tiene Pensión Igualatoria?", ["Sí", "No"], key="pi_anual")
+    
+    if st.button("Calcular Anual", type="primary"):
+        if not codigo_postal or not codigo_postal.isdigit() or len(codigo_postal) != 5:
+            st.error("❌ Por favor, introduce un código postal válido (5 dígitos)")
+        else:
+            comunidad = obtener_comunidad_por_cp(codigo_postal)
+            if comunidad:
+                st.success(f"📍 Ubicación detectada: {comunidad}")
+                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, codigo_postal, comunidad)
+            else:
+                st.error("❌ No se pudo determinar la comunidad autónoma. Usando cálculo general.")
+                calcular_electricidad_anual(potencia_anual, consumo_anual, tiene_pi_anual, codigo_postal, "Toda España")
 
 def calculadora_gas():
     st.subheader("🔥 Calculadora de Gas")
     st.info("Calcula el coste de tu consumo de gas")
-    # (Implementaremos en el siguiente paso)
+    
+    consumo_gas = st.number_input("Consumo de gas (kWh)", min_value=0.0, value=1000.0)
+    tipo_red = st.selectbox("Tipo de Red Local", ["RL1", "RL2", "RL3"])
+    tiene_pmg = st.radio("¿Tiene PMG?", ["Sí", "No"])
+    
+    if st.button("Calcular Gas", type="primary"):
+        calcular_gas(consumo_gas, tipo_red, tiene_pmg)
+
+# Funciones de cálculo (placeholder)
+def calcular_electricidad_diaria(dias, potencia, consumo, tiene_pi, codigo_postal, comunidad):
+    st.info("🔧 Cálculos en desarrollo...")
+    st.write(f"Parámetros recibidos: {dias} días, {potencia} kW, {consumo} kWh, PI: {tiene_pi}")
+    st.write(f"Ubicación: CP {codigo_postal} - {comunidad}")
+    # Aquí implementaremos la lógica basada en tu tabla
+
+def calcular_electricidad_anual(potencia, consumo, tiene_pi, codigo_postal, comunidad):
+    st.info("🔧 Cálculos anuales en desarrollo...")
+    st.write(f"Parámetros recibidos: {potencia} kW, {consumo} kWh, PI: {tiene_pi}")
+    st.write(f"Ubicación: CP {codigo_postal} - {comunidad}")
+
+def calcular_gas(consumo, tipo_red, tiene_pmg):
+    st.info("🔧 Cálculos de gas en desarrollo...")
 
 if __name__ == "__main__":
     main()
