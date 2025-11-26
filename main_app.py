@@ -1035,13 +1035,31 @@ def calculadora_gas():
                 "**Consumo anual estimado (kWh):**", 
                 min_value=0, value=5000, step=100
             )
-        else:
+            # Campo para lo que paga actualmente (anual)
+            costo_actual_input = st.number_input(
+                "**¿Cuánto pagas actualmente al año? (€):**",
+                min_value=0.0, value=600.0, step=10.0,
+                help="Introduce lo que pagas actualmente por gas al año"
+            )
+            costo_actual_anual = costo_actual_input
+            costo_actual_mensual = costo_actual_anual / 12
+            
+        else:  # Cálculo exacto mes actual
             consumo_mes = st.number_input(
                 "**Consumo del mes actual (kWh):**", 
                 min_value=0, value=300, step=10
             )
             consumo_anual = consumo_mes * 12
             st.info(f"Consumo anual estimado: {consumo_anual:,.0f} kWh")
+            
+            # Campo para lo que pagó este mes
+            costo_actual_input = st.number_input(
+                "**¿Cuánto pagaste este mes? (€):**",
+                min_value=0.0, value=50.0, step=5.0,
+                help="Introduce lo que pagaste en tu última factura de gas"
+            )
+            costo_actual_mensual = costo_actual_input
+            costo_actual_anual = costo_actual_mensual * 12
     
     with col2:
         tiene_pmg = st.checkbox("**¿Contratar PMG?**", value=True,
@@ -1060,36 +1078,93 @@ def calculadora_gas():
                 coste_anual = calcular_coste_gas_completo(
                     plan, consumo_anual, tiene_pmg, es_canarias
                 )
+                coste_mensual = coste_anual / 12
                 
                 # Calcular ahorro vs precio original
                 coste_original = consumo_anual * plan["precio_original_kwh"]
-                ahorro = coste_original - coste_anual
+                ahorro_vs_original = coste_original - coste_anual
+                
+                # Calcular ahorro vs lo que paga actualmente
+                ahorro_vs_actual_anual = costo_actual_anual - coste_anual
+                ahorro_vs_actual_mensual = ahorro_vs_actual_anual / 12
                 
                 # Determinar si es recomendado
                 recomendado = "✅" if rl == rl_recomendado else ""
                 
+                # Determinar estado del ahorro
+                if ahorro_vs_actual_anual > 0:
+                    estado = "💚 Ahorras"
+                elif ahorro_vs_actual_anual == 0:
+                    estado = "⚖️ Igual"
+                else:
+                    estado = "🔴 Pagas más"
+                
                 resultados.append({
                     "Plan": rl,
                     "Rango": plan["rango"],
+                    "Coste Mensual": f"€{coste_mensual:,.2f}",
                     "Coste Anual": f"€{coste_anual:,.2f}",
-                    "Ahorro vs Original": f"€{ahorro:,.2f}",
+                    "Ahorro vs Actual Mes": f"€{ahorro_vs_actual_mensual:,.2f}",
+                    "Ahorro vs Actual Año": f"€{ahorro_vs_actual_anual:,.2f}",
+                    "Ahorro vs Original": f"€{ahorro_vs_original:,.2f}",
+                    "Estado": estado,
                     "Recomendado": recomendado
                 })
         
         # Mostrar resultados
         if resultados:
-            df_resultados = pd.DataFrame(resultados)
-            st.dataframe(df_resultados, use_container_width=True)
+            # Mostrar métricas principales
+            st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
+            
+            # Información del cálculo
+            info_tipo = "ESTIMACIÓN ANUAL" if tipo_calculo == "📊 Estimación anual" else "CÁLCULO EXACTO"
+            info_consumo = f"{consumo_anual:,.0f} kWh/año"
+            info_costo_actual = f"€{costo_actual_anual:,.2f}/año (€{costo_actual_mensual:,.2f}/mes)"
+            
+            st.info(f"**Tipo:** {info_tipo} | **Consumo:** {info_consumo} | **Actual:** {info_costo_actual}")
+            
+            # Métricas principales
+            mejor_plan = max(resultados, key=lambda x: float(x['Ahorro vs Actual Año'].replace('€', '').replace(',', '')))
+            
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.metric("💶 Actual Mensual", f"€{costo_actual_mensual:,.2f}")
+            with col2:
+                coste_mejor_mensual = float(mejor_plan['Coste Mensual'].replace('€', '').replace(',', ''))
+                st.metric("💰 Mejor Mensual", f"€{coste_mejor_mensual:,.2f}")
+            with col3:
+                ahorro_mensual = float(mejor_plan['Ahorro vs Actual Mes'].replace('€', '').replace(',', ''))
+                st.metric("📈 Ahorro Mensual", f"€{ahorro_mensual:,.2f}", 
+                         delta=f"€{ahorro_mensual:,.2f}" if ahorro_mensual > 0 else None)
+            with col4:
+                ahorro_anual = float(mejor_plan['Ahorro vs Actual Año'].replace('€', '').replace(',', ''))
+                st.metric("🎯 Ahorro Anual", f"€{ahorro_anual:,.2f}")
+            
+            # Tabla comparativa completa
+            st.dataframe(resultados, use_container_width=True)
             
             # Mostrar detalles del PMG
             coste_pmg_anual = calcular_pmg(tiene_pmg, es_canarias)
             if tiene_pmg:
                 st.info(f"**📦 Coste PMG anual:** €{coste_pmg_anual:,.2f} ({pmg_coste}€/mes {'sin IVA' if es_canarias else 'con IVA'})")
             
-            # Recomendación
+            # Recomendación detallada
             plan_recomendado = next((p for p in resultados if p['Recomendado'] == '✅'), None)
             if plan_recomendado:
-                st.success(f"🎯 **RECOMENDACIÓN**: Plan {plan_recomendado['Plan']} - {plan_recomendado['Rango']} - Coste anual: {plan_recomendado['Coste Anual']}")
+                ahorro_mensual_rec = float(plan_recomendado['Ahorro vs Actual Mes'].replace('€', '').replace(',', ''))
+                ahorro_anual_rec = float(plan_recomendado['Ahorro vs Actual Año'].replace('€', '').replace(',', ''))
+                
+                if ahorro_mensual_rec > 0:
+                    mensaje = f"🎯 **RECOMENDACIÓN**: Plan {plan_recomendado['Plan']} - {plan_recomendado['Rango']}"
+                    mensaje += f" - Ahorras {ahorro_mensual_rec:,.2f}€/mes ({ahorro_anual_rec:,.2f}€/año)"
+                    st.success(mensaje)
+                elif ahorro_mensual_rec == 0:
+                    st.info(f"ℹ️ Con el Plan {plan_recomendado['Plan']} pagarías lo mismo que actualmente")
+                else:
+                    st.warning(f"⚠️ Con el Plan {plan_recomendado['Plan']} pagarías {abs(ahorro_mensual_rec):,.2f}€/mes más")
+        
+        else:
+            st.warning("No hay planes de gas activos para mostrar")
 
 def cups_naturgy():
     st.subheader("📋 CUPS Naturgy")
