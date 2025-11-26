@@ -662,7 +662,7 @@ def gestion_modelos_factura():
             
             st.success(f"✅ Modelo para {empresa_seleccionada} guardado correctamente")
             if archivo.type.startswith('image'):
-                st.image(archivo, caption=f"Modelo de factura - {empresa_seleccionada}", use_column_width=True)
+                st.image(archivo, caption=f"Modelo de factura - {empresa_seleccionada}", use_container_width=True)
     
     # GESTIÓN Y ELIMINACIÓN DE EMPRESAS Y ARCHIVOS
     if empresas_existentes:
@@ -789,7 +789,7 @@ def consultar_modelos_factura():
             ruta_completa = os.path.join(carpeta_empresa, archivo)
             st.write(f"**Modelo:** {archivo}")
             if archivo.lower().endswith(('.png', '.jpg', '.jpeg')):
-                st.image(ruta_completa, use_column_width=True)
+                st.image(ruta_completa, use_container_width=True)
             st.markdown("---")
     else:
         st.warning(f"⚠️ No hay modelos de factura subidos para {empresa_seleccionada}")
