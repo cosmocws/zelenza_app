@@ -1018,7 +1018,7 @@ def calculadora_gas():
         pmg_coste = PMG_COSTE
         pmg_iva = PMG_IVA
     
-    st.info("Compara planes de gas con cálculo EXACTO o ESTIMADO")
+    st.info("Compara planes de gas con cálculo EXACTO o ESTIMADO - Se muestran ambos precios CON y SIN Pack Mantenimiento Gas")
     
     # Tipo de cálculo
     tipo_calculo = st.radio(
@@ -1062,8 +1062,7 @@ def calculadora_gas():
             costo_actual_anual = costo_actual_mensual * 12
     
     with col2:
-        tiene_pmg = st.checkbox("**¿Contratar PMG?**", value=True,
-                               help="Pack Mantenimiento Gas - Mantenimiento y asistencia")
+        # ELIMINAMOS el checkbox de PMG ya que mostraremos ambas opciones
         es_canarias = st.checkbox("**¿Ubicación en Canarias?**", 
                                  help="No aplica IVA en Canarias")
     
@@ -1075,41 +1074,67 @@ def calculadora_gas():
         
         for rl, plan in planes_gas.items():
             if plan["activo"]:
-                coste_anual = calcular_coste_gas_completo(
-                    plan, consumo_anual, tiene_pmg, es_canarias
-                )
-                coste_mensual = coste_anual / 12
-                
-                # Calcular ahorro vs precio original
-                coste_original = consumo_anual * plan["precio_original_kwh"]
-                ahorro_vs_original = coste_original - coste_anual
-                
-                # Calcular ahorro vs lo que paga actualmente
-                ahorro_vs_actual_anual = costo_actual_anual - coste_anual
-                ahorro_vs_actual_mensual = ahorro_vs_actual_anual / 12
-                
-                # Determinar si es recomendado
-                recomendado = "✅" if rl == rl_recomendado else ""
-                
-                # Determinar estado del ahorro
-                if ahorro_vs_actual_anual > 0:
-                    estado = "💚 Ahorras"
-                elif ahorro_vs_actual_anual == 0:
-                    estado = "⚖️ Igual"
-                else:
-                    estado = "🔴 Pagas más"
-                
-                resultados.append({
-                    "Plan": rl,
-                    "Rango": plan["rango"],
-                    "Coste Mensual": f"€{coste_mensual:,.2f}",
-                    "Coste Anual": f"€{coste_anual:,.2f}",
-                    "Ahorro vs Actual Mes": f"€{ahorro_vs_actual_mensual:,.2f}",
-                    "Ahorro vs Actual Año": f"€{ahorro_vs_actual_anual:,.2f}",
-                    "Ahorro vs Original": f"€{ahorro_vs_original:,.2f}",
-                    "Estado": estado,
-                    "Recomendado": recomendado
-                })
+                # Calcular AMBAS opciones: CON PMG y SIN PMG
+                for tiene_pmg in [True, False]:
+                    coste_anual = calcular_coste_gas_completo(
+                        plan, consumo_anual, tiene_pmg, es_canarias
+                    )
+                    coste_mensual = coste_anual / 12
+                    
+                    # Calcular ahorro vs precio original
+                    coste_original = consumo_anual * plan["precio_original_kwh"]
+                    ahorro_vs_original = coste_original - coste_anual
+                    
+                    # Calcular ahorro vs lo que paga actualmente
+                    ahorro_vs_actual_anual = costo_actual_anual - coste_anual
+                    ahorro_vs_actual_mensual = ahorro_vs_actual_anual / 12
+                    
+                    # Determinar si es el RL recomendado
+                    recomendado = "✅" if rl == rl_recomendado else ""
+                    
+                    # Determinar estado del ahorro
+                    if ahorro_vs_actual_anual > 0:
+                        estado = "💚 Ahorras"
+                    elif ahorro_vs_actual_anual == 0:
+                        estado = "⚖️ Igual"
+                    else:
+                        estado = "🔴 Pagas más"
+                    
+                    # Información del PMG
+                    pmg_info = '✅ CON' if tiene_pmg else '❌ SIN'
+                    
+                    # Información adicional
+                    info_extra = ""
+                    if tiene_pmg:
+                        coste_pmg_anual = calcular_pmg(True, es_canarias)
+                        info_extra = f" | 📦 PMG: {coste_pmg_anual/12:.2f}€/mes"
+                    else:
+                        info_extra = " | 📦 Sin PMG"
+                    
+                    # Información de precios
+                    if tiene_pmg:
+                        precio_variable = plan["termino_variable_con_pmg"]
+                        precio_fijo = plan["termino_fijo_con_pmg"]
+                    else:
+                        precio_variable = plan["termino_variable_sin_pmg"]
+                        precio_fijo = plan["termino_fijo_sin_pmg"]
+                    
+                    precio_display = f"Var: {precio_variable:.3f}€ | Fijo: {precio_fijo:.2f}€"
+                    
+                    resultados.append({
+                        "Plan": rl,
+                        "Pack Mantenimiento": pmg_info,
+                        "Precios": precio_display,
+                        "Rango": plan["rango"],
+                        "Coste Mensual": f"€{coste_mensual:,.2f}",
+                        "Coste Anual": f"€{coste_anual:,.2f}",
+                        "Ahorro vs Actual Mes": f"€{ahorro_vs_actual_mensual:,.2f}",
+                        "Ahorro vs Actual Año": f"€{ahorro_vs_actual_anual:,.2f}",
+                        "Ahorro vs Original": f"€{ahorro_vs_original:,.2f}",
+                        "Estado": estado,
+                        "Recomendado": recomendado,
+                        "Info Extra": info_extra
+                    })
         
         # Mostrar resultados
         if resultados:
@@ -1120,12 +1145,14 @@ def calculadora_gas():
             info_tipo = "ESTIMACIÓN ANUAL" if tipo_calculo == "📊 Estimación anual" else "CÁLCULO EXACTO"
             info_consumo = f"{consumo_anual:,.0f} kWh/año"
             info_costo_actual = f"€{costo_actual_anual:,.2f}/año (€{costo_actual_mensual:,.2f}/mes)"
+            info_iva = "Sin IVA" if es_canarias else "Con IVA 21%"
             
-            st.info(f"**Tipo:** {info_tipo} | **Consumo:** {info_consumo} | **Actual:** {info_costo_actual}")
+            st.info(f"**Tipo:** {info_tipo} | **Consumo:** {info_consumo} | **Actual:** {info_costo_actual} | **IVA:** {info_iva}")
             
-            # Métricas principales
+            # Encontrar el mejor plan (mayor ahorro anual)
             mejor_plan = max(resultados, key=lambda x: float(x['Ahorro vs Actual Año'].replace('€', '').replace(',', '')))
             
+            # Métricas principales
             col1, col2, col3, col4 = st.columns(4)
             with col1:
                 st.metric("💶 Actual Mensual", f"€{costo_actual_mensual:,.2f}")
@@ -1143,25 +1170,27 @@ def calculadora_gas():
             # Tabla comparativa completa
             st.dataframe(resultados, use_container_width=True)
             
-            # Mostrar detalles del PMG
-            coste_pmg_anual = calcular_pmg(tiene_pmg, es_canarias)
-            if tiene_pmg:
-                st.info(f"**📦 Coste PMG anual:** €{coste_pmg_anual:,.2f} ({pmg_coste}€/mes {'sin IVA' if es_canarias else 'con IVA'})")
-            
             # Recomendación detallada
-            plan_recomendado = next((p for p in resultados if p['Recomendado'] == '✅'), None)
-            if plan_recomendado:
-                ahorro_mensual_rec = float(plan_recomendado['Ahorro vs Actual Mes'].replace('€', '').replace(',', ''))
-                ahorro_anual_rec = float(plan_recomendado['Ahorro vs Actual Año'].replace('€', '').replace(',', ''))
+            # Encontrar todos los planes recomendados (CON y SIN PMG)
+            planes_recomendados = [p for p in resultados if p['Recomendado'] == '✅']
+            
+            if planes_recomendados:
+                # Encontrar el mejor entre los recomendados
+                mejor_recomendado = max(planes_recomendados, key=lambda x: float(x['Ahorro vs Actual Año'].replace('€', '').replace(',', '')))
+                
+                ahorro_mensual_rec = float(mejor_recomendado['Ahorro vs Actual Mes'].replace('€', '').replace(',', ''))
+                ahorro_anual_rec = float(mejor_recomendado['Ahorro vs Actual Año'].replace('€', '').replace(',', ''))
                 
                 if ahorro_mensual_rec > 0:
-                    mensaje = f"🎯 **RECOMENDACIÓN**: Plan {plan_recomendado['Plan']} - {plan_recomendado['Rango']}"
+                    mensaje = f"🎯 **MEJOR OPCIÓN**: {mejor_recomendado['Plan']} {mejor_recomendado['Pack Mantenimiento']} PMG"
                     mensaje += f" - Ahorras {ahorro_mensual_rec:,.2f}€/mes ({ahorro_anual_rec:,.2f}€/año)"
+                    if mejor_recomendado['Info Extra']:
+                        mensaje += mejor_recomendado['Info Extra']
                     st.success(mensaje)
                 elif ahorro_mensual_rec == 0:
-                    st.info(f"ℹ️ Con el Plan {plan_recomendado['Plan']} pagarías lo mismo que actualmente")
+                    st.info(f"ℹ️ Con {mejor_recomendado['Plan']} {mejor_recomendado['Pack Mantenimiento']} PMG pagarías lo mismo que actualmente")
                 else:
-                    st.warning(f"⚠️ Con el Plan {plan_recomendado['Plan']} pagarías {abs(ahorro_mensual_rec):,.2f}€/mes más")
+                    st.warning(f"⚠️ Con {mejor_recomendado['Plan']} {mejor_recomendado['Pack Mantenimiento']} PMG pagarías {abs(ahorro_mensual_rec):,.2f}€/mes más")
         
         else:
             st.warning("No hay planes de gas activos para mostrar")
