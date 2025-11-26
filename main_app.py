@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import shutil
 
 def authenticate(username, password, user_type):
     try:
@@ -27,26 +28,58 @@ st.set_page_config(
 )
 
 def inicializar_datos():
-    """Inicializa los archivos de datos si no existen"""
+    """Inicializa los archivos de datos con backup automático"""
     os.makedirs("data", exist_ok=True)
     os.makedirs("modelos_facturas", exist_ok=True)
     
-    if not os.path.exists("data/precios_luz.csv"):
-        df_vacio = pd.DataFrame(columns=[
+    # ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
+    archivos_criticos = {
+        "precios_luz.csv": pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
             'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
             'comunidades_autonomas'
-        ])
-        df_vacio.to_csv("data/precios_luz.csv", index=False)
+        ]),
+        "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}])
+    }
     
-    # Archivo para configuración de excedentes
-    if not os.path.exists("data/config_excedentes.csv"):
-        config_excedentes = pd.DataFrame([{
-            'precio_excedente_kwh': 0.06
-        }])
-        config_excedentes.to_csv("data/config_excedentes.csv", index=False)
+    for archivo, df_default in archivos_criticos.items():
+        ruta_data = f"data/{archivo}"
+        ruta_backup = f"data_backup/{archivo}"
+        
+        # Si no existe en data, intentar restaurar desde backup
+        if not os.path.exists(ruta_data):
+            if os.path.exists(ruta_backup):
+                # RESTAURAR desde backup
+                shutil.copy(ruta_backup, ruta_data)
+                st.sidebar.success(f"✅ {archivo} restaurado desde backup")
+            else:
+                # Crear archivo por defecto
+                df_default.to_csv(ruta_data, index=False)
+        
+        # SIEMPRE hacer backup de los datos actuales
+        if os.path.exists(ruta_data):
+            os.makedirs("data_backup", exist_ok=True)
+            shutil.copy(ruta_data, ruta_backup)
+    
+    # BACKUP de modelos_facturas
+    if os.path.exists("modelos_facturas") and os.listdir("modelos_facturas"):
+        os.makedirs("data_backup", exist_ok=True)
+        if os.path.exists("data_backup/modelos_facturas"):
+            shutil.rmtree("data_backup/modelos_facturas")
+        shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
 
 def main():
+    # RESTAURACIÓN AUTOMÁTICA AL INICIAR
+    if os.path.exists("data_backup"):
+        # Restaurar archivos CSV
+        for archivo in ["precios_luz.csv", "config_excedentes.csv"]:
+            if os.path.exists(f"data_backup/{archivo}") and not os.path.exists(f"data/{archivo}"):
+                shutil.copy(f"data_backup/{archivo}", f"data/{archivo}")
+        
+        # Restaurar modelos de factura
+        if os.path.exists("data_backup/modelos_facturas") and not os.path.exists("modelos_facturas"):
+            shutil.copytree("data_backup/modelos_facturas", "modelos_facturas")
+    
     inicializar_datos()
     
     st.title("⚡ Zelenza CEX - Calculadora Iberdrola")
@@ -139,7 +172,7 @@ def mostrar_panel_usuario():
     
     # Comparativas
     st.subheader("🧮 Comparativas")
-    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "📋 CUPS Naturgy"])  # AÑADIR ESTA PESTAÑA
+    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "📋 CUPS Naturgy"])
     
     with tab1:
         comparativa_exacta()
@@ -202,6 +235,9 @@ def gestion_electricidad():
                     'comunidades_autonomas'
                 ])
                 df_vacio.to_csv("data/precios_luz.csv", index=False)
+                # Hacer backup también del reset
+                os.makedirs("data_backup", exist_ok=True)
+                df_vacio.to_csv("data_backup/precios_luz.csv", index=False)
                 st.success("✅ Datos reseteados correctamente. Ahora puedes crear tus propios planes.")
                 st.session_state.show_reset_confirmation = False
                 # Limpiar también otros estados si existen
@@ -395,7 +431,7 @@ def gestion_electricidad():
                     'valle': valle,
                     'total_potencia': total_potencia,
                     'activo': activo,
-                    'comunidades_autonomas': ';'.join(comunidades_seleccionadas)  # NUEVO CAMPO
+                    'comunidades_autonomas': ';'.join(comunidades_seleccionadas)
                 }
                 
                 # Si estamos editando, mantener el umbral existente
@@ -441,8 +477,11 @@ def gestion_electricidad():
                     df_luz = pd.concat([df_luz, pd.DataFrame([nuevo_plan])], ignore_index=True)
                     st.success(f"✅ Plan '{nuevo_plan['plan']}' añadido correctamente")
                 
-                # Guardar y limpiar estado
+                # Guardar y hacer BACKUP
                 df_luz.to_csv("data/precios_luz.csv", index=False)
+                os.makedirs("data_backup", exist_ok=True)
+                shutil.copy("data/precios_luz.csv", "data_backup/precios_luz.csv")
+                
                 st.session_state.editing_plan = None
                 st.session_state.show_confirmation = False
                 st.session_state.pending_plan = None
@@ -494,7 +533,7 @@ def gestion_electricidad():
                     max_value=100.0, 
                     value=float(plan_especial_plus.get('umbral_especial_plus', 15.00)),
                     format="%.2f",
-                    help="El plan ESPECIAL PLUS aparecerá solo si el ahorro máximo de otros planes es menor a este valor"
+                    help="El plan ESPECIAL PLUS aparecerá solo si el máximo ahorro de otros planes es menor a este valor"
                 )
             
             with col_umb2:
@@ -507,6 +546,9 @@ def gestion_electricidad():
                 idx = df_luz[df_luz['plan'] == plan_especial_plus['plan']].index[0]
                 df_luz.at[idx, 'umbral_especial_plus'] = nuevo_umbral
                 df_luz.to_csv("data/precios_luz.csv", index=False)
+                # Hacer BACKUP
+                os.makedirs("data_backup", exist_ok=True)
+                shutil.copy("data/precios_luz.csv", "data_backup/precios_luz.csv")
                 st.success(f"✅ Umbral actualizado a {nuevo_umbral}€ para {plan_especial_plus['plan']}")
                 st.rerun()
         
@@ -539,6 +581,9 @@ def gestion_electricidad():
             if st.button("✅ Sí, eliminar", type="primary"):
                 df_luz = df_luz[df_luz['plan'] != st.session_state.pending_elimination]
                 df_luz.to_csv("data/precios_luz.csv", index=False)
+                # Hacer BACKUP
+                os.makedirs("data_backup", exist_ok=True)
+                shutil.copy("data/precios_luz.csv", "data_backup/precios_luz.csv")
                 st.success(f"✅ Plan '{st.session_state.pending_elimination}' eliminado correctamente")
                 if hasattr(st.session_state, 'pending_elimination'):
                     del st.session_state.pending_elimination
@@ -577,6 +622,12 @@ def gestion_modelos_factura():
             # Crear carpeta para la nueva empresa
             carpeta_empresa = f"modelos_facturas/{nueva_empresa.lower().replace(' ', '_')}"
             os.makedirs(carpeta_empresa, exist_ok=True)
+            # Hacer BACKUP
+            if os.path.exists("modelos_facturas"):
+                os.makedirs("data_backup", exist_ok=True)
+                if os.path.exists("data_backup/modelos_facturas"):
+                    shutil.rmtree("data_backup/modelos_facturas")
+                shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
             st.success(f"✅ Empresa '{nueva_empresa}' creada correctamente")
             st.rerun()
     
@@ -602,6 +653,13 @@ def gestion_modelos_factura():
             with open(ruta_archivo, "wb") as f:
                 f.write(archivo.getbuffer())
             
+            # Hacer BACKUP
+            if os.path.exists("modelos_facturas"):
+                os.makedirs("data_backup", exist_ok=True)
+                if os.path.exists("data_backup/modelos_facturas"):
+                    shutil.rmtree("data_backup/modelos_facturas")
+                shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
+            
             st.success(f"✅ Modelo para {empresa_seleccionada} guardado correctamente")
             if archivo.type.startswith('image'):
                 st.image(archivo, caption=f"Modelo de factura - {empresa_seleccionada}", use_column_width=True)
@@ -626,6 +684,12 @@ def gestion_modelos_factura():
                     if st.button("🗑️", key=f"del_{archivo}"):
                         ruta_archivo = os.path.join(carpeta_empresa, archivo)
                         os.remove(ruta_archivo)
+                        # Hacer BACKUP después de eliminar
+                        if os.path.exists("modelos_facturas"):
+                            os.makedirs("data_backup", exist_ok=True)
+                            if os.path.exists("data_backup/modelos_facturas"):
+                                shutil.rmtree("data_backup/modelos_facturas")
+                            shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
                         st.success(f"✅ Archivo '{archivo}' eliminado")
                         st.rerun()
             
@@ -634,6 +698,12 @@ def gestion_modelos_factura():
                 for archivo in archivos_empresa:
                     ruta_archivo = os.path.join(carpeta_empresa, archivo)
                     os.remove(ruta_archivo)
+                # Hacer BACKUP después de eliminar
+                if os.path.exists("modelos_facturas"):
+                    os.makedirs("data_backup", exist_ok=True)
+                    if os.path.exists("data_backup/modelos_facturas"):
+                        shutil.rmtree("data_backup/modelos_facturas")
+                    shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
                 st.success(f"✅ Todos los archivos de {empresa_gestion} eliminados")
                 st.rerun()
         else:
@@ -644,6 +714,12 @@ def gestion_modelos_factura():
         if not archivos_empresa:
             if st.button("🗑️ Eliminar esta empresa", type="primary"):
                 os.rmdir(carpeta_empresa)
+                # Hacer BACKUP después de eliminar
+                if os.path.exists("modelos_facturas"):
+                    os.makedirs("data_backup", exist_ok=True)
+                    if os.path.exists("data_backup/modelos_facturas"):
+                        shutil.rmtree("data_backup/modelos_facturas")
+                    shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
                 st.success(f"✅ Empresa '{empresa_gestion}' eliminada")
                 st.rerun()
         else:
@@ -676,6 +752,9 @@ def gestion_excedentes():
         if st.form_submit_button("💾 Guardar Precio", type="primary"):
             config_excedentes = pd.DataFrame([{'precio_excedente_kwh': nuevo_precio}])
             config_excedentes.to_csv("data/config_excedentes.csv", index=False)
+            # Hacer BACKUP
+            os.makedirs("data_backup", exist_ok=True)
+            shutil.copy("data/config_excedentes.csv", "data_backup/config_excedentes.csv")
             st.success(f"✅ Precio de excedente actualizado a {nuevo_precio}€/kWh")
             st.rerun()
     
@@ -832,7 +911,7 @@ def cups_naturgy():
     
     st.caption("💡 Se abrirá en una nueva pestaña (el usuario puede hacer Click derecho y buscar modo incógnito en caso de que no cargue correctamente)")
 
-# --- FUNCIONES DE CÁLCULO ACTUALIZADAS ---
+# --- FUNCIONES DE CÁLCULO (MANTENIDAS) ---
 def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad, excedente_kwh=0.0):
     """Calcula comparación exacta con factura actual - Muestra CON y SIN PI"""
     try:
