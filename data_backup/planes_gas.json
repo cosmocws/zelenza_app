@@ -1,0 +1,29 @@
+{
+    "RL1": {
+        "precio_original_kwh": 0.1,
+        "termino_variable_con_pmg": 0.08,
+        "termino_variable_sin_pmg": 0.085,
+        "termino_fijo_con_pmg": 5.24,
+        "termino_fijo_sin_pmg": 5.568,
+        "rango": "0-5000 kWh anuales",
+        "activo": true
+    },
+    "RL2": {
+        "precio_original_kwh": 0.099,
+        "termino_variable_con_pmg": 0.079,
+        "termino_variable_sin_pmg": 0.084,
+        "termino_fijo_con_pmg": 8.944,
+        "termino_fijo_sin_pmg": 9.503,
+        "rango": "5000-15000 kWh anuales",
+        "activo": true
+    },
+    "RL3": {
+        "precio_original_kwh": 0.098,
+        "termino_variable_con_pmg": 0.078,
+        "termino_variable_sin_pmg": 0.083,
+        "termino_fijo_con_pmg": 17.224,
+        "termino_fijo_sin_pmg": 18.301,
+        "rango": "15000-50000 kWh anuales",
+        "activo": true
+    }
+}
