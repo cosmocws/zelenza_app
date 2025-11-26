@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import shutil
+import json
 
 def authenticate(username, password, user_type):
     try:
@@ -32,17 +33,17 @@ def inicializar_datos():
     os.makedirs("data", exist_ok=True)
     os.makedirs("modelos_facturas", exist_ok=True)
     
-# ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
-archivos_criticos = {
-    "precios_luz.csv": pd.DataFrame(columns=[
-        'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-        'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
-        'comunidades_autonomas'
-    ]),
-    "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}]),
-    "planes_gas.json": json.dumps(PLANES_GAS_ESTRUCTURA, indent=4),
-    "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4)
-}
+    # ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
+    archivos_criticos = {
+        "precios_luz.csv": pd.DataFrame(columns=[
+            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+            'comunidades_autonomas'
+        ]),
+        "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}]),
+        "planes_gas.json": json.dumps(PLANES_GAS_ESTRUCTURA, indent=4),
+        "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4)
+    }
     
     for archivo, df_default in archivos_criticos.items():
         ruta_data = f"data/{archivo}"
@@ -56,7 +57,11 @@ archivos_criticos = {
                 st.sidebar.success(f"✅ {archivo} restaurado desde backup")
             else:
                 # Crear archivo por defecto
-                df_default.to_csv(ruta_data, index=False)
+                if archivo.endswith('.json'):
+                    with open(ruta_data, 'w') as f:
+                        f.write(df_default)
+                else:
+                    df_default.to_csv(ruta_data, index=False)
         
         # SIEMPRE hacer backup de los datos actuales
         if os.path.exists(ruta_data):
@@ -1246,8 +1251,12 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                 
                 # IMPUESTOS
                 impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
-                iva_total = (subtotal + impuesto_electrico) * IVA
-                
+                # Aplicar IVA excepto en Canarias
+                if comunidad != "Canarias":
+                    iva_total = (subtotal + impuesto_electrico) * IVA
+                else:
+                    iva_total = 0  # No hay IVA en Canarias
+                    
                 # TOTAL (con descuento bienvenida, bonificación e ingreso por excedentes)
                 total_bruto = subtotal + impuesto_electrico + iva_total
                 total_neto = total_bruto - DESCUENTO_PRIMERA_FACTURA - bonificacion_mensual - ingreso_excedentes
@@ -1332,6 +1341,8 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
         
         # Información sobre comunidad y excedentes
         info_comunidad = f" | 🗺️ **Comunidad:** {comunidad}"
+        if comunidad == "Canarias":
+            info_comunidad += " | 🏝️ **Sin IVA**"
         if excedente_kwh > 0:
             st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | ☀️ **Excedentes:** {excedente_kwh}kWh x {precio_excedente}€/kWh = +{excedente_kwh * precio_excedente:.2f}€ | Días: {dias} | Consumo neto: {max(0, consumo - excedente_kwh):.1f}kWh")
         else:
@@ -1626,8 +1637,8 @@ def calcular_pmg(tiene_pmg, es_canarias=False):
     return coste_pmg * 12  # Anualizado
 
 def calcular_coste_gas_completo(plan, consumo_kwh, tiene_pmg=True, es_canarias=False):
-    """Calcula coste total de gas incluyendo PMG"""
-    # Coste del gas
+    """Calcula coste total de gas incluyendo PMG e IVA"""
+    # Coste del gas (sin IVA todavía)
     if tiene_pmg:
         termino_fijo = plan["termino_fijo_con_pmg"]
         termino_variable = plan["termino_variable_con_pmg"]
@@ -1637,12 +1648,18 @@ def calcular_coste_gas_completo(plan, consumo_kwh, tiene_pmg=True, es_canarias=F
     
     coste_fijo = termino_fijo * 12  # Anual
     coste_variable = consumo_kwh * termino_variable
-    coste_gas = coste_fijo + coste_variable
+    coste_gas_sin_iva = coste_fijo + coste_variable
     
-    # Coste PMG
+    # Aplicar IVA al gas (excepto Canarias)
+    if not es_canarias:
+        coste_gas_con_iva = coste_gas_sin_iva * (1 + PMG_IVA)
+    else:
+        coste_gas_con_iva = coste_gas_sin_iva
+    
+    # Coste PMG (ya incluye IVA según la función calcular_pmg)
     coste_pmg = calcular_pmg(tiene_pmg, es_canarias)
     
-    return coste_gas + coste_pmg
+    return coste_gas_con_iva + coste_pmg
 
 def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anual=False):
     """
