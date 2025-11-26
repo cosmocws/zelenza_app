@@ -32,15 +32,17 @@ def inicializar_datos():
     os.makedirs("data", exist_ok=True)
     os.makedirs("modelos_facturas", exist_ok=True)
     
-    # ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
-    archivos_criticos = {
-        "precios_luz.csv": pd.DataFrame(columns=[
-            'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
-            'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
-            'comunidades_autonomas'
-        ]),
-        "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}])
-    }
+# ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
+archivos_criticos = {
+    "precios_luz.csv": pd.DataFrame(columns=[
+        'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
+        'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
+        'comunidades_autonomas'
+    ]),
+    "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}]),
+    "planes_gas.json": json.dumps(PLANES_GAS_ESTRUCTURA, indent=4),
+    "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4)
+}
     
     for archivo, df_default in archivos_criticos.items():
         ruta_data = f"data/{archivo}"
@@ -206,6 +208,41 @@ COMUNIDADES_AUTONOMAS = [
     "Ceuta",
     "Melilla"
 ]
+
+# --- ESTRUCTURA DE PLANES DE GAS ---
+PLANES_GAS_ESTRUCTURA = {
+    "RL1": {
+        "precio_original_kwh": 0.045,
+        "termino_variable_con_pmg": 0.038,
+        "termino_variable_sin_pmg": 0.042,
+        "termino_fijo_con_pmg": 8.5,
+        "termino_fijo_sin_pmg": 9.2,
+        "rango": "0-5000 kWh anuales",
+        "activo": True
+    },
+    "RL2": {
+        "precio_original_kwh": 0.043,
+        "termino_variable_con_pmg": 0.036,
+        "termino_variable_sin_pmg": 0.040,
+        "termino_fijo_con_pmg": 12.0,
+        "termino_fijo_sin_pmg": 13.0,
+        "rango": "5000-15000 kWh anuales",
+        "activo": True
+    },
+    "RL3": {
+        "precio_original_kwh": 0.041,
+        "termino_variable_con_pmg": 0.034,
+        "termino_variable_sin_pmg": 0.038,
+        "termino_fijo_con_pmg": 18.0,
+        "termino_fijo_sin_pmg": 19.5,
+        "rango": "15000-50000 kWh anuales",
+        "activo": True
+    }
+}
+
+# Configuración PMG
+PMG_COSTE = 9.95
+PMG_IVA = 0.21  # 21%
 
 # --- FUNCIONES DE ADMINISTRADOR (ACTUALIZADAS) ---
 def gestion_electricidad():
@@ -596,86 +633,112 @@ def gestion_electricidad():
                 st.info("Eliminación cancelada")
                 st.rerun()
 
-def administrar_planes_gas():
-    st.header("🔵 Administrar Planes de Gas")
+def gestion_gas():
+    st.subheader("🔥 Gestión de Planes de Gas")
     
+    # Cargar datos actuales
     try:
         with open('data/planes_gas.json', 'r') as f:
             planes_gas = json.load(f)
     except:
         planes_gas = PLANES_GAS_ESTRUCTURA
     
-    # Selector de plan a editar
-    plan_seleccionado = st.selectbox("Seleccionar plan para editar:", list(planes_gas.keys()))
-    
-    if plan_seleccionado:
-        plan = planes_gas[plan_seleccionado]
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Términos CON PMG")
-            plan["termino_fijo_con_pmg"] = st.number_input(
-                "Término fijo CON PMG (€/mes):", 
-                value=float(plan["termino_fijo_con_pmg"]),
-                key=f"fijo_con_{plan_seleccionado}"
-            )
-            plan["termino_variable_con_pmg"] = st.number_input(
-                "Término variable CON PMG (€/kWh):", 
-                value=float(plan["termino_variable_con_pmg"]),
-                key=f"var_con_{plan_seleccionado}"
-            )
-        
-        with col2:
-            st.subheader("Términos SIN PMG")
-            plan["termino_fijo_sin_pmg"] = st.number_input(
-                "Término fijo SIN PMG (€/mes):", 
-                value=float(plan["termino_fijo_sin_pmg"]),
-                key=f"fijo_sin_{plan_seleccionado}"
-            )
-            plan["termino_variable_sin_pmg"] = st.number_input(
-                "Término variable SIN PMG (€/kWh):", 
-                value=float(plan["termino_variable_sin_pmg"]),
-                key=f"var_sin_{plan_seleccionado}"
-            )
-        
-        plan["precio_original_kwh"] = st.number_input(
-            "Precio original kWh (€):", 
-            value=float(plan["precio_original_kwh"]),
-            key=f"precio_{plan_seleccionado}"
-        )
-        
-        plan["rango"] = st.text_input("Rango de consumo:", 
-                                    value=plan["rango"],
-                                    key=f"rango_{plan_seleccionado}")
-        
-        plan["activo"] = st.checkbox("Plan activo", 
-                                   value=plan["activo"],
-                                   key=f"activo_{plan_seleccionado}")
-        
-        if st.button("💾 Guardar Cambios Plan Gas"):
-            # Asegurar directorio
-            os.makedirs('data', exist_ok=True)
-            
-            with open('data/planes_gas.json', 'w') as f:
-                json.dump(planes_gas, f, indent=4)
-            
-            st.success("✅ Plan de gas actualizado correctamente")
-            
     # Configuración PMG
-    st.subheader("⚙️ Configuración PMG")
-    col1, col2 = st.columns(2)
-    with col1:
-        pmg_coste = st.number_input("Coste PMG (€/mes):", value=PMG_COSTE)
-    with col2:
-        pmg_iva = st.number_input("IVA PMG (%):", value=PMG_IVA * 100) / 100
+    st.write("### ⚙️ Configuración PMG (Pack Mantenimiento Gas)")
     
-    if st.button("💾 Guardar Configuración PMG"):
-        # Guardar configuración PMG
+    col_pmg1, col_pmg2 = st.columns(2)
+    with col_pmg1:
+        pmg_coste = st.number_input("Coste PMG (€/mes):", value=PMG_COSTE, min_value=0.0, format="%.2f")
+    with col_pmg2:
+        pmg_iva = st.number_input("IVA PMG (%):", value=PMG_IVA * 100, min_value=0.0, max_value=100.0, format="%.1f") / 100
+    
+    if st.button("💾 Guardar Configuración PMG", key="guardar_pmg"):
         config_pmg = {"coste": pmg_coste, "iva": pmg_iva}
         with open('data/config_pmg.json', 'w') as f:
             json.dump(config_pmg, f, indent=4)
         st.success("✅ Configuración PMG guardada")
+    
+    st.markdown("---")
+    
+    # Gestión de planes RL
+    st.write("### 📊 Planes de Gas RL1, RL2, RL3")
+    
+    # Mostrar planes actuales
+    for rl, plan in planes_gas.items():
+        with st.expander(f"**{rl}** - {plan['rango']}", expanded=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.write("**Términos CON PMG**")
+                plan["termino_fijo_con_pmg"] = st.number_input(
+                    f"Término fijo CON PMG (€/mes) - {rl}:",
+                    value=float(plan["termino_fijo_con_pmg"]),
+                    min_value=0.0,
+                    format="%.3f",
+                    key=f"fijo_con_{rl}"
+                )
+                plan["termino_variable_con_pmg"] = st.number_input(
+                    f"Término variable CON PMG (€/kWh) - {rl}:",
+                    value=float(plan["termino_variable_con_pmg"]),
+                    min_value=0.0,
+                    format="%.3f",
+                    key=f"var_con_{rl}"
+                )
+            
+            with col2:
+                st.write("**Términos SIN PMG**")
+                plan["termino_fijo_sin_pmg"] = st.number_input(
+                    f"Término fijo SIN PMG (€/mes) - {rl}:",
+                    value=float(plan["termino_fijo_sin_pmg"]),
+                    min_value=0.0,
+                    format="%.3f",
+                    key=f"fijo_sin_{rl}"
+                )
+                plan["termino_variable_sin_pmg"] = st.number_input(
+                    f"Término variable SIN PMG (€/kWh) - {rl}:",
+                    value=float(plan["termino_variable_sin_pmg"]),
+                    min_value=0.0,
+                    format="%.3f",
+                    key=f"var_sin_{rl}"
+                )
+            
+            plan["precio_original_kwh"] = st.number_input(
+                f"Precio original kWh (€) - {rl}:",
+                value=float(plan["precio_original_kwh"]),
+                min_value=0.0,
+                format="%.3f",
+                key=f"precio_{rl}"
+            )
+            
+            plan["activo"] = st.checkbox(f"Plan activo - {rl}", 
+                                       value=plan["activo"],
+                                       key=f"activo_{rl}")
+    
+    # Botón para guardar todos los planes
+    if st.button("💾 Guardar Todos los Planes de Gas", type="primary"):
+        # Asegurar directorio
+        os.makedirs('data', exist_ok=True)
+        
+        with open('data/planes_gas.json', 'w') as f:
+            json.dump(planes_gas, f, indent=4)
+        
+        # Hacer BACKUP
+        os.makedirs("data_backup", exist_ok=True)
+        shutil.copy("data/planes_gas.json", "data_backup/planes_gas.json")
+        
+        st.success("✅ Todos los planes de gas guardados correctamente")
+        st.rerun()
+    
+    # Información de rangos
+    st.markdown("---")
+    st.write("### 📋 Rangos de Consumo Automáticos")
+    st.info("""
+    **RL1**: 0 - 5,000 kWh anuales  
+    **RL2**: 5,001 - 15,000 kWh anuales  
+    **RL3**: 15,001 - 50,000 kWh anuales
+    
+    *El RL se determina automáticamente según el consumo anual introducido*
+    """)
 
 def gestion_modelos_factura():
     st.subheader("📄 Gestión de Modelos de Factura")
@@ -930,10 +993,10 @@ def comparativa_estimada():
     if st.button("📊 Calcular Estimación", type="primary", key="calcular_estimada"):
         calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh)
 
-def comparador_gas():
-    st.header("🔵 Comparador de Planes de Gas")
+def calculadora_gas():
+    st.subheader("🔥 Calculadora de Gas")
     
-    # Cargar planes
+    # Cargar planes de gas
     try:
         with open('data/planes_gas.json', 'r') as f:
             planes_gas = json.load(f)
@@ -949,6 +1012,8 @@ def comparador_gas():
     except:
         pmg_coste = PMG_COSTE
         pmg_iva = PMG_IVA
+    
+    st.info("Compara planes de gas con cálculo EXACTO o ESTIMADO")
     
     # Tipo de cálculo
     tipo_calculo = st.radio(
@@ -979,13 +1044,10 @@ def comparador_gas():
         es_canarias = st.checkbox("**¿Ubicación en Canarias?**", 
                                  help="No aplica IVA en Canarias")
     
-    # Determinar RL recomendado
+    # Determinar RL recomendado automáticamente
     rl_recomendado = determinar_rl_gas(consumo_anual)
-    plan_recomendado = planes_gas[rl_recomendado]
     
-    st.success(f"**🔍 RL Recomendado: {rl_recomendado}** ({plan_recomendado['rango']})")
-    
-    if st.button("🔄 Calcular Comparativa", type="primary"):
+    if st.button("🔄 Calcular Comparativa Gas", type="primary"):
         resultados = []
         
         for rl, plan in planes_gas.items():
@@ -998,12 +1060,15 @@ def comparador_gas():
                 coste_original = consumo_anual * plan["precio_original_kwh"]
                 ahorro = coste_original - coste_anual
                 
+                # Determinar si es recomendado
+                recomendado = "✅" if rl == rl_recomendado else ""
+                
                 resultados.append({
                     "Plan": rl,
                     "Rango": plan["rango"],
                     "Coste Anual": f"€{coste_anual:,.2f}",
                     "Ahorro vs Original": f"€{ahorro:,.2f}",
-                    "Recomendado": "✅" if rl == rl_recomendado else ""
+                    "Recomendado": recomendado
                 })
         
         # Mostrar resultados
@@ -1015,6 +1080,11 @@ def comparador_gas():
             coste_pmg_anual = calcular_pmg(tiene_pmg, es_canarias)
             if tiene_pmg:
                 st.info(f"**📦 Coste PMG anual:** €{coste_pmg_anual:,.2f} ({pmg_coste}€/mes {'sin IVA' if es_canarias else 'con IVA'})")
+            
+            # Recomendación
+            plan_recomendado = next((p for p in resultados if p['Recomendado'] == '✅'), None)
+            if plan_recomendado:
+                st.success(f"🎯 **RECOMENDACIÓN**: Plan {plan_recomendado['Plan']} - {plan_recomendado['Rango']} - Coste anual: {plan_recomendado['Coste Anual']}")
 
 def cups_naturgy():
     st.subheader("📋 CUPS Naturgy")
@@ -1534,6 +1604,46 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, com
     except Exception as e:
         st.error(f"❌ Error en el cálculo anual: {e}")
 
+# --- FUNCIONES DE CÁLCULO PARA GAS ---
+def determinar_rl_gas(consumo_anual):
+    """Determina automáticamente el RL según consumo anual"""
+    if consumo_anual <= 5000:
+        return "RL1"
+    elif consumo_anual <= 15000:
+        return "RL2"
+    else:
+        return "RL3"
+
+def calcular_pmg(tiene_pmg, es_canarias=False):
+    """Calcula el coste del PMG con/sin IVA"""
+    if not tiene_pmg:
+        return 0
+    
+    coste_pmg = PMG_COSTE
+    if not es_canarias:
+        coste_pmg *= (1 + PMG_IVA)
+    
+    return coste_pmg * 12  # Anualizado
+
+def calcular_coste_gas_completo(plan, consumo_kwh, tiene_pmg=True, es_canarias=False):
+    """Calcula coste total de gas incluyendo PMG"""
+    # Coste del gas
+    if tiene_pmg:
+        termino_fijo = plan["termino_fijo_con_pmg"]
+        termino_variable = plan["termino_variable_con_pmg"]
+    else:
+        termino_fijo = plan["termino_fijo_sin_pmg"]
+        termino_variable = plan["termino_variable_sin_pmg"]
+    
+    coste_fijo = termino_fijo * 12  # Anual
+    coste_variable = consumo_kwh * termino_variable
+    coste_gas = coste_fijo + coste_variable
+    
+    # Coste PMG
+    coste_pmg = calcular_pmg(tiene_pmg, es_canarias)
+    
+    return coste_gas + coste_pmg
+
 def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anual=False):
     """
     Calcula el coste para el Plan Ahorro Automático
@@ -1572,71 +1682,6 @@ def calcular_plan_ahorro_automatico(plan, consumo, dias, tiene_pi=False, es_anua
         'consumo_bajo_precio': consumo_bajo_precio,
         'consumo_precio_normal': consumo_precio_normal
     }
-
-# Añadir al panel de administración - Estructura para planes de gas
-PLANES_GAS_ESTRUCTURA = {
-    "RL1": {
-        "precio_original_kwh": 0.045,
-        "termino_variable_con_pmg": 0.038,
-        "termino_variable_sin_pmg": 0.042,
-        "termino_fijo_con_pmg": 8.5,
-        "termino_fijo_sin_pmg": 9.2,
-        "rango": "0-5000 kWh anuales",
-        "activo": True
-    },
-    "RL2": {
-        "precio_original_kwh": 0.043,
-        "termino_variable_con_pmg": 0.036,
-        "termino_variable_sin_pmg": 0.040,
-        "termino_fijo_con_pmg": 12.0,
-        "termino_fijo_sin_pmg": 13.0,
-        "rango": "5000-15000 kWh anuales",
-        "activo": True
-    },
-    "RL3": {
-        "precio_original_kwh": 0.041,
-        "termino_variable_con_pmg": 0.034,
-        "termino_variable_sin_pmg": 0.038,
-        "termino_fijo_con_pmg": 18.0,
-        "termino_fijo_sin_pmg": 19.5,
-        "rango": "15000-50000 kWh anuales",
-        "activo": True
-    }
-}
-
-# Coste del PMG
-PMG_COSTE = 9.95
-PMG_IVA = 0.21  # 21%
-
-def calcular_pmg(tiene_pmg, es_canarias=False):
-    """Calcula el coste del PMG con/sin IVA"""
-    if not tiene_pmg:
-        return 0
-    
-    coste_pmg = PMG_COSTE
-    if not es_canarias:
-        coste_pmg *= (1 + PMG_IVA)
-    
-    return coste_pmg * 12  # Anualizado
-
-def calcular_coste_gas_completo(plan, consumo_kwh, tiene_pmg=True, es_canarias=False):
-    """Calcula coste total de gas incluyendo PMG"""
-    # Coste del gas
-    if tiene_pmg:
-        termino_fijo = plan["termino_fijo_con_pmg"]
-        termino_variable = plan["termino_variable_con_pmg"]
-    else:
-        termino_fijo = plan["termino_fijo_sin_pmg"]
-        termino_variable = plan["termino_variable_sin_pmg"]
-    
-    coste_fijo = termino_fijo * 12  # Anual
-    coste_variable = consumo_kwh * termino_variable
-    coste_gas = coste_fijo + coste_variable
-    
-    # Coste PMG
-    coste_pmg = calcular_pmg(tiene_pmg, es_canarias)
-    
-    return coste_gas + coste_pmg
 
 if __name__ == "__main__":
     main()
