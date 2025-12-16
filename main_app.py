@@ -88,7 +88,7 @@ def inicializar_datos():
     os.makedirs("modelos_facturas", exist_ok=True)
     
     # ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
-     archivos_criticos = {
+    archivos_criticos = {
         "precios_luz.csv": pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
             'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
