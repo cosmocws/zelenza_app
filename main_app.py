@@ -3,22 +3,76 @@ import pandas as pd
 import os
 import shutil
 import json
+import uuid
+from datetime import datetime, timedelta
+
+# --- ESTRUCTURA DE USUARIOS ---
+USUARIOS_DEFAULT = {
+    "user": {
+        "nombre": "Usuario Estándar",
+        "password": "cliente123",
+        "planes_luz": [],
+        "planes_gas": ["RL1", "RL2", "RL3"],
+        "tipo": "user"
+    },
+    "admin": {
+        "nombre": "Administrador",
+        "password": "admin123", 
+        "planes_luz": "TODOS",
+        "planes_gas": "TODOS",
+        "tipo": "admin"
+    }
+}
+
+# --- CONFIGURACIÓN PVD ---
+PVD_CONFIG_DEFAULT = {
+    "agentes_activos": 3,
+    "maximo_simultaneo": 10,
+    "duracion_pvd": 5,  # minutos
+    "sonido_activado": True
+}
+
+# Estados de la cola PVD
+ESTADOS_PVD = {
+    "ESPERANDO": "⏳ Esperando",
+    "EN_CURSO": "▶️ En PVD",
+    "COMPLETADO": "✅ Completado",
+    "CANCELADO": "❌ Cancelado"
+}
 
 def authenticate(username, password, user_type):
     try:
+        # Cargar usuarios desde archivo
+        usuarios_config = cargar_configuracion_usuarios()
+        
         if user_type == "user":
-            return (username == st.secrets["credentials"]["user_username"] and 
-                    password == st.secrets["credentials"]["user_password"])
+            # Verificar si el usuario existe
+            if username in usuarios_config:
+                usuario = usuarios_config[username]
+                # Verificar contraseña
+                try:
+                    password_correcto = password == st.secrets["credentials"]["user_password"]
+                except:
+                    password_correcto = password == usuario.get("password", "cliente123")
+                return password_correcto
+            else:
+                # Usuario estándar
+                try:
+                    return (username == st.secrets["credentials"]["user_username"] and 
+                            password == st.secrets["credentials"]["user_password"])
+                except:
+                    return username == "usuario" and password == "cliente123"
+                    
         elif user_type == "admin":
-            return (username == st.secrets["credentials"]["admin_username"] and 
-                    password == st.secrets["credentials"]["admin_password"])
+            try:
+                return (username == st.secrets["credentials"]["admin_username"] and 
+                        password == st.secrets["credentials"]["admin_password"])
+            except:
+                return username == "admin" and password == "admin123"
+                
         return False
-    except:
-        # Fallback por si no hay secrets
-        if user_type == "user":
-            return username == "usuario" and password == "cliente123"
-        elif user_type == "admin":
-            return username == "admin" and password == "admin123"
+    except Exception as e:
+        st.error(f"Error en autenticación: {e}")
         return False
         
 # Configuración de la página
@@ -34,7 +88,7 @@ def inicializar_datos():
     os.makedirs("modelos_facturas", exist_ok=True)
     
     # ARCHIVOS CRÍTICOS QUE QUEREMOS BACKUPEAR
-    archivos_criticos = {
+     archivos_criticos = {
         "precios_luz.csv": pd.DataFrame(columns=[
             'plan', 'precio_original_kwh', 'con_pi_kwh', 'sin_pi_kwh',
             'punta', 'valle', 'total_potencia', 'activo', 'umbral_especial_plus',
@@ -42,7 +96,10 @@ def inicializar_datos():
         ]),
         "config_excedentes.csv": pd.DataFrame([{'precio_excedente_kwh': 0.06}]),
         "planes_gas.json": json.dumps(PLANES_GAS_ESTRUCTURA, indent=4),
-        "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4)
+        "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4),
+        "usuarios.json": json.dumps(USUARIOS_DEFAULT, indent=4),
+        "config_pvd.json": json.dumps(PVD_CONFIG_DEFAULT, indent=4),
+        "cola_pvd.json": json.dumps([], indent=4)
     }
     
     for archivo, df_default in archivos_criticos.items():
@@ -75,6 +132,95 @@ def inicializar_datos():
             shutil.rmtree("data_backup/modelos_facturas")
         shutil.copytree("modelos_facturas", "data_backup/modelos_facturas")
 
+# --- FUNCIONES DE GESTIÓN DE USUARIOS ---
+def cargar_configuracion_usuarios():
+    """Carga la configuración de usuarios desde archivo"""
+    try:
+        with open('data/usuarios.json', 'r') as f:
+            return json.load(f)
+    except:
+        # Crear archivo por defecto
+        os.makedirs('data', exist_ok=True)
+        with open('data/usuarios.json', 'w') as f:
+            json.dump(USUARIOS_DEFAULT, f, indent=4)
+        return USUARIOS_DEFAULT.copy()
+
+def guardar_configuracion_usuarios(usuarios_config):
+    """Guarda la configuración de usuarios"""
+    os.makedirs('data', exist_ok=True)
+    with open('data/usuarios.json', 'w') as f:
+        json.dump(usuarios_config, f, indent=4)
+    # Backup
+    os.makedirs('data_backup', exist_ok=True)
+    shutil.copy('data/usuarios.json', 'data_backup/usuarios.json')
+
+def generar_id_unico_usuario():
+    """Genera un ID único para el dispositivo del usuario"""
+    # Usar session_state para almacenar el ID
+    if 'device_id' not in st.session_state:
+        # Crear nuevo ID único
+        device_id = f"dev_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}"
+        st.session_state.device_id = device_id
+    return st.session_state.device_id
+
+def identificar_usuario_automatico():
+    """Identifica automáticamente al usuario por su dispositivo"""
+    device_id = generar_id_unico_usuario()
+    
+    # Cargar configuración de usuarios
+    usuarios_config = cargar_configuracion_usuarios()
+    
+    # Buscar si ya existe este dispositivo
+    for username, config in usuarios_config.items():
+        if config.get('device_id') == device_id:
+            return username, config
+    
+    # Si no existe, crear usuario automático
+    nuevo_username = f"auto_{device_id[:8]}"
+    
+    if nuevo_username not in usuarios_config:
+        usuarios_config[nuevo_username] = {
+            "nombre": f"Usuario {device_id[:8]}",
+            "device_id": device_id,
+            "planes_luz": [],  # Por defecto sin planes
+            "planes_gas": ["RL1", "RL2", "RL3"],  # Todos los planes de gas
+            "tipo": "auto",
+            "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "password": "auto_login"
+        }
+        guardar_configuracion_usuarios(usuarios_config)
+    
+    return nuevo_username, usuarios_config[nuevo_username]
+
+def filtrar_planes_por_usuario(df_planes, username, tipo_plan="luz"):
+    """Filtra los planes según la configuración del usuario"""
+    usuarios_config = cargar_configuracion_usuarios()
+    
+    if username not in usuarios_config:
+        # Usuario automático sin config - mostrar todos por defecto
+        return df_planes[df_planes['activo'] == True]
+    
+    config_usuario = usuarios_config[username]
+    
+    if tipo_plan == "luz":
+        planes_permitidos = config_usuario.get("planes_luz", [])
+    else:  # gas
+        planes_permitidos = config_usuario.get("planes_gas", [])
+    
+    # Si está vacío, mostrar todos los planes activos
+    if not planes_permitidos:
+        return df_planes[df_planes['activo'] == True]
+    
+    # Si es "TODOS", mostrar todos los planes activos
+    if planes_permitidos == "TODOS":
+        return df_planes[df_planes['activo'] == True]
+    
+    # Filtrar por los planes específicos del usuario
+    return df_planes[
+        (df_planes['plan'].isin(planes_permitidos)) & 
+        (df_planes['activo'] == True)
+    ]
+    
 def main():
     # RESTAURACIÓN AUTOMÁTICA AL INICIAR
     if os.path.exists("data_backup"):
@@ -103,30 +249,32 @@ def main():
         mostrar_aplicacion_principal()
 
 def mostrar_login():
-    st.header("🔐 Iniciar Sesión")
+    st.header("🔐 Acceso a la Plataforma")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("👤 Acceso Usuario")
-        user_user = st.text_input("Usuario", key="user_user")
-        user_pass = st.text_input("Contraseña", type="password", key="user_pass")
+        st.subheader("🚪 Acceso Automático")
+        st.info("Se identificará automáticamente tu dispositivo")
         
-        if st.button("Entrar como Usuario", use_container_width=True, type="secondary"):
-            if authenticate(user_user, user_pass, "user"):
-                st.session_state.authenticated = True
-                st.session_state.user_type = "user"
-                st.session_state.username = user_user
-                st.rerun()
-            else:
-                st.error("❌ Credenciales incorrectas")
+        if st.button("Entrar Automáticamente", use_container_width=True, type="primary"):
+            # Identificar usuario por dispositivo
+            username, user_config = identificar_usuario_automatico()
+            
+            st.session_state.authenticated = True
+            st.session_state.user_type = "user"
+            st.session_state.username = username
+            st.session_state.user_config = user_config
+            
+            st.success(f"✅ Identificado como: {user_config['nombre']}")
+            st.rerun()
     
     with col2:
         st.subheader("🔧 Acceso Administrador")
         admin_user = st.text_input("Usuario Administrador", key="admin_user")
         admin_pass = st.text_input("Contraseña", type="password", key="admin_pass")
         
-        if st.button("Entrar como Admin", use_container_width=True, type="primary"):
+        if st.button("Entrar como Admin", use_container_width=True, type="secondary"):
             if authenticate(admin_user, admin_pass, "admin"):
                 st.session_state.authenticated = True
                 st.session_state.user_type = "admin"
@@ -157,20 +305,29 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Electricidad", "🔥 Gas", "📄 Facturas", "☀️ Excedentes"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👁️ PVD", "📄 Facturas", "☀️ Excedentes"])
     
     with tab1:
         gestion_electricidad()
     with tab2:
         gestion_gas()
     with tab3:
-        gestion_modelos_factura()
+        gestion_usuarios()
     with tab4:
+        gestion_pvd_admin()
+    with tab5:
+        gestion_modelos_factura()
+    with tab6:
         gestion_excedentes()
 
 def mostrar_panel_usuario():
     """Panel del usuario normal"""
-    st.header("👤 Portal del Cliente")
+    # Mostrar información del usuario
+    if st.session_state.username in cargar_configuracion_usuarios():
+        config = cargar_configuracion_usuarios()[st.session_state.username]
+        st.header(f"👤 {config.get('nombre', 'Usuario')}")
+    else:
+        st.header("👤 Portal del Cliente")
     
     # PRIMERA PANTALLA: Consultar modelos de factura
     consultar_modelos_factura()
@@ -179,7 +336,7 @@ def mostrar_panel_usuario():
     
     # Comparativas
     st.subheader("🧮 Comparativas")
-    tab1, tab2, tab3, tab4 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "📋 CUPS Naturgy"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "👁️ PVD", "📋 CUPS Naturgy"])
     
     with tab1:
         comparativa_exacta()
@@ -188,6 +345,8 @@ def mostrar_panel_usuario():
     with tab3:
         calculadora_gas()
     with tab4:
+        gestion_pvd_usuario()
+    with tab5:
         cups_naturgy()
 
 # --- LISTA DE COMUNIDADES AUTÓNOMAS ---
@@ -745,6 +904,573 @@ def gestion_gas():
     *El RL se determina automáticamente según el consumo anual introducido*
     """)
 
+# --- FUNCIONES PVD ---
+def cargar_config_pvd():
+    """Carga la configuración del sistema PVD"""
+    try:
+        with open('data/config_pvd.json', 'r') as f:
+            return json.load(f)
+    except:
+        # Crear archivo por defecto
+        os.makedirs('data', exist_ok=True)
+        with open('data/config_pvd.json', 'w') as f:
+            json.dump(PVD_CONFIG_DEFAULT, f, indent=4)
+        return PVD_CONFIG_DEFAULT.copy()
+
+def guardar_config_pvd(config):
+    """Guarda la configuración PVD"""
+    os.makedirs('data', exist_ok=True)
+    with open('data/config_pvd.json', 'w') as f:
+        json.dump(config, f, indent=4)
+    # Backup
+    os.makedirs('data_backup', exist_ok=True)
+    shutil.copy('data/config_pvd.json', 'data_backup/config_pvd.json')
+
+def cargar_cola_pvd():
+    """Carga la cola actual de PVD"""
+    try:
+        with open('data/cola_pvd.json', 'r') as f:
+            return json.load(f)
+    except:
+        return []
+
+def guardar_cola_pvd(cola):
+    """Guarda la cola PVD"""
+    os.makedirs('data', exist_ok=True)
+    with open('data/cola_pvd.json', 'w') as f:
+        json.dump(cola, f, indent=4)
+    # Backup
+    os.makedirs('data_backup', exist_ok=True)
+    shutil.copy('data/cola_pvd.json', 'data_backup/cola_pvd.json')
+
+def calcular_estimacion_tiempo(posicion_cola, agentes_activos):
+    """Calcula tiempo estimado de espera"""
+    if posicion_cola <= 0:
+        return "0 minutos"
+    
+    tiempo_por_pvd = 10  # minutos por PVD
+    pvd_por_agente = 60 / tiempo_por_pvd  # PVDs por hora por agente
+    
+    tiempo_estimado = (posicion_cola / (agentes_activos * pvd_por_agente)) * 60
+    
+    if tiempo_estimado < 1:
+        return "Menos de 1 minuto"
+    elif tiempo_estimado < 60:
+        return f"{int(tiempo_estimado)} minutos"
+    else:
+        horas = int(tiempo_estimado // 60)
+        minutos = int(tiempo_estimado % 60)
+        return f"{horas}h {minutos}min"
+
+def gestion_usuarios():
+    st.subheader("👥 Gestión de Usuarios Automáticos")
+    
+    usuarios_config = cargar_configuracion_usuarios()
+    
+    # Filtrar solo usuarios automáticos
+    usuarios_auto = {k: v for k, v in usuarios_config.items() if v.get('tipo') == 'auto'}
+    usuarios_manual = {k: v for k, v in usuarios_config.items() if v.get('tipo') != 'auto' and k != 'admin'}
+    
+    st.write(f"### 📊 Estadísticas")
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+    with col_stat1:
+        st.metric("Usuarios Automáticos", len(usuarios_auto))
+    with col_stat2:
+        st.metric("Usuarios Manuales", len(usuarios_manual))
+    with col_stat3:
+        st.metric("Total Usuarios", len(usuarios_config) - 1)  # Excluir admin
+    
+    # --- USUARIOS AUTOMÁTICOS ---
+    st.write("### 🔍 Usuarios Automáticos (por Dispositivo)")
+    
+    if usuarios_auto:
+        for username, config in usuarios_auto.items():
+            with st.expander(f"🖥️ {config['nombre']} - ID: {config.get('device_id', 'N/A')[:12]}...", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    nuevo_nombre = st.text_input(
+                        "Nombre mostrado",
+                        value=config['nombre'],
+                        key=f"nombre_{username}"
+                    )
+                    
+                    # Mostrar info del dispositivo
+                    st.write("**Información del dispositivo:**")
+                    st.code(f"ID: {config.get('device_id', 'No disponible')}")
+                    if 'fecha_registro' in config:
+                        st.write(f"Registrado: {config['fecha_registro']}")
+                
+                with col2:
+                    # Planes de luz permitidos
+                    st.write("**Planes de Luz permitidos:**")
+                    try:
+                        df_luz = pd.read_csv("data/precios_luz.csv")
+                        planes_luz_disponibles = df_luz['plan'].tolist()
+                    except:
+                        planes_luz_disponibles = []
+                    
+                    planes_luz_actuales = config.get('planes_luz', [])
+                    planes_luz_seleccionados = st.multiselect(
+                        "Seleccionar planes de luz",
+                        planes_luz_disponibles,
+                        default=planes_luz_actuales,
+                        key=f"luz_{username}"
+                    )
+                    
+                    # Planes de gas permitidos
+                    st.write("**Planes de Gas permitidos:**")
+                    planes_gas_disponibles = ["RL1", "RL2", "RL3"]
+                    planes_gas_actuales = config.get('planes_gas', ["RL1", "RL2", "RL3"])
+                    planes_gas_seleccionados = st.multiselect(
+                        "Seleccionar planes de gas",
+                        planes_gas_disponibles,
+                        default=planes_gas_actuales,
+                        key=f"gas_{username}"
+                    )
+                
+                # Botones
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("💾 Guardar Cambios", key=f"save_{username}"):
+                        usuarios_config[username]['nombre'] = nuevo_nombre
+                        usuarios_config[username]['planes_luz'] = planes_luz_seleccionados
+                        usuarios_config[username]['planes_gas'] = planes_gas_seleccionados
+                        guardar_configuracion_usuarios(usuarios_config)
+                        st.success(f"✅ Usuario {username} actualizado")
+                        st.rerun()
+                
+                with col_btn2:
+                    if st.button("🗑️ Eliminar Usuario", key=f"del_{username}"):
+                        del usuarios_config[username]
+                        guardar_configuracion_usuarios(usuarios_config)
+                        st.success(f"✅ Usuario {username} eliminado")
+                        st.rerun()
+    else:
+        st.info("ℹ️ No hay usuarios automáticos registrados aún")
+    
+    # --- USUARIOS MANUALES ---
+    st.markdown("---")
+    st.write("### 👥 Usuarios Manuales (Especiales)")
+    
+    for username, config in usuarios_manual.items():
+        st.write(f"**{username}** - {config['nombre']} ({config.get('tipo', 'user')})")
+    
+    # --- CREAR USUARIO MANUAL ---
+    st.markdown("---")
+    st.write("### ➕ Crear Usuario Manual (Opcional)")
+    
+    with st.form("form_usuario_manual"):
+        nuevo_username = st.text_input("Username*", placeholder="Ej: empresa_x")
+        nuevo_nombre = st.text_input("Nombre*", placeholder="Ej: Empresa XYZ S.L.")
+        
+        if st.form_submit_button("👤 Crear Usuario Manual"):
+            if nuevo_username and nuevo_nombre:
+                if nuevo_username not in usuarios_config:
+                    usuarios_config[nuevo_username] = {
+                        "nombre": nuevo_nombre,
+                        "planes_luz": "TODOS",
+                        "planes_gas": "TODOS",
+                        "tipo": "manual",
+                        "password": "cliente123"
+                    }
+                    guardar_configuracion_usuarios(usuarios_config)
+                    st.success(f"✅ Usuario {nuevo_username} creado")
+                    st.rerun()
+                else:
+                    st.error("❌ El username ya existe")
+    
+    # --- ASIGNACIÓN MASIVA DESDE PLANES ---
+    st.markdown("---")
+    st.write("### 🎯 Asignación Rápida desde Planes")
+    
+    try:
+        df_luz = pd.read_csv("data/precios_luz.csv")
+        if not df_luz.empty:
+            plan_seleccionado = st.selectbox("Seleccionar plan para asignar usuarios:", df_luz['plan'].unique())
+            
+            # Checkboxes para cada usuario
+            st.write("**Usuarios que pueden ver este plan:**")
+            usuarios_disponibles = [u for u in usuarios_config.keys() if u not in ["admin"]]
+            
+            asignaciones_actuales = {}
+            for usuario in usuarios_disponibles:
+                planes_usuario = usuarios_config[usuario].get('planes_luz', [])
+                asignado = plan_seleccionado in planes_usuario or usuarios_config[usuario].get('planes_luz') == 'TODOS'
+                asignaciones_actuales[usuario] = st.checkbox(
+                    f"{usuario} - {usuarios_config[usuario]['nombre']}",
+                    value=asignado,
+                    key=f"asig_{plan_seleccionado}_{usuario}"
+                )
+            
+            if st.button("💾 Guardar Asignaciones", key="guardar_asignaciones"):
+                for usuario, asignado in asignaciones_actuales.items():
+                    if usuarios_config[usuario].get('planes_luz') == 'TODOS':
+                        continue  # No modificar usuarios con acceso a todos
+                    
+                    planes_actuales = usuarios_config[usuario].get('planes_luz', [])
+                    if asignado and plan_seleccionado not in planes_actuales:
+                        planes_actuales.append(plan_seleccionado)
+                    elif not asignado and plan_seleccionado in planes_actuales:
+                        planes_actuales.remove(plan_seleccionado)
+                    usuarios_config[usuario]['planes_luz'] = planes_actuales
+                
+                guardar_configuracion_usuarios(usuarios_config)
+                st.success(f"✅ Asignaciones actualizadas para {plan_seleccionado}")
+                st.rerun()
+    except:
+        st.info("ℹ️ No hay planes de luz configurados para asignar usuarios")
+
+def gestion_pvd_admin():
+    st.subheader("👁️ Administración PVD (Pausa Visual Dinámica)")
+    
+    # Cargar configuración
+    config_pvd = cargar_config_pvd()
+    cola_pvd = cargar_cola_pvd()
+    
+    # --- CONFIGURACIÓN DEL SISTEMA ---
+    st.write("### ⚙️ Configuración del Sistema")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        agentes_activos = st.number_input(
+            "Número de Agentes Activos",
+            min_value=1,
+            max_value=20,
+            value=config_pvd['agentes_activos'],
+            help="Agentes que pueden atender PVDs simultáneamente"
+        )
+    
+    with col2:
+        maximo_simultaneo = st.number_input(
+            "Máximo PVD Simultáneos",
+            min_value=1,
+            max_value=50,
+            value=config_pvd['maximo_simultaneo'],
+            help="Máximo de personas que pueden tomar PVD a la vez"
+        )
+    
+    with col3:
+        duracion_pvd = st.number_input(
+            "Duración PVD (minutos)",
+            min_value=1,
+            max_value=30,
+            value=config_pvd['duracion_pvd'],
+            help="Duración de cada pausa visual"
+        )
+    
+    sonido_activado = st.checkbox(
+        "Activar sonido de notificación",
+        value=config_pvd.get('sonido_activado', True)
+    )
+    
+    if st.button("💾 Guardar Configuración", type="primary"):
+        config_pvd.update({
+            'agentes_activos': agentes_activos,
+            'maximo_simultaneo': maximo_simultaneo,
+            'duracion_pvd': duracion_pvd,
+            'sonido_activado': sonido_activado
+        })
+        guardar_config_pvd(config_pvd)
+        st.success("✅ Configuración PVD guardada")
+        st.rerun()
+    
+    # --- GESTIÓN DE LA COLA ---
+    st.markdown("---")
+    st.write("### 📊 Estado Actual de la Cola")
+    
+    # Estadísticas
+    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+    
+    en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
+    en_curso = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+    completados_hoy = len([p for p in cola_pvd if p['estado'] == 'COMPLETADO' and 
+                          datetime.fromisoformat(p['timestamp_fin']).date() == datetime.now().date()])
+    total_hoy = len([p for p in cola_pvd if 
+                    datetime.fromisoformat(p['timestamp_solicitud']).date() == datetime.now().date()])
+    
+    with col_stat1:
+        st.metric("⏳ En Espera", en_espera)
+    with col_stat2:
+        st.metric("▶️ En Curso", en_curso)
+    with col_stat3:
+        st.metric("✅ Completados Hoy", completados_hoy)
+    with col_stat4:
+        st.metric("📈 Total Hoy", total_hoy)
+    
+    # Lista detallada de la cola
+    st.markdown("---")
+    st.write("### 📋 Lista de PVDs en Cola")
+    
+    if cola_pvd:
+        # Filtrar solo los activos (no completados ni cancelados)
+        cola_activa = [p for p in cola_pvd if p['estado'] in ['ESPERANDO', 'EN_CURSO']]
+        
+        if cola_activa:
+            # Ordenar por prioridad (EN_CURSO primero, luego por timestamp)
+            cola_activa.sort(key=lambda x: (0 if x['estado'] == 'EN_CURSO' else 1, x['timestamp_solicitud']))
+            
+            # Mostrar tabla
+            for pvd in cola_activa:
+                with st.container():
+                    col_info, col_acciones = st.columns([3, 1])
+                    
+                    with col_info:
+                        estado_display = ESTADOS_PVD.get(pvd['estado'], pvd['estado'])
+                        
+                        # Calcular posición si está esperando
+                        if pvd['estado'] == 'ESPERANDO':
+                            # Contar cuántos hay antes en espera
+                            posicion = sum(1 for p in cola_activa 
+                                         if p['estado'] == 'ESPERANDO' and 
+                                         datetime.fromisoformat(p['timestamp_solicitud']) < datetime.fromisoformat(pvd['timestamp_solicitud']))
+                            posicion += 1
+                            tiempo_estimado = calcular_estimacion_tiempo(posicion, agentes_activos)
+                            st.write(f"**#{pvd['id']}** - {pvd['usuario_nombre']} - {estado_display}")
+                            st.write(f"📅 Solicitado: {datetime.fromisoformat(pvd['timestamp_solicitud']).strftime('%H:%M')} | ⏱️ Posición: {posicion} | 🕐 Estimado: {tiempo_estimado}")
+                        else:
+                            st.write(f"**#{pvd['id']}** - {pvd['usuario_nombre']} - {estado_display}")
+                            if 'timestamp_inicio' in pvd:
+                                tiempo_inicio = datetime.fromisoformat(pvd['timestamp_inicio'])
+                                tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+                                tiempo_restante = max(0, duracion_pvd - tiempo_transcurrido)
+                                st.write(f"⏱️ Iniciado: {tiempo_inicio.strftime('%H:%M')} | ⏳ Restante: {tiempo_restante} min")
+                    
+                    with col_acciones:
+                        if pvd['estado'] == 'ESPERANDO':
+                            if st.button("▶️ Iniciar", key=f"iniciar_{pvd['id']}"):
+                                # Iniciar PVD
+                                pvd['estado'] = 'EN_CURSO'
+                                pvd['timestamp_inicio'] = datetime.now().isoformat()
+                                guardar_cola_pvd(cola_pvd)
+                                st.success(f"✅ PVD #{pvd['id']} iniciado")
+                                st.rerun()
+                        
+                        elif pvd['estado'] == 'EN_CURSO':
+                            if st.button("✅ Completar", key=f"completar_{pvd['id']}"):
+                                # Completar PVD
+                                pvd['estado'] = 'COMPLETADO'
+                                pvd['timestamp_fin'] = datetime.now().isoformat()
+                                guardar_cola_pvd(cola_pvd)
+                                st.success(f"✅ PVD #{pvd['id']} completado")
+                                st.rerun()
+                        
+                        if st.button("❌ Cancelar", key=f"cancelar_{pvd['id']}"):
+                            pvd['estado'] = 'CANCELADO'
+                            guardar_cola_pvd(cola_pvd)
+                            st.warning(f"⚠️ PVD #{pvd['id']} cancelado")
+                            st.rerun()
+                    
+                    st.markdown("---")
+        else:
+            st.info("🎉 No hay PVDs activos en este momento")
+    
+    # --- LIMPIAR COLA ANTIGUA ---
+    st.markdown("---")
+    st.write("### 🧹 Mantenimiento")
+    
+    col_clean1, col_clean2 = st.columns(2)
+    
+    with col_clean1:
+        if st.button("🗑️ Limpiar Completados", type="secondary"):
+            # Mantener solo los activos y los últimos 100 completados
+            activos = [p for p in cola_pvd if p['estado'] in ['ESPERANDO', 'EN_CURSO']]
+            completados = [p for p in cola_pvd if p['estado'] == 'COMPLETADO']
+            completados = sorted(completados, key=lambda x: x['timestamp_fin'], reverse=True)[:100]
+            nueva_cola = activos + completados
+            guardar_cola_pvd(nueva_cola)
+            st.success("✅ Cola limpiada (completados antiguos eliminados)")
+            st.rerun()
+    
+    with col_clean2:
+        if st.button("🔄 Reiniciar Cola", type="secondary"):
+            # Guardar solo los en curso
+            cola_en_curso = [p for p in cola_pvd if p['estado'] == 'EN_CURSO']
+            guardar_cola_pvd(cola_en_curso)
+            st.warning("⚠️ Cola reiniciada (excepto PVDs en curso)")
+            st.rerun()
+
+def gestion_pvd_usuario():
+    st.subheader("👁️ Sistema de PVD (Pausa Visual Dinámica)")
+    
+    # Cargar datos
+    config_pvd = cargar_config_pvd()
+    cola_pvd = cargar_cola_pvd()
+    
+    # Verificar si el usuario ya tiene un PVD activo
+    usuario_pvd_activo = None
+    for pvd in cola_pvd:
+        if pvd['usuario_id'] == st.session_state.username and pvd['estado'] in ['ESPERANDO', 'EN_CURSO']:
+            usuario_pvd_activo = pvd
+            break
+    
+    # --- SI TIENE PVD ACTIVO ---
+    if usuario_pvd_activo:
+        estado_display = ESTADOS_PVD.get(usuario_pvd_activo['estado'], usuario_pvd_activo['estado'])
+        
+        if usuario_pvd_activo['estado'] == 'ESPERANDO':
+            st.warning(f"⏳ **Tienes un PVD solicitado** - {estado_display}")
+            
+            # Calcular posición en cola
+            en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
+            en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+            
+            posicion = next((i+1 for i, p in enumerate(en_espera_ordenados) 
+                           if p['id'] == usuario_pvd_activo['id']), 1)
+            
+            tiempo_estimado = calcular_estimacion_tiempo(posicion, config_pvd['agentes_activos'])
+            
+            col_est1, col_est2, col_est3 = st.columns(3)
+            with col_est1:
+                st.metric("📅 Tu Turno", f"#{usuario_pvd_activo['id']}")
+            with col_est2:
+                st.metric("⏱️ Posición", posicion)
+            with col_est3:
+                st.metric("🕐 Estimado", tiempo_estimado)
+            
+            st.info("🔔 **Nota:** Se reproducirá un sonido cuando sea tu turno")
+            
+            # Botón para cancelar
+            if st.button("❌ Cancelar mi PVD", type="secondary"):
+                usuario_pvd_activo['estado'] = 'CANCELADO'
+                guardar_cola_pvd(cola_pvd)
+                st.success("✅ PVD cancelado")
+                st.rerun()
+        
+        elif usuario_pvd_activo['estado'] == 'EN_CURSO':
+            st.success(f"✅ **PVD en curso** - {estado_display}")
+            
+            tiempo_inicio = datetime.fromisoformat(usuario_pvd_activo['timestamp_inicio'])
+            tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+            tiempo_restante = max(0, config_pvd['duracion_pvd'] - tiempo_transcurrido)
+            
+            # Barra de progreso
+            progreso = min(100, (tiempo_transcurrido / config_pvd['duracion_pvd']) * 100)
+            st.progress(int(progreso))
+            
+            col_tiempo1, col_tiempo2 = st.columns(2)
+            with col_tiempo1:
+                st.metric("⏱️ Transcurrido", f"{tiempo_transcurrido} min")
+            with col_tiempo2:
+                st.metric("⏳ Restante", f"{tiempo_restante} min")
+            
+            st.write("⏰ **Temporizador activo** - Finaliza automáticamente")
+            
+            # Botón para finalizar manualmente
+            if st.button("✅ Finalizar PVD ahora", type="primary"):
+                usuario_pvd_activo['estado'] = 'COMPLETADO'
+                usuario_pvd_activo['timestamp_fin'] = datetime.now().isoformat()
+                guardar_cola_pvd(cola_pvd)
+                st.success("✅ PVD completado")
+                st.rerun()
+    
+    # --- SI NO TIENE PVD ACTIVO ---
+    else:
+        st.info("👁️ **Sistema de Pausas Visuales Dinámicas (PVD)**")
+        st.write("Toma una pausa visual de 5-10 minutos para descansar la vista")
+        
+        # Estadísticas actuales
+        col_stat1, col_stat2 = st.columns(2)
+        
+        with col_stat1:
+            en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
+            st.metric("⏳ Personas en espera", en_espera)
+        
+        with col_stat2:
+            en_curso = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+            capacidad = config_pvd['maximo_simultaneo']
+            st.metric("▶️ PVDs en curso", f"{en_curso}/{capacidad}")
+        
+        # Verificar límite diario (máximo 5 PVDs por día por usuario)
+        pvd_hoy_usuario = len([p for p in cola_pvd 
+                              if p['usuario_id'] == st.session_state.username and 
+                              datetime.fromisoformat(p['timestamp_solicitud']).date() == datetime.now().date() and
+                              p['estado'] != 'CANCELADO'])
+        
+        if pvd_hoy_usuario >= 5:
+            st.warning(f"⚠️ **Límite diario alcanzado** - Has solicitado {pvd_hoy_usuario} PVDs hoy")
+            st.info("Puedes solicitar más PVDs mañana")
+        elif en_curso >= config_pvd['maximo_simultaneo']:
+            st.error("❌ **Capacidad llena** - No se pueden tomar más PVDs en este momento")
+            st.info("Por favor, intenta más tarde")
+        else:
+            # Solicitar PVD
+            if st.button("🎯 Solicitar PVD", type="primary", use_container_width=True):
+                # Generar nuevo ID
+                nuevo_id = max([p['id'] for p in cola_pvd], default=0) + 1
+                
+                nuevo_pvd = {
+                    'id': nuevo_id,
+                    'usuario_id': st.session_state.username,
+                    'usuario_nombre': st.session_state.get('user_config', {}).get('nombre', 'Usuario'),
+                    'estado': 'ESPERANDO',
+                    'timestamp_solicitud': datetime.now().isoformat(),
+                    'prioridad': 'normal'
+                }
+                
+                cola_pvd.append(nuevo_pvd)
+                guardar_cola_pvd(cola_pvd)
+                
+                st.success("✅ **PVD solicitado correctamente**")
+                st.balloons()
+                st.rerun()
+    
+    # --- SONIDO DE NOTIFICACIÓN ---
+    if config_pvd.get('sonido_activado', True) and usuario_pvd_activo:
+        if usuario_pvd_activo['estado'] == 'ESPERANDO':
+            # Verificar si es el siguiente en la cola
+            en_curso = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+            if en_curso < config_pvd['agentes_activos']:
+                # Verificar posición
+                en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
+                en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+                
+                posicion = next((i+1 for i, p in enumerate(en_espera_ordenados) 
+                               if p['id'] == usuario_pvd_activo['id']), 1)
+                
+                if posicion == 1:
+                    # Reproducir sonido (usando HTML5 audio)
+                    audio_html = """
+                    <audio autoplay>
+                        <source src="https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3" type="audio/mpeg">
+                    </audio>
+                    <script>
+                        var audio = document.querySelector('audio');
+                        audio.play().catch(function(error) {
+                            console.log('Error playing audio:', error);
+                        });
+                    </script>
+                    """
+                    st.components.v1.html(audio_html, height=0)
+                    st.success("🔔 **¡Es tu turno!** Acércate para tu PVD")
+    
+    # --- HISTORIAL DEL USUARIO ---
+    st.markdown("---")
+    st.write("### 📜 Mi Historial PVD")
+    
+    historial_usuario = [p for p in cola_pvd 
+                        if p['usuario_id'] == st.session_state.username 
+                        and p['estado'] == 'COMPLETADO']
+    
+    if historial_usuario:
+        # Mostrar últimos 5
+        historial_reciente = sorted(historial_usuario, 
+                                  key=lambda x: x.get('timestamp_fin', ''), 
+                                  reverse=True)[:5]
+        
+        for pvd in historial_reciente:
+            fecha_fin = datetime.fromisoformat(pvd.get('timestamp_fin', datetime.now().isoformat()))
+            duracion = 5  # Por defecto
+            
+            if 'timestamp_inicio' in pvd:
+                inicio = datetime.fromisoformat(pvd['timestamp_inicio'])
+                duracion = (fecha_fin - inicio).seconds // 60
+            
+            st.write(f"**#{pvd['id']}** - {fecha_fin.strftime('%d/%m %H:%M')} - ⏱️ {duracion} min")
+    else:
+        st.info("📝 No tienes PVDs completados aún")
+
 def gestion_modelos_factura():
     st.subheader("📄 Gestión de Modelos de Factura")
     
@@ -1072,8 +1798,16 @@ def calculadora_gas():
     if st.button("🔄 Calcular Comparativa Gas", type="primary"):
         resultados = []
         
-        for rl, plan in planes_gas.items():
-            if plan["activo"]:
+        usuarios_config = cargar_configuracion_usuarios()
+planes_permitidos = []
+if st.session_state.username in usuarios_config:
+    config_usuario = usuarios_config[st.session_state.username]
+    planes_permitidos = config_usuario.get("planes_gas", ["RL1", "RL2", "RL3"])
+else:
+    planes_permitidos = ["RL1", "RL2", "RL3"]
+
+for rl, plan in planes_gas.items():
+    if plan["activo"] and rl in planes_permitidos:
                 # Calcular AMBAS opciones: CON PMG y SIN PMG
                 for tiene_pmg in [True, False]:
                     coste_anual = calcular_coste_gas_completo(
@@ -1255,7 +1989,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
     try:
         # Cargar planes activos
         df_luz = pd.read_csv("data/precios_luz.csv")
-        planes_activos = df_luz[df_luz['activo'] == True]
+        planes_activos = filtrar_planes_por_usuario(df_luz, st.session_state.username, "luz")
         
         if planes_activos.empty:
             st.warning("⚠️ No hay planes configurados. Contacta con el administrador.")
