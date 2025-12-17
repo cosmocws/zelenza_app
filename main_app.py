@@ -1429,7 +1429,7 @@ def gestion_pvd_usuario():
             with col_dura1:
                 duracion_corta = config_pvd['duracion_corta']
                 if st.button(
-                    f"☕ **Pausa Corta**\n\n{duracion_corta} minutos\n\nIdeal para estirar",
+                    f"☕ **Pausa Corta**\n\n{duracion_corta} minutos\n\nIdeal para 🙂",
                     use_container_width=True,
                     type="primary",
                     key="pausa_corta"
@@ -1440,7 +1440,7 @@ def gestion_pvd_usuario():
             with col_dura2:
                 duracion_larga = config_pvd['duracion_larga']
                 if st.button(
-                    f"🌿 **Pausa Larga**\n\n{duracion_larga} minutos\n\nIdeal para desconectar",
+                    f"🌿 **Pausa Larga**\n\n{duracion_larga} minutos\n\nIdeal para 😎",
                     use_container_width=True,
                     type="secondary",
                     key="pausa_larga"
