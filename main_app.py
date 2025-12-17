@@ -1426,12 +1426,12 @@ def gestion_pvd_usuario():
                     st.rerun()
             
             # Información del sistema
-            st.info(f"💡 **Información del sistema:**
+            st.info(f"""💡 **Información del sistema:**
             - **Agentes trabajando:** {config_pvd['agentes_activos']}
             - **Máximo en pausa:** {maximo} agentes a la vez
             - **Tus pausas hoy:** {pausas_hoy}/5
             - **Si hay espacio libre:** Entras inmediatamente a pausa
-            - **Si no hay espacio:** Te pondremos en cola de espera")
+            - **Si no hay espacio:** Te pondremos en cola de espera""")
     
     # --- SONIDO DE NOTIFICACIÓN ---
     if config_pvd.get('sonido_activado', True) and usuario_pausa_activa:
