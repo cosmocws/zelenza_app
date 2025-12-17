@@ -1799,15 +1799,15 @@ def calculadora_gas():
         resultados = []
         
         usuarios_config = cargar_configuracion_usuarios()
-planes_permitidos = []
-if st.session_state.username in usuarios_config:
-    config_usuario = usuarios_config[st.session_state.username]
-    planes_permitidos = config_usuario.get("planes_gas", ["RL1", "RL2", "RL3"])
-else:
-    planes_permitidos = ["RL1", "RL2", "RL3"]
+        planes_permitidos = []
+        if st.session_state.username in usuarios_config:
+            config_usuario = usuarios_config[st.session_state.username]
+            planes_permitidos = config_usuario.get("planes_gas", ["RL1", "RL2", "RL3"])
+        else:
+            planes_permitidos = ["RL1", "RL2", "RL3"]
 
-for rl, plan in planes_gas.items():
-    if plan["activo"] and rl in planes_permitidos:
+        for rl, plan in planes_gas.items():
+            if plan["activo"] and rl in planes_permitidos:
                 # Calcular AMBAS opciones: CON PMG y SIN PMG
                 for tiene_pmg in [True, False]:
                     coste_anual = calcular_coste_gas_completo(
