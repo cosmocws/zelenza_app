@@ -26,7 +26,7 @@ USUARIOS_DEFAULT = {
 
 # --- CONFIGURACIÓN PVD ---
 PVD_CONFIG_DEFAULT = {
-    "agentes_activos": 10,  # Total de agentes trabajando
+    "agentes_activos": 25,  # Total de agentes trabajando
     "maximo_simultaneo": 3,  # Máximo que pueden estar en pausa a la vez
     "duracion_corta": 5,    # minutos - duración corta
     "duracion_larga": 10,   # minutos - duración larga  
@@ -907,19 +907,42 @@ def gestion_gas():
 
 # --- FUNCIONES PVD ---
 def cargar_config_pvd():
-    """Carga la configuración del sistema PVD"""
+    """Carga la configuración del sistema PVD con migración automática"""
     try:
         with open('data/config_pvd.json', 'r') as f:
-            return json.load(f)
-    except:
-        # Crear archivo por defecto
-        os.makedirs('data', exist_ok=True)
-        with open('data/config_pvd.json', 'w') as f:
-            json.dump(PVD_CONFIG_DEFAULT, f, indent=4)
+            config = json.load(f)
+            
+        # MIGRACIÓN: Si existe el campo antiguo 'duracion_pvd', migrar a los nuevos campos
+        if 'duracion_pvd' in config and 'duracion_corta' not in config:
+            duracion_antigua = config['duracion_pvd']
+            config['duracion_corta'] = duracion_antigua
+            config['duracion_larga'] = duracion_antigua * 2  # La larga es el doble por defecto
+            
+            # Guardar la configuración migrada
+            guardar_config_pvd(config)
+            print(f"✅ Config PVD migrada: duracion_pvd={duracion_antigua} -> corta={duracion_antigua}, larga={duracion_antigua*2}")
+        
+        # Asegurar que todos los campos existan
+        campos_requeridos = ['agentes_activos', 'maximo_simultaneo', 'duracion_corta', 'duracion_larga', 'sonido_activado']
+        for campo in campos_requeridos:
+            if campo not in config:
+                config[campo] = PVD_CONFIG_DEFAULT[campo]
+        
+        return config
+    except FileNotFoundError:
+        # Si no existe el archivo, crear uno nuevo
+        return PVD_CONFIG_DEFAULT.copy()
+    except json.JSONDecodeError:
+        # Si el archivo está corrupto
         return PVD_CONFIG_DEFAULT.copy()
 
 def guardar_config_pvd(config):
-    """Guarda la configuración PVD"""
+    """Guarda la configuración PVD asegurando todos los campos"""
+    # Asegurar que todos los campos estén presentes
+    for campo, valor in PVD_CONFIG_DEFAULT.items():
+        if campo not in config:
+            config[campo] = valor
+    
     os.makedirs('data', exist_ok=True)
     with open('data/config_pvd.json', 'w') as f:
         json.dump(config, f, indent=4)
