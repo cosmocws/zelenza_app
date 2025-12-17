@@ -1,0 +1,85 @@
+{
+    "user": {
+        "nombre": "Usuario Est\u00e1ndar",
+        "password": "cliente123",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "user"
+    },
+    "admin": {
+        "nombre": "Administrador",
+        "password": "admin123",
+        "planes_luz": "TODOS",
+        "planes_gas": "TODOS",
+        "tipo": "admin"
+    },
+    "auto_dev_418e": {
+        "nombre": "Usuario dev_418e",
+        "device_id": "dev_418e3c82f26e_1765965172",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "auto",
+        "fecha_registro": "2025-12-17 09:52:52",
+        "password": "auto_login"
+    },
+    "auto_dev_f969": {
+        "nombre": "Usuario dev_f969",
+        "device_id": "dev_f969f63f30b1_1765966022",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "auto",
+        "fecha_registro": "2025-12-17 10:07:02",
+        "password": "auto_login"
+    },
+    "auto_dev_0d52": {
+        "nombre": "Usuario dev_0d52",
+        "device_id": "dev_0d52d5cc35cf_1765966187",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "auto",
+        "fecha_registro": "2025-12-17 10:09:47",
+        "password": "auto_login"
+    },
+    "auto_dev_a4bf": {
+        "nombre": "Usuario dev_a4bf",
+        "device_id": "dev_a4bf937d359e_1765966452",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "auto",
+        "fecha_registro": "2025-12-17 10:14:12",
+        "password": "auto_login"
+    },
+    "auto_dev_c7f0": {
+        "nombre": "Usuario dev_c7f0",
+        "device_id": "dev_c7f044c95c18_1765966979",
+        "planes_luz": [],
+        "planes_gas": [
+            "RL1",
+            "RL2",
+            "RL3"
+        ],
+        "tipo": "auto",
+        "fecha_registro": "2025-12-17 10:22:59",
+        "password": "auto_login"
+    }
+}
