@@ -6,7 +6,6 @@ import json
 import uuid
 from datetime import datetime, timedelta
 
-# --- ESTRUCTURA DE USUARIOS ---
 USUARIOS_DEFAULT = {
     "user": {
         "nombre": "Usuario Estándar",
@@ -24,13 +23,22 @@ USUARIOS_DEFAULT = {
     }
 }
 
-# --- CONFIGURACIÓN PVD ---
 PVD_CONFIG_DEFAULT = {
     "agentes_activos": 25,  # Total de agentes trabajando
     "maximo_simultaneo": 3,  # Máximo que pueden estar en pausa a la vez
     "duracion_corta": 5,    # minutos - duración corta
     "duracion_larga": 10,   # minutos - duración larga  
     "sonido_activado": True
+}
+
+SISTEMA_CONFIG_DEFAULT = {
+    "login_automatico_activado": True,
+    "sesion_horas_duracion": 8,
+    "grupos_usuarios": {
+        "basico": {"planes_luz": ["PLAN_BASICO"], "planes_gas": ["RL1"]},
+        "premium": {"planes_luz": ["TODOS"], "planes_gas": ["RL1", "RL2", "RL3"]},
+        "empresa": {"planes_luz": ["PLAN_EMPRESA"], "planes_gas": ["RL2", "RL3"]}
+    }
 }
 
 # Estados de la cola PVD
@@ -75,7 +83,55 @@ def authenticate(username, password, user_type):
     except Exception as e:
         st.error(f"Error en autenticación: {e}")
         return False
-        
+
+def cargar_config_sistema():
+    """Carga la configuración del sistema"""
+    try:
+        with open('data/config_sistema.json', 'r') as f:
+            return json.load(f)
+    except:
+        # Crear archivo por defecto
+        os.makedirs('data', exist_ok=True)
+        with open('data/config_sistema.json', 'w') as f:
+            json.dump(SISTEMA_CONFIG_DEFAULT, f, indent=4)
+        return SISTEMA_CONFIG_DEFAULT.copy()
+
+def guardar_config_sistema(config):
+    """Guarda la configuración del sistema"""
+    os.makedirs('data', exist_ok=True)
+    with open('data/config_sistema.json', 'w') as f:
+        json.dump(config, f, indent=4)
+
+def verificar_sesion():
+    """Verifica si la sesión es válida (8 horas)"""
+    if not st.session_state.get('authenticated', False):
+        return False
+    
+    # Si no hay tiempo de login, crear uno
+    if 'login_time' not in st.session_state:
+        st.session_state.login_time = datetime.now()
+        return True
+    
+    # Calcular horas transcurridas
+    horas_transcurridas = (datetime.now() - st.session_state.login_time).seconds / 3600
+    
+    # Cargar configuración del sistema
+    config_sistema = cargar_config_sistema()
+    horas_duracion = config_sistema.get("sesion_horas_duracion", 8)
+    
+    # Verificar si ha expirado
+    if horas_transcurridas >= horas_duracion:
+        # Limpiar sesión silenciosamente
+        st.session_state.authenticated = False
+        st.session_state.user_type = None
+        st.session_state.username = ""
+        if 'login_time' in st.session_state:
+            del st.session_state.login_time
+        st.rerun()
+        return False
+    
+    return True
+
 # Configuración de la página
 st.set_page_config(
     page_title="Zelenza CEX - Iberdrola",
@@ -243,6 +299,12 @@ def main():
         st.session_state.authenticated = False
         st.session_state.user_type = None
         st.session_state.username = ""
+
+    # Verificar sesión si está autenticado
+    if st.session_state.get('authenticated', False):
+        if not verificar_sesion():
+            mostrar_login()
+            return
     
     if not st.session_state.authenticated:
         mostrar_login()
@@ -252,34 +314,49 @@ def main():
 def mostrar_login():
     st.header("🔐 Acceso a la Plataforma")
     
+    # Cargar configuración del sistema
+    config_sistema = cargar_config_sistema()
+    login_automatico_activado = config_sistema.get("login_automatico_activado", True)
+    
     col1, col2 = st.columns(2)
     
     with col1:
         st.subheader("🚪 Acceso Automático")
-        st.info("Se identificará automáticamente tu dispositivo")
         
-        if st.button("Entrar Automáticamente", use_container_width=True, type="primary"):
-            # Identificar usuario por dispositivo
-            username, user_config = identificar_usuario_automatico()
-            
-            st.session_state.authenticated = True
-            st.session_state.user_type = "user"
-            st.session_state.username = username
-            st.session_state.user_config = user_config
-            
-            st.success(f"✅ Identificado como: {user_config['nombre']}")
-            st.rerun()
+        if login_automatico_activado:
+            st.info("El acceso automático está ACTIVADO")
+            if st.button("Entrar Automáticamente", use_container_width=True, type="primary"):
+                username, user_config = identificar_usuario_automatico()
+                st.session_state.authenticated = True
+                st.session_state.user_type = "user"
+                st.session_state.username = username
+                st.session_state.user_config = user_config
+                st.session_state.login_time = datetime.now()
+                st.success(f"✅ Identificado como: {user_config['nombre']}")
+                st.rerun()
+        else:
+            st.warning("El acceso automático está DESACTIVADO por el administrador")
+            st.info("Usa el formulario de acceso manual")
     
     with col2:
-        st.subheader("🔧 Acceso Administrador")
-        admin_user = st.text_input("Usuario Administrador", key="admin_user")
+        st.subheader("🔧 Acceso Manual")
+        admin_user = st.text_input("Usuario", key="admin_user")
         admin_pass = st.text_input("Contraseña", type="password", key="admin_pass")
         
-        if st.button("Entrar como Admin", use_container_width=True, type="secondary"):
+        if st.button("Entrar", use_container_width=True, type="secondary"):
+            # Primero intentar como admin
             if authenticate(admin_user, admin_pass, "admin"):
                 st.session_state.authenticated = True
                 st.session_state.user_type = "admin"
                 st.session_state.username = admin_user
+                st.session_state.login_time = datetime.now()
+                st.rerun()
+            # Luego como usuario normal
+            elif authenticate(admin_user, admin_pass, "user"):
+                st.session_state.authenticated = True
+                st.session_state.user_type = "user"
+                st.session_state.username = admin_user
+                st.session_state.login_time = datetime.now()
                 st.rerun()
             else:
                 st.error("❌ Credenciales incorrectas")
@@ -306,7 +383,10 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(["⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👁️ PVD", "📄 Facturas", "☀️ Excedentes"])
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👁️ PVD", 
+        "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema"
+    ])
     
     with tab1:
         gestion_electricidad()
@@ -320,6 +400,56 @@ def mostrar_panel_administrador():
         gestion_modelos_factura()
     with tab6:
         gestion_excedentes()
+    with tab7:
+        gestion_config_sistema()
+
+def gestion_config_sistema():
+    st.subheader("⚙️ Configuración del Sistema")
+    
+    config_sistema = cargar_config_sistema()
+    
+    st.write("### 🔐 Configuración de Acceso")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        login_automatico = st.checkbox(
+            "Activar login automático",
+            value=config_sistema.get("login_automatico_activado", True),
+            help="Los usuarios pueden entrar automáticamente sin credenciales"
+        )
+    
+    with col2:
+        horas_duracion = st.number_input(
+            "Duración de sesión (horas)",
+            min_value=1,
+            max_value=24,
+            value=config_sistema.get("sesion_horas_duracion", 8),
+            help="Tiempo que dura una sesión antes de expirar"
+        )
+    
+    if st.button("💾 Guardar Configuración Sistema", type="primary"):
+        config_sistema.update({
+            "login_automatico_activado": login_automatico,
+            "sesion_horas_duracion": horas_duracion
+        })
+        guardar_config_sistema(config_sistema)
+        st.success("✅ Configuración del sistema guardada")
+        st.rerun()
+    
+    st.write("### 📊 Estadísticas del Sistema")
+    
+    usuarios_config = cargar_configuracion_usuarios()
+    grupos = config_sistema.get("grupos_usuarios", {})
+    
+    col_stat1, col_stat2, col_stat3 = st.columns(3)
+    with col_stat1:
+        st.metric("Usuarios totales", len(usuarios_config) - 1)  # Excluir admin
+    with col_stat2:
+        st.metric("Grupos configurados", len(grupos))
+    with col_stat3:
+        usuarios_con_grupo = sum(1 for u in usuarios_config.values() if u.get('grupo'))
+        st.metric("Usuarios con grupo", usuarios_con_grupo)
 
 def mostrar_panel_usuario():
     """Panel del usuario normal"""
@@ -968,163 +1098,186 @@ def guardar_cola_pvd(cola):
     shutil.copy('data/cola_pvd.json', 'data_backup/cola_pvd.json')
 
 def gestion_usuarios():
-    st.subheader("👥 Gestión de Usuarios Automáticos")
+    st.subheader("👥 Gestión de Usuarios y Grupos")
     
+    # Cargar configuración
     usuarios_config = cargar_configuracion_usuarios()
+    config_sistema = cargar_config_sistema()
+    grupos = config_sistema.get("grupos_usuarios", {})
     
-    # Filtrar solo usuarios automáticos
-    usuarios_auto = {k: v for k, v in usuarios_config.items() if v.get('tipo') == 'auto'}
-    usuarios_manual = {k: v for k, v in usuarios_config.items() if v.get('tipo') != 'auto' and k != 'admin'}
+    # Pestañas
+    tab1, tab2, tab3 = st.tabs(["👤 Usuarios", "👥 Grupos", "➕ Crear Usuario"])
     
-    st.write(f"### 📊 Estadísticas")
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
-    with col_stat1:
-        st.metric("Usuarios Automáticos", len(usuarios_auto))
-    with col_stat2:
-        st.metric("Usuarios Manuales", len(usuarios_manual))
-    with col_stat3:
-        st.metric("Total Usuarios", len(usuarios_config) - 1)  # Excluir admin
-    
-    # --- USUARIOS AUTOMÁTICOS ---
-    st.write("### 🔍 Usuarios Automáticos (por Dispositivo)")
-    
-    if usuarios_auto:
-        for username, config in usuarios_auto.items():
-            with st.expander(f"🖥️ {config['nombre']} - ID: {config.get('device_id', 'N/A')[:12]}...", expanded=False):
+    with tab1:
+        st.write("### 📊 Lista de Usuarios")
+        
+        for username, config in usuarios_config.items():
+            if username == "admin":
+                continue
+                
+            with st.expander(f"👤 {username} - {config.get('nombre', 'Sin nombre')}", expanded=False):
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    nuevo_nombre = st.text_input(
-                        "Nombre mostrado",
-                        value=config['nombre'],
-                        key=f"nombre_{username}"
-                    )
+                    nuevo_nombre = st.text_input("Nombre", value=config.get('nombre', ''), 
+                                                 key=f"nombre_{username}")
                     
-                    # Mostrar info del dispositivo
-                    st.write("**Información del dispositivo:**")
-                    st.code(f"ID: {config.get('device_id', 'No disponible')}")
-                    if 'fecha_registro' in config:
-                        st.write(f"Registrado: {config['fecha_registro']}")
+                    # Selección de grupo
+                    grupo_actual = config.get('grupo', '')
+                    grupo_seleccionado = st.selectbox(
+                        "Grupo",
+                        [""] + list(grupos.keys()),
+                        index=0 if not grupo_actual else (list(grupos.keys()).index(grupo_actual) + 1),
+                        key=f"grupo_{username}"
+                    )
                 
                 with col2:
-                    # Planes de luz permitidos
-                    st.write("**Planes de Luz permitidos:**")
+                    # Mostrar permisos basados en grupo
+                    if grupo_seleccionado and grupo_seleccionado in grupos:
+                        permisos = grupos[grupo_seleccionado]
+                        st.write("**Permisos del grupo:**")
+                        st.write(f"📈 Luz: {', '.join(permisos.get('planes_luz', []))}")
+                        st.write(f"🔥 Gas: {', '.join(permisos.get('planes_gas', []))}")
+                    
+                    # Botones de acción
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("💾 Guardar", key=f"save_{username}"):
+                            usuarios_config[username]['nombre'] = nuevo_nombre
+                            usuarios_config[username]['grupo'] = grupo_seleccionado
+                            guardar_configuracion_usuarios(usuarios_config)
+                            st.success(f"✅ Usuario {username} actualizado")
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🗑️ Eliminar", key=f"del_{username}"):
+                            del usuarios_config[username]
+                            guardar_configuracion_usuarios(usuarios_config)
+                            st.success(f"✅ Usuario {username} eliminado")
+                            st.rerun()
+    
+    with tab2:
+        st.write("### 👥 Gestión de Grupos")
+        
+        for grupo_nombre, permisos in grupos.items():
+            with st.expander(f"**Grupo: {grupo_nombre}**", expanded=True):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Planes de Luz**")
                     try:
                         df_luz = pd.read_csv("data/precios_luz.csv")
                         planes_luz_disponibles = df_luz['plan'].tolist()
                     except:
                         planes_luz_disponibles = []
                     
-                    planes_luz_actuales = config.get('planes_luz', [])
+                    planes_luz_actuales = permisos.get('planes_luz', [])
+                    if planes_luz_actuales == ["TODOS"]:
+                        planes_luz_actuales = planes_luz_disponibles
+                    
                     planes_luz_seleccionados = st.multiselect(
-                        "Seleccionar planes de luz",
+                        "Planes de luz permitidos",
                         planes_luz_disponibles,
                         default=planes_luz_actuales,
-                        key=f"luz_{username}"
+                        key=f"grupo_luz_{grupo_nombre}"
                     )
-                    
-                    # Planes de gas permitidos
-                    st.write("**Planes de Gas permitidos:**")
+                
+                with col2:
+                    st.write("**Planes de Gas**")
                     planes_gas_disponibles = ["RL1", "RL2", "RL3"]
-                    planes_gas_actuales = config.get('planes_gas', ["RL1", "RL2", "RL3"])
+                    planes_gas_actuales = permisos.get('planes_gas', [])
+                    
                     planes_gas_seleccionados = st.multiselect(
-                        "Seleccionar planes de gas",
+                        "Planes de gas permitidos",
                         planes_gas_disponibles,
                         default=planes_gas_actuales,
-                        key=f"gas_{username}"
+                        key=f"grupo_gas_{grupo_nombre}"
                     )
                 
-                # Botones
-                col_btn1, col_btn2 = st.columns(2)
-                with col_btn1:
-                    if st.button("💾 Guardar Cambios", key=f"save_{username}"):
-                        usuarios_config[username]['nombre'] = nuevo_nombre
-                        usuarios_config[username]['planes_luz'] = planes_luz_seleccionados
-                        usuarios_config[username]['planes_gas'] = planes_gas_seleccionados
-                        guardar_configuracion_usuarios(usuarios_config)
-                        st.success(f"✅ Usuario {username} actualizado")
-                        st.rerun()
-                
-                with col_btn2:
-                    if st.button("🗑️ Eliminar Usuario", key=f"del_{username}"):
-                        del usuarios_config[username]
-                        guardar_configuracion_usuarios(usuarios_config)
-                        st.success(f"✅ Usuario {username} eliminado")
-                        st.rerun()
-    else:
-        st.info("ℹ️ No hay usuarios automáticos registrados aún")
-    
-    # --- USUARIOS MANUALES ---
-    st.markdown("---")
-    st.write("### 👥 Usuarios Manuales (Especiales)")
-    
-    for username, config in usuarios_manual.items():
-        st.write(f"**{username}** - {config['nombre']} ({config.get('tipo', 'user')})")
-    
-    # --- CREAR USUARIO MANUAL ---
-    st.markdown("---")
-    st.write("### ➕ Crear Usuario Manual (Opcional)")
-    
-    with st.form("form_usuario_manual"):
-        nuevo_username = st.text_input("Username*", placeholder="Ej: empresa_x")
-        nuevo_nombre = st.text_input("Nombre*", placeholder="Ej: Empresa XYZ S.L.")
-        
-        if st.form_submit_button("👤 Crear Usuario Manual"):
-            if nuevo_username and nuevo_nombre:
-                if nuevo_username not in usuarios_config:
-                    usuarios_config[nuevo_username] = {
-                        "nombre": nuevo_nombre,
-                        "planes_luz": "TODOS",
-                        "planes_gas": "TODOS",
-                        "tipo": "manual",
-                        "password": "cliente123"
+                if st.button("💾 Actualizar Grupo", key=f"update_grupo_{grupo_nombre}"):
+                    grupos[grupo_nombre] = {
+                        "planes_luz": planes_luz_seleccionados,
+                        "planes_gas": planes_gas_seleccionados
                     }
-                    guardar_configuracion_usuarios(usuarios_config)
-                    st.success(f"✅ Usuario {nuevo_username} creado")
+                    config_sistema['grupos_usuarios'] = grupos
+                    guardar_config_sistema(config_sistema)
+                    st.success(f"✅ Grupo {grupo_nombre} actualizado")
                     st.rerun()
-                else:
-                    st.error("❌ El username ya existe")
-    
-    # --- ASIGNACIÓN MASIVA DESDE PLANES ---
-    st.markdown("---")
-    st.write("### 🎯 Asignación Rápida desde Planes")
-    
-    try:
-        df_luz = pd.read_csv("data/precios_luz.csv")
-        if not df_luz.empty:
-            plan_seleccionado = st.selectbox("Seleccionar plan para asignar usuarios:", df_luz['plan'].unique())
-            
-            # Checkboxes para cada usuario
-            st.write("**Usuarios que pueden ver este plan:**")
-            usuarios_disponibles = [u for u in usuarios_config.keys() if u not in ["admin"]]
-            
-            asignaciones_actuales = {}
-            for usuario in usuarios_disponibles:
-                planes_usuario = usuarios_config[usuario].get('planes_luz', [])
-                asignado = plan_seleccionado in planes_usuario or usuarios_config[usuario].get('planes_luz') == 'TODOS'
-                asignaciones_actuales[usuario] = st.checkbox(
-                    f"{usuario} - {usuarios_config[usuario]['nombre']}",
-                    value=asignado,
-                    key=f"asig_{plan_seleccionado}_{usuario}"
-                )
-            
-            if st.button("💾 Guardar Asignaciones", key="guardar_asignaciones"):
-                for usuario, asignado in asignaciones_actuales.items():
-                    if usuarios_config[usuario].get('planes_luz') == 'TODOS':
-                        continue  # No modificar usuarios con acceso a todos
-                    
-                    planes_actuales = usuarios_config[usuario].get('planes_luz', [])
-                    if asignado and plan_seleccionado not in planes_actuales:
-                        planes_actuales.append(plan_seleccionado)
-                    elif not asignado and plan_seleccionado in planes_actuales:
-                        planes_actuales.remove(plan_seleccionado)
-                    usuarios_config[usuario]['planes_luz'] = planes_actuales
-                
-                guardar_configuracion_usuarios(usuarios_config)
-                st.success(f"✅ Asignaciones actualizadas para {plan_seleccionado}")
+        
+        # Crear nuevo grupo
+        st.write("### ➕ Crear Nuevo Grupo")
+        nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo")
+        
+        if st.button("Crear Grupo") and nuevo_grupo_nombre:
+            if nuevo_grupo_nombre not in grupos:
+                grupos[nuevo_grupo_nombre] = {
+                    "planes_luz": [],
+                    "planes_gas": []
+                }
+                config_sistema['grupos_usuarios'] = grupos
+                guardar_config_sistema(config_sistema)
+                st.success(f"✅ Grupo {nuevo_grupo_nombre} creado")
                 st.rerun()
-    except:
-        st.info("ℹ️ No hay planes de luz configurados para asignar usuarios")
+            else:
+                st.error("❌ El grupo ya existe")
+    
+    with tab3:
+        st.write("### 👤 Crear Nuevo Usuario")
+        
+        with st.form("form_nuevo_usuario"):
+            nuevo_username = st.text_input("Username*")
+            nuevo_nombre = st.text_input("Nombre completo*")
+            grupo_usuario = st.selectbox("Grupo", [""] + list(grupos.keys()))
+            
+            submitted = st.form_submit_button("Crear Usuario")
+            
+            if submitted:
+                if nuevo_username and nuevo_nombre:
+                    if nuevo_username not in usuarios_config:
+                        usuarios_config[nuevo_username] = {
+                            "nombre": nuevo_nombre,
+                            "grupo": grupo_usuario,
+                            "tipo": "manual",
+                            "password": "cliente123"
+                        }
+                        guardar_configuracion_usuarios(usuarios_config)
+                        st.success(f"✅ Usuario {nuevo_username} creado")
+                        st.rerun()
+                    else:
+                        st.error("❌ El username ya existe")
+
+def filtrar_planes_por_usuario(df_planes, username, tipo_plan="luz"):
+    """Filtra los planes según el grupo del usuario"""
+    usuarios_config = cargar_configuracion_usuarios()
+    config_sistema = cargar_config_sistema()
+    grupos = config_sistema.get("grupos_usuarios", {})
+    
+    if username not in usuarios_config:
+        return df_planes[df_planes['activo'] == True]
+    
+    config_usuario = usuarios_config[username]
+    grupo_usuario = config_usuario.get('grupo')
+    
+    # Si no tiene grupo o el grupo no existe, usar configuración individual antigua
+    if not grupo_usuario or grupo_usuario not in grupos:
+        planes_permitidos = config_usuario.get(f"planes_{tipo_plan}", [])
+    else:
+        # Usar permisos del grupo
+        permisos_grupo = grupos[grupo_usuario]
+        planes_permitidos = permisos_grupo.get(f"planes_{tipo_plan}", [])
+    
+    # Si está vacío, mostrar todos los planes activos
+    if not planes_permitidos:
+        return df_planes[df_planes['activo'] == True]
+    
+    # Si es "TODOS" (en el caso de configuración antigua), mostrar todos
+    if planes_permitidos == "TODOS":
+        return df_planes[df_planes['activo'] == True]
+    
+    # Filtrar por los planes específicos
+    return df_planes[
+        (df_planes['plan'].isin(planes_permitidos)) & 
+        (df_planes['activo'] == True)
+    ]
 
 def gestion_pvd_admin():
     st.subheader("👁️ Administración PVD (Pausa Visual Dinámica)")
