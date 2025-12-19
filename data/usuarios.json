@@ -1,15 +1,4 @@
 {
-    "user": {
-        "nombre": "Usuario Est\u00e1ndar",
-        "password": "cliente123",
-        "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "user"
-    },
     "admin": {
         "nombre": "Administrador",
         "password": "admin123",
@@ -17,95 +6,150 @@
         "planes_gas": "TODOS",
         "tipo": "admin"
     },
-    "auto_dev_418e": {
-        "nombre": "Usuario dev_418e",
-        "device_id": "dev_418e3c82f26e_1765965172",
-        "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-17 09:52:52",
-        "password": "auto_login"
+    "0001": {
+        "nombre": "0001",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "password": "0001"
     },
-    "auto_dev_f969": {
-        "nombre": "Usuario dev_f969",
-        "device_id": "dev_f969f63f30b1_1765966022",
+    "0245": {
+        "nombre": "0245",
+        "password": "0245",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-17 10:07:02",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:29:04",
+        "creado_por": "admin"
     },
-    "auto_dev_0d52": {
-        "nombre": "Usuario dev_0d52",
-        "device_id": "dev_0d52d5cc35cf_1765966187",
+    "0381": {
+        "nombre": "0381",
+        "password": "0381",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-17 10:09:47",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:29:51",
+        "creado_por": "admin"
     },
-    "auto_dev_a4bf": {
-        "nombre": "Usuario dev_a4bf",
-        "device_id": "dev_a4bf937d359e_1765966452",
+    "0613": {
+        "nombre": "0613",
+        "password": "0613",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-17 10:14:12",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:30:49",
+        "creado_por": "admin"
     },
-    "auto_dev_c7f0": {
-        "nombre": "Usuario dev_c7f0",
-        "device_id": "dev_c7f044c95c18_1765966979",
+    "0657": {
+        "nombre": "0657",
+        "password": "0657",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-17 10:22:59",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:31:00",
+        "creado_por": "admin"
     },
-    "auto_dev_0c39": {
-        "nombre": "Usuario dev_0c39",
-        "device_id": "dev_0c396a894281_1766051851",
+    "0694": {
+        "nombre": "0694",
+        "password": "0694",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-18 09:57:31",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:31:17",
+        "creado_por": "admin"
     },
-    "auto_dev_652d": {
-        "nombre": "Usuario dev_652d",
-        "device_id": "dev_652d3a1c3998_1766053890",
+    "0733": {
+        "nombre": "0733",
+        "password": "0733",
+        "grupo": "CAPTA",
+        "tipo": "manual",
         "planes_luz": [],
-        "planes_gas": [
-            "RL1",
-            "RL2",
-            "RL3"
-        ],
-        "tipo": "auto",
-        "fecha_registro": "2025-12-18 10:31:30",
-        "password": "auto_login"
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:33:07",
+        "creado_por": "admin"
+    },
+    "0782": {
+        "nombre": "0782",
+        "password": "0782",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:33:28",
+        "creado_por": "admin"
+    },
+    "0775": {
+        "nombre": "0775",
+        "password": "0775",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:33:54",
+        "creado_por": "admin"
+    },
+    "0791": {
+        "nombre": "0791",
+        "password": "0791",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:34:12",
+        "creado_por": "admin"
+    },
+    "0792": {
+        "nombre": "0792",
+        "password": "0792",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:34:25",
+        "creado_por": "admin"
+    },
+    "0820": {
+        "nombre": "0820",
+        "password": "0820",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:34:47",
+        "creado_por": "admin"
+    },
+    "0821": {
+        "nombre": "0821",
+        "password": "0821",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:35:02",
+        "creado_por": "admin"
+    },
+    "0387": {
+        "nombre": "0387",
+        "password": "0387",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:36:04",
+        "creado_por": "admin"
+    },
+    "0799": {
+        "nombre": "0799",
+        "password": "0799",
+        "grupo": "CAPTA",
+        "tipo": "manual",
+        "planes_luz": [],
+        "planes_gas": [],
+        "fecha_creacion": "2025-12-19 10:37:01",
+        "creado_por": "admin"
     }
 }

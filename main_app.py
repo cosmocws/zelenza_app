@@ -58,14 +58,17 @@ def authenticate(username, password, user_type):
             # Verificar si el usuario existe
             if username in usuarios_config:
                 usuario = usuarios_config[username]
-                # Verificar contraseña
-                try:
-                    password_correcto = password == st.secrets["credentials"]["user_password"]
-                except:
-                    password_correcto = password == usuario.get("password", "cliente123")
-                return password_correcto
+                # CAMBIO: Siempre verificar contra la contraseña guardada
+                if "password" in usuario:
+                    return password == usuario["password"]
+                else:
+                    # Para compatibilidad con versiones antiguas
+                    try:
+                        return password == st.secrets["credentials"]["user_password"]
+                    except:
+                        return password == "cliente123"
             else:
-                # Usuario estándar
+                # Usuario estándar por defecto
                 try:
                     return (username == st.secrets["credentials"]["user_username"] and 
                             password == st.secrets["credentials"]["user_password"])
@@ -437,19 +440,238 @@ def gestion_config_sistema():
         st.success("✅ Configuración del sistema guardada")
         st.rerun()
     
-    st.write("### 📊 Estadísticas del Sistema")
+def gestion_usuarios():
+    st.subheader("👥 Gestión de Usuarios y Grupos")
     
+    # Cargar configuración
     usuarios_config = cargar_configuracion_usuarios()
+    config_sistema = cargar_config_sistema()
     grupos = config_sistema.get("grupos_usuarios", {})
     
-    col_stat1, col_stat2, col_stat3 = st.columns(3)
-    with col_stat1:
-        st.metric("Usuarios totales", len(usuarios_config) - 1)  # Excluir admin
-    with col_stat2:
-        st.metric("Grupos configurados", len(grupos))
-    with col_stat3:
-        usuarios_con_grupo = sum(1 for u in usuarios_config.values() if u.get('grupo'))
-        st.metric("Usuarios con grupo", usuarios_con_grupo)
+    # Pestañas
+    tab1, tab2, tab3 = st.tabs(["👤 Usuarios", "👥 Grupos", "➕ Crear Usuario"])
+    
+    with tab1:
+        st.write("### 📊 Lista de Usuarios")
+        
+        for username, config in usuarios_config.items():
+            if username == "admin":
+                continue
+                
+            with st.expander(f"👤 {username} - {config.get('nombre', 'Sin nombre')}", expanded=False):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    nuevo_nombre = st.text_input("Nombre", value=config.get('nombre', ''), 
+                                                 key=f"nombre_{username}")
+                    
+                    # Selección de grupo
+                    grupo_actual = config.get('grupo', '')
+                    grupo_seleccionado = st.selectbox(
+                        "Grupo",
+                        [""] + list(grupos.keys()),
+                        index=0 if not grupo_actual else (list(grupos.keys()).index(grupo_actual) + 1),
+                        key=f"grupo_{username}"
+                    )
+                    
+                    # Campo para cambiar contraseña
+                    st.write("**🔐 Cambiar contraseña:**")
+                    nueva_password = st.text_input(
+                        "Nueva contraseña",
+                        type="password",
+                        placeholder="Dejar vacío para no cambiar",
+                        key=f"pass_{username}"
+                    )
+                    if nueva_password:
+                        st.info("⚠️ La contraseña se cambiará al guardar")
+                
+                with col2:
+                    # Mostrar permisos basados en grupo
+                    if grupo_seleccionado and grupo_seleccionado in grupos:
+                        permisos = grupos[grupo_seleccionado]
+                        st.write("**Permisos del grupo:**")
+                        st.write(f"📈 Luz: {', '.join(permisos.get('planes_luz', []))}")
+                        st.write(f"🔥 Gas: {', '.join(permisos.get('planes_gas', []))}")
+                    
+                    # Información adicional del usuario
+                    st.write("**Información:**")
+                    st.write(f"📧 Username: `{username}`")
+                    st.write(f"🔑 Tipo: {config.get('tipo', 'user')}")
+                    
+                    # Botones de acción
+                    col_btn1, col_btn2 = st.columns(2)
+                    with col_btn1:
+                        if st.button("💾 Guardar", key=f"save_{username}"):
+                            usuarios_config[username]['nombre'] = nuevo_nombre
+                            usuarios_config[username]['grupo'] = grupo_seleccionado
+                            
+                            # Actualizar contraseña si se proporcionó
+                            if nueva_password:
+                                usuarios_config[username]['password'] = nueva_password
+                                st.success(f"✅ Contraseña actualizada para {username}")
+                            
+                            guardar_configuracion_usuarios(usuarios_config)
+                            st.success(f"✅ Usuario {username} actualizado")
+                            st.rerun()
+                    with col_btn2:
+                        if st.button("🗑️ Eliminar", key=f"del_{username}"):
+                            del usuarios_config[username]
+                            guardar_configuracion_usuarios(usuarios_config)
+                            st.success(f"✅ Usuario {username} eliminado")
+                            st.rerun()
+    
+    with tab2:
+        st.write("### 👥 Gestión de Grupos")
+        
+        for grupo_nombre, permisos in grupos.items():
+            with st.expander(f"**Grupo: {grupo_nombre}**", expanded=True):
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.write("**Planes de Luz**")
+                    try:
+                        df_luz = pd.read_csv("data/precios_luz.csv")
+                        planes_luz_disponibles = df_luz['plan'].tolist()
+                    except:
+                        planes_luz_disponibles = []
+                    
+                    planes_luz_actuales = permisos.get('planes_luz', [])
+                    if planes_luz_actuales == ["TODOS"]:
+                        planes_luz_actuales = planes_luz_disponibles
+                    
+                    planes_luz_seleccionados = st.multiselect(
+                        "Planes de luz permitidos",
+                        planes_luz_disponibles,
+                        default=planes_luz_actuales,
+                        key=f"grupo_luz_{grupo_nombre}"
+                    )
+                
+                with col2:
+                    st.write("**Planes de Gas**")
+                    planes_gas_disponibles = ["RL1", "RL2", "RL3"]
+                    planes_gas_actuales = permisos.get('planes_gas', [])
+                    
+                    planes_gas_seleccionados = st.multiselect(
+                        "Planes de gas permitidos",
+                        planes_gas_disponibles,
+                        default=planes_gas_actuales,
+                        key=f"grupo_gas_{grupo_nombre}"
+                    )
+                
+                if st.button("💾 Actualizar Grupo", key=f"update_grupo_{grupo_nombre}"):
+                    grupos[grupo_nombre] = {
+                        "planes_luz": planes_luz_seleccionados,
+                        "planes_gas": planes_gas_seleccionados
+                    }
+                    config_sistema['grupos_usuarios'] = grupos
+                    guardar_config_sistema(config_sistema)
+                    st.success(f"✅ Grupo {grupo_nombre} actualizado")
+                    st.rerun()
+        
+        # Crear nuevo grupo
+        st.write("### ➕ Crear Nuevo Grupo")
+        nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo")
+        
+        if st.button("Crear Grupo") and nuevo_grupo_nombre:
+            if nuevo_grupo_nombre not in grupos:
+                grupos[nuevo_grupo_nombre] = {
+                    "planes_luz": [],
+                    "planes_gas": []
+                }
+                config_sistema['grupos_usuarios'] = grupos
+                guardar_config_sistema(config_sistema)
+                st.success(f"✅ Grupo {nuevo_grupo_nombre} creado")
+                st.rerun()
+            else:
+                st.error("❌ El grupo ya existe")
+    
+    with tab3:
+        st.write("### 👤 Crear Nuevo Usuario")
+        
+        with st.form("form_nuevo_usuario"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                nuevo_username = st.text_input("Username*", 
+                                              help="Nombre de usuario para el acceso")
+                nuevo_nombre = st.text_input("Nombre completo*", 
+                                            help="Nombre real del usuario")
+                grupo_usuario = st.selectbox("Grupo", [""] + list(grupos.keys()),
+                                           help="Asigna un grupo de permisos")
+            
+            with col2:
+                # Campo para contraseña
+                password_usuario = st.text_input(
+                    "Contraseña*", 
+                    type="password",
+                    help="Contraseña para acceso manual"
+                )
+                confirm_password = st.text_input(
+                    "Confirmar contraseña*", 
+                    type="password",
+                    help="Repite la contraseña"
+                )
+                
+                # Opciones adicionales
+                tipo_usuario = st.selectbox(
+                    "Tipo de usuario",
+                    ["user", "auto", "manual"],
+                    help="user: Usuario normal, auto: Autogenerado, manual: Creado manualmente"
+                )
+                
+                # Checkbox para planes específicos
+                st.write("**Planes especiales:**")
+                planes_luz_todos = st.checkbox("Todos los planes de luz", value=True)
+                planes_gas_todos = st.checkbox("Todos los planes de gas", value=True)
+            
+            submitted = st.form_submit_button("👤 Crear Usuario")
+            
+            if submitted:
+                if not nuevo_username or not nuevo_nombre:
+                    st.error("❌ Username y nombre son obligatorios")
+                elif not password_usuario:
+                    st.error("❌ La contraseña es obligatoria")
+                elif password_usuario != confirm_password:
+                    st.error("❌ Las contraseñas no coinciden")
+                elif nuevo_username in usuarios_config:
+                    st.error("❌ El username ya existe")
+                else:
+                    # Configurar planes según selección
+                    planes_luz = "TODOS" if planes_luz_todos else []
+                    planes_gas = ["RL1", "RL2", "RL3"] if planes_gas_todos else []
+                    
+                    # Crear usuario
+                    usuarios_config[nuevo_username] = {
+                        "nombre": nuevo_nombre,
+                        "password": password_usuario,
+                        "grupo": grupo_usuario,
+                        "tipo": tipo_usuario,
+                        "planes_luz": planes_luz,
+                        "planes_gas": planes_gas,
+                        "fecha_creacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "creado_por": st.session_state.username
+                    }
+                    
+                    guardar_configuracion_usuarios(usuarios_config)
+                    
+                    # Mostrar resumen
+                    st.success(f"✅ Usuario {nuevo_username} creado exitosamente")
+                    st.info(f"""
+                    **Resumen del usuario creado:**
+                    - **Username:** `{nuevo_username}`
+                    - **Nombre:** {nuevo_nombre}
+                    - **Grupo:** {grupo_usuario if grupo_usuario else 'Ninguno'}
+                    - **Tipo:** {tipo_usuario}
+                    - **Contraseña:** {'✓ Configurada'}
+                    - **Planes luz:** {'Todos' if planes_luz_todos else 'Específicos'}
+                    - **Planes gas:** {'Todos' if planes_gas_todos else 'Específicos'}
+                    """)
+                    
+                    # Mostrar credenciales
+                    credenciales = f"Usuario: {nuevo_username}\nContraseña: {password_usuario}"
+                    st.code(credenciales, language="text")
+                    
+                    st.rerun()
 
 def mostrar_panel_usuario():
     """Panel del usuario normal"""
@@ -1096,154 +1318,6 @@ def guardar_cola_pvd(cola):
     # Backup
     os.makedirs('data_backup', exist_ok=True)
     shutil.copy('data/cola_pvd.json', 'data_backup/cola_pvd.json')
-
-def gestion_usuarios():
-    st.subheader("👥 Gestión de Usuarios y Grupos")
-    
-    # Cargar configuración
-    usuarios_config = cargar_configuracion_usuarios()
-    config_sistema = cargar_config_sistema()
-    grupos = config_sistema.get("grupos_usuarios", {})
-    
-    # Pestañas
-    tab1, tab2, tab3 = st.tabs(["👤 Usuarios", "👥 Grupos", "➕ Crear Usuario"])
-    
-    with tab1:
-        st.write("### 📊 Lista de Usuarios")
-        
-        for username, config in usuarios_config.items():
-            if username == "admin":
-                continue
-                
-            with st.expander(f"👤 {username} - {config.get('nombre', 'Sin nombre')}", expanded=False):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    nuevo_nombre = st.text_input("Nombre", value=config.get('nombre', ''), 
-                                                 key=f"nombre_{username}")
-                    
-                    # Selección de grupo
-                    grupo_actual = config.get('grupo', '')
-                    grupo_seleccionado = st.selectbox(
-                        "Grupo",
-                        [""] + list(grupos.keys()),
-                        index=0 if not grupo_actual else (list(grupos.keys()).index(grupo_actual) + 1),
-                        key=f"grupo_{username}"
-                    )
-                
-                with col2:
-                    # Mostrar permisos basados en grupo
-                    if grupo_seleccionado and grupo_seleccionado in grupos:
-                        permisos = grupos[grupo_seleccionado]
-                        st.write("**Permisos del grupo:**")
-                        st.write(f"📈 Luz: {', '.join(permisos.get('planes_luz', []))}")
-                        st.write(f"🔥 Gas: {', '.join(permisos.get('planes_gas', []))}")
-                    
-                    # Botones de acción
-                    col_btn1, col_btn2 = st.columns(2)
-                    with col_btn1:
-                        if st.button("💾 Guardar", key=f"save_{username}"):
-                            usuarios_config[username]['nombre'] = nuevo_nombre
-                            usuarios_config[username]['grupo'] = grupo_seleccionado
-                            guardar_configuracion_usuarios(usuarios_config)
-                            st.success(f"✅ Usuario {username} actualizado")
-                            st.rerun()
-                    with col_btn2:
-                        if st.button("🗑️ Eliminar", key=f"del_{username}"):
-                            del usuarios_config[username]
-                            guardar_configuracion_usuarios(usuarios_config)
-                            st.success(f"✅ Usuario {username} eliminado")
-                            st.rerun()
-    
-    with tab2:
-        st.write("### 👥 Gestión de Grupos")
-        
-        for grupo_nombre, permisos in grupos.items():
-            with st.expander(f"**Grupo: {grupo_nombre}**", expanded=True):
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.write("**Planes de Luz**")
-                    try:
-                        df_luz = pd.read_csv("data/precios_luz.csv")
-                        planes_luz_disponibles = df_luz['plan'].tolist()
-                    except:
-                        planes_luz_disponibles = []
-                    
-                    planes_luz_actuales = permisos.get('planes_luz', [])
-                    if planes_luz_actuales == ["TODOS"]:
-                        planes_luz_actuales = planes_luz_disponibles
-                    
-                    planes_luz_seleccionados = st.multiselect(
-                        "Planes de luz permitidos",
-                        planes_luz_disponibles,
-                        default=planes_luz_actuales,
-                        key=f"grupo_luz_{grupo_nombre}"
-                    )
-                
-                with col2:
-                    st.write("**Planes de Gas**")
-                    planes_gas_disponibles = ["RL1", "RL2", "RL3"]
-                    planes_gas_actuales = permisos.get('planes_gas', [])
-                    
-                    planes_gas_seleccionados = st.multiselect(
-                        "Planes de gas permitidos",
-                        planes_gas_disponibles,
-                        default=planes_gas_actuales,
-                        key=f"grupo_gas_{grupo_nombre}"
-                    )
-                
-                if st.button("💾 Actualizar Grupo", key=f"update_grupo_{grupo_nombre}"):
-                    grupos[grupo_nombre] = {
-                        "planes_luz": planes_luz_seleccionados,
-                        "planes_gas": planes_gas_seleccionados
-                    }
-                    config_sistema['grupos_usuarios'] = grupos
-                    guardar_config_sistema(config_sistema)
-                    st.success(f"✅ Grupo {grupo_nombre} actualizado")
-                    st.rerun()
-        
-        # Crear nuevo grupo
-        st.write("### ➕ Crear Nuevo Grupo")
-        nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo")
-        
-        if st.button("Crear Grupo") and nuevo_grupo_nombre:
-            if nuevo_grupo_nombre not in grupos:
-                grupos[nuevo_grupo_nombre] = {
-                    "planes_luz": [],
-                    "planes_gas": []
-                }
-                config_sistema['grupos_usuarios'] = grupos
-                guardar_config_sistema(config_sistema)
-                st.success(f"✅ Grupo {nuevo_grupo_nombre} creado")
-                st.rerun()
-            else:
-                st.error("❌ El grupo ya existe")
-    
-    with tab3:
-        st.write("### 👤 Crear Nuevo Usuario")
-        
-        with st.form("form_nuevo_usuario"):
-            nuevo_username = st.text_input("Username*")
-            nuevo_nombre = st.text_input("Nombre completo*")
-            grupo_usuario = st.selectbox("Grupo", [""] + list(grupos.keys()))
-            
-            submitted = st.form_submit_button("Crear Usuario")
-            
-            if submitted:
-                if nuevo_username and nuevo_nombre:
-                    if nuevo_username not in usuarios_config:
-                        usuarios_config[nuevo_username] = {
-                            "nombre": nuevo_nombre,
-                            "grupo": grupo_usuario,
-                            "tipo": "manual",
-                            "password": "cliente123"
-                        }
-                        guardar_configuracion_usuarios(usuarios_config)
-                        st.success(f"✅ Usuario {nuevo_username} creado")
-                        st.rerun()
-                    else:
-                        st.error("❌ El username ya existe")
 
 def filtrar_planes_por_usuario(df_planes, username, tipo_plan="luz"):
     """Filtra los planes según el grupo del usuario"""
@@ -2412,6 +2486,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
         
         # Primero calcular todos los planes para encontrar el máximo ahorro
         todos_resultados = []
+        resultados_con_pi = []  # <--- NUEVA LISTA PARA FILTRAR SOLO CON PI
         
         for _, plan in planes_activos.iterrows():
             
@@ -2423,18 +2498,18 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
             disponible_en_comunidad = (
                 'Toda España' in comunidades_plan or 
                 comunidad in comunidades_plan or
-                not comunidades_plan  # Por compatibilidad con planes antiguos
+                not comunidades_plan
             )
             
             if not disponible_en_comunidad:
-                continue  # Saltar planes no disponibles en esta comunidad
+                continue
             
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
             # VERIFICAR SI ES PLAN ESPECIAL PLUS
             es_especial_plus = "ESPECIAL PLUS" in plan['plan'].upper()
             
-            for tiene_pi in [True, False]:  # Calcular ambas opciones: CON y SIN PI
+            for tiene_pi in [True, False]:  # Calcular ambas opciones
                 
                 if es_ahorro_automatico:
                     # --- CÁLCULO ESPECIAL PARA AHORRO AUTOMÁTICO ---
@@ -2443,10 +2518,11 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                     )
                     
                     precio_kwh = f"0.215€/0.105€*"
+                    # X: Coste consumo total (sin restar excedentes todavía)
                     coste_consumo = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA * (dias / 30) if tiene_pi else 0.0
                     
-                    # Bonificación mensual fija para Ahorro Automático
+                    # Bonificación mensual fija
                     if tiene_pi:
                         bonificacion_mensual = 10.00 * (dias / 30)  # 10€/mes con PI
                     else:
@@ -2461,47 +2537,55 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                         precio_kwh = plan['sin_pi_kwh']
                         coste_pack = 0.0
                     
+                    # X: Coste consumo total (sin restar excedentes todavía)
                     coste_consumo = consumo * precio_kwh
-                    bonificacion_mensual = 0.0  # Sin bonificación para planes normales
+                    bonificacion_mensual = 0.0
                 
-                # CÁLCULOS COMUNES PARA TODOS LOS PLANES
+                # ===============================================
+                # **CÁLCULO CORREGIDO SEGÚN TU EXPLICACIÓN**
+                # ===============================================
+                
+                # Z: Coste potencia
                 coste_potencia = potencia * plan['total_potencia'] * dias
+                
+                # Y: Ingreso por excedentes
+                ingreso_excedentes = excedente_kwh * precio_excedente
+                
+                # ===============================================
+                # **FÓRMULA CORRECTA: (X + Z) - Y**
+                # ===============================================
+                subtotal_sin_excedentes = coste_consumo + coste_potencia
+                subtotal_con_excedentes = subtotal_sin_excedentes - ingreso_excedentes
+                
+                # Asegurar que no sea negativo
+                if subtotal_con_excedentes < 0:
+                    subtotal_con_excedentes = 0
+                
+                # Coste alquiler contador
                 coste_alquiler = ALQUILER_CONTADOR * (dias / 30)
                 
-                # Cálculo de excedentes (se resta del consumo y se suma como ingreso)
-                ingreso_excedentes = excedente_kwh * precio_excedente
-                consumo_neto = max(0, consumo - excedente_kwh)
+                # Coste pack Iberdrola
+                subtotal_final = subtotal_con_excedentes + coste_alquiler + coste_pack
                 
-                # Si hay excedentes, recalcular el coste de consumo
-                if excedente_kwh > 0:
-                    if es_ahorro_automatico:
-                        # Para ahorro automático, recalcular con consumo neto
-                        calculo_ahorro_neto = calcular_plan_ahorro_automatico(
-                            plan, consumo_neto, dias, tiene_pi, es_anual=False
-                        )
-                        coste_consumo = calculo_ahorro_neto['coste_consumo']
-                    else:
-                        coste_consumo = consumo_neto * (plan['con_pi_kwh'] if tiene_pi else plan['sin_pi_kwh'])
+                # IMPUESTOS (sobre subtotal final)
+                impuesto_electrico = subtotal_final * IMPUESTO_ELECTRICO
                 
-                # SUBTOTAL
-                subtotal = coste_consumo + coste_potencia + coste_alquiler + coste_pack
-                
-                # IMPUESTOS
-                impuesto_electrico = subtotal * IMPUESTO_ELECTRICO
                 # Aplicar IVA excepto en Canarias
                 if comunidad != "Canarias":
-                    iva_total = (subtotal + impuesto_electrico) * IVA
+                    iva_total = (subtotal_final + impuesto_electrico) * IVA
                 else:
-                    iva_total = 0  # No hay IVA en Canarias
-                    
-                # TOTAL (con descuento bienvenida, bonificación e ingreso por excedentes)
-                total_bruto = subtotal + impuesto_electrico + iva_total
-                total_neto = total_bruto - DESCUENTO_PRIMERA_FACTURA - bonificacion_mensual - ingreso_excedentes
+                    iva_total = 0
+                
+                # TOTAL BRUTO
+                total_bruto = subtotal_final + impuesto_electrico + iva_total
+                
+                # Aplicar descuento de bienvenida y bonificación
+                total_neto = total_bruto - DESCUENTO_PRIMERA_FACTURA - bonificacion_mensual
                 
                 # Asegurar que no sea negativo
                 total_nuevo = max(0, total_neto)
                 
-                # Calcular ahorro
+                # Calcular ahorro vs factura actual
                 ahorro = costo_actual - total_nuevo
                 ahorro_anual = ahorro * (365 / dias)
                 
@@ -2524,7 +2608,8 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                 
                 # Información adicional para excedentes
                 if excedente_kwh > 0:
-                    info_extra += f" | ☀️ +{ingreso_excedentes:.2f}€ excedentes"
+                    info_extra += f" | ☀️ {excedente_kwh}kWh excedentes"
+                    info_extra += f" | 📉 -{ingreso_excedentes:.2f}€"
                 
                 # Información de disponibilidad por comunidad
                 if len(comunidades_plan) == 1 and 'Toda España' in comunidades_plan:
@@ -2534,8 +2619,7 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                 else:
                     info_extra += f" | 🗺️ {len(comunidades_plan)} CCAA"
                 
-                todos_resultados.append({
-                    'plan_data': plan,
+                resultado = {
                     'Plan': plan['plan'],
                     'Pack Iberdrola': pack_info,
                     'Precio kWh': precio_display,
@@ -2545,73 +2629,134 @@ def calcular_comparacion_exacta(dias, potencia, consumo, costo_actual, comunidad
                     'Estado': '💚 Ahorras' if ahorro > 0 else '🔴 Pagas más',
                     'Info Extra': info_extra,
                     'es_especial_plus': es_especial_plus,
+                    'tiene_pi': tiene_pi,  # <--- NUEVO CAMPO PARA FILTRAR
                     'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)
-                })
+                }
+                
+                todos_resultados.append(resultado)
+                
+                # <--- GUARDAR SOLO LOS CON PI PARA LAS MÉTRICAS
+                if tiene_pi:
+                    resultados_con_pi.append(resultado)
+        
+        # ===============================================
+        # **FILTRAR PARA MÉTRICAS (SOLO CON PI)**
+        # ===============================================
+        
+        # Encontrar el MÁXIMO ahorro de planes CON PI (excluyendo Especial Plus)
+        ahorros_con_pi_no_especial = [r['Ahorro Mensual'] for r in resultados_con_pi if not r['es_especial_plus']]
+        max_ahorro_con_pi = max(ahorros_con_pi_no_especial) if ahorros_con_pi_no_especial else 0
+        
+        # Filtrar resultados CON PI según regla del Especial Plus
+        resultados_con_pi_filtrados = []
+        for resultado in resultados_con_pi:
+            if not resultado['es_especial_plus']:
+                resultados_con_pi_filtrados.append(resultado)
+            else:
+                umbral = resultado['umbral_especial_plus']
+                if max_ahorro_con_pi < umbral:
+                    resultados_con_pi_filtrados.append(resultado)
+        
+        # ===============================================
+        # **FILTRAR PARA TABLA COMPLETA (CON Y SIN PI)**
+        # ===============================================
         
         # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
         ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
         max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
         
-        # FILTRAR resultados según regla del Especial Plus (SIN AVISOS)
+        # Filtrar TODOS los resultados según regla del Especial Plus
         resultados_finales = []
         for resultado in todos_resultados:
-            # Si NO es Especial Plus, siempre se muestra
             if not resultado['es_especial_plus']:
                 resultados_finales.append(resultado)
-            # Si ES Especial Plus, solo se muestra si el máximo ahorro es MENOR que el umbral
             else:
                 umbral = resultado['umbral_especial_plus']
                 if max_ahorro < umbral:
                     resultados_finales.append(resultado)
         
-        # Mostrar resultados filtrados
-        df_resultados = pd.DataFrame(resultados_finales)
-        
-        if df_resultados.empty:
-            st.warning(f"ℹ️ No hay planes disponibles para {comunidad} según los criterios de filtrado")
+        # Verificar que tenemos resultados CON PI
+        if not resultados_con_pi_filtrados:
+            st.warning(f"ℹ️ No hay planes CON Pack Iberdrola disponibles para {comunidad}")
             return
         
-        # Encontrar mejor plan
-        mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
+        # Encontrar MEJOR plan CON PI (para métricas)
+        mejor_plan_con_pi = max(resultados_con_pi_filtrados, key=lambda x: x['Ahorro Mensual'])
+        
+        # Encontrar MEJOR plan de todos (para tabla)
+        mejor_plan_todos = max(resultados_finales, key=lambda x: x['Ahorro Mensual'])
         
         st.write("### 📊 RESULTADOS DE LA COMPARATIVA")
         
-        # Información sobre comunidad y excedentes
-        info_comunidad = f" | 🗺️ **Comunidad:** {comunidad}"
-        if comunidad == "Canarias":
-            info_comunidad += " | 🏝️ **Sin IVA**"
-        if excedente_kwh > 0:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | ☀️ **Excedentes:** {excedente_kwh}kWh x {precio_excedente}€/kWh = +{excedente_kwh * precio_excedente:.2f}€ | Días: {dias} | Consumo neto: {max(0, consumo - excedente_kwh):.1f}kWh")
-        else:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | Días: {dias} | Consumo: {consumo}kWh")
+        # Explicación de la fórmula
+        st.info(f"""
+        **🧮 Fórmula aplicada:** (Consumo + Potencia) - Excedentes
         
-        # Métricas principales
+        - **Consumo:** {consumo}kWh × Precio del plan
+        - **Potencia:** {potencia}kW × {dias}días × Tarifa potencia
+        - **Excedentes:** {excedente_kwh}kWh × {precio_excedente}€/kWh = {excedente_kwh * precio_excedente:.2f}€
+        - **Comunidad:** {comunidad} {'(Sin IVA)' if comunidad == 'Canarias' else ''}
+        - **Descuento bienvenida:** 5€
+        - **🔒 Las métricas muestran solo planes CON Pack Iberdrola**
+        """)
+        
+        # ===============================================
+        # **MÉTRICAS PRINCIPALES (SOLO CON PI)**
+        # ===============================================
+        st.write("#### 💰 COMPARATIVA CON PACK IBERDROLA")
+        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("💶 Coste Actual", f"{costo_actual}€")
         with col2:
-            st.metric("💰 Coste Nuevo", f"{mejor_plan['Coste Nuevo']}€")
+            st.metric("💰 Coste Nuevo", f"{mejor_plan_con_pi['Coste Nuevo']}€")
         with col3:
-            st.metric("📈 Ahorro Mensual", f"{mejor_plan['Ahorro Mensual']}€", 
-                     delta=f"{mejor_plan['Ahorro Mensual']}€" if mejor_plan['Ahorro Mensual'] > 0 else None)
+            st.metric("📈 Ahorro Mensual", f"{mejor_plan_con_pi['Ahorro Mensual']}€", 
+                     delta=f"{mejor_plan_con_pi['Ahorro Mensual']}€" if mejor_plan_con_pi['Ahorro Mensual'] > 0 else None)
         with col4:
-            st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
+            st.metric("🎯 Ahorro Anual", f"{mejor_plan_con_pi['Ahorro Anual']}€")
         
-        # Tabla comparativa
-        st.dataframe(df_resultados[['Plan', 'Pack Iberdrola', 'Precio kWh', 'Coste Nuevo', 'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']], 
-                    use_container_width=True)
+        # ===============================================
+        # **TABLA COMPLETA (CON Y SIN PI)**
+        # ===============================================
+        st.write("#### 📋 TABLA COMPARATIVA COMPLETA")
+        st.info("**Mostrando todas las opciones disponibles (CON y SIN Pack Iberdrola)**")
         
-        # Recomendación
-        if mejor_plan['Ahorro Mensual'] > 0:
-            mensaje = f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack - Ahorras {mejor_plan['Ahorro Mensual']}€/mes ({mejor_plan['Ahorro Anual']}€/año)"
-            if mejor_plan['Info Extra']:
-                mensaje += mejor_plan['Info Extra']
-            st.success(mensaje)
-        else:
-            st.warning("ℹ️ Todos los planes son más caros que tu factura actual")
+        # Convertir a DataFrame para mostrar
+        df_resultados = pd.DataFrame(resultados_finales)
+        
+        # Ordenar por mejor ahorro (primero CON PI, luego SIN PI)
+        df_resultados['orden_pi'] = df_resultados['Pack Iberdrola'].apply(lambda x: 0 if '✅ CON' in x else 1)
+        df_resultados = df_resultados.sort_values(['orden_pi', 'Ahorro Mensual'], ascending=[True, False])
+        df_resultados = df_resultados.drop('orden_pi', axis=1)
+        
+        columnas_mostrar = ['Plan', 'Pack Iberdrola', 'Precio kWh', 'Coste Nuevo', 
+                          'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']
+        
+        st.dataframe(df_resultados[columnas_mostrar], use_container_width=True)
+        
+        # ===============================================
+        # **RECOMENDACIONES SEPARADAS**
+        # ===============================================
+        
+        # Recomendación CON PI
+        if mejor_plan_con_pi['Ahorro Mensual'] > 0:
+            mensaje_con_pi = f"🎯 **MEJOR CON PACK IBERDROLA**: {mejor_plan_con_pi['Plan']} - Ahorras {mejor_plan_con_pi['Ahorro Mensual']}€/mes ({mejor_plan_con_pi['Ahorro Anual']}€/año)"
+            if mejor_plan_con_pi['Info Extra']:
+                mensaje_con_pi += mejor_plan_con_pi['Info Extra']
+            st.success(mensaje_con_pi)
+        
+        # Recomendación GENERAL (puede ser SIN PI si es mejor)
+        if mejor_plan_todos['Ahorro Mensual'] > 0 and mejor_plan_todos['tiene_pi'] == False:
+            st.info(f"💡 **NOTA**: La opción SIN Pack Iberdrola '{mejor_plan_todos['Plan']}' ahorra {mejor_plan_todos['Ahorro Mensual']}€/mes, pero no incluye el Pack Iberdrola")
+        
+        if mejor_plan_con_pi['Ahorro Mensual'] <= 0:
+            st.warning("ℹ️ Todos los planes CON Pack Iberdrola son más caros que tu factura actual")
             
     except Exception as e:
         st.error(f"❌ Error en el cálculo: {e}")
+        import traceback
+        st.error(traceback.format_exc())
 
 def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh=0.0):
     """Calcula estimación anual - Muestra CON y SIN PI con ahorro vs actual"""
@@ -2644,8 +2789,13 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, com
         # Calcular costo anual actual del cliente
         costo_anual_actual = costo_mensual_actual * 12
         
-        # Primero calcular todos los planes para encontrar el máximo ahorro
+        # Calcular excedentes anuales
+        excedente_anual_kwh = excedente_mensual_kwh * 12
+        ingreso_excedentes_anual = excedente_anual_kwh * precio_excedente
+        
+        # Listas para resultados
         todos_resultados = []
+        resultados_con_pi = []  # <--- NUEVA LISTA
         
         for _, plan in planes_activos.iterrows():
             
@@ -2657,45 +2807,38 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, com
             disponible_en_comunidad = (
                 'Toda España' in comunidades_plan or 
                 comunidad in comunidades_plan or
-                not comunidades_plan  # Por compatibilidad con planes antiguos
+                not comunidades_plan
             )
             
             if not disponible_en_comunidad:
-                continue  # Saltar planes no disponibles en esta comunidad
+                continue
             
             # VERIFICAR SI ES PLAN AHORRO AUTOMÁTICO
             es_ahorro_automatico = "AHORRO AUTOMÁTICO" in plan['plan'].upper()
             # VERIFICAR SI ES PLAN ESPECIAL PLUS
             es_especial_plus = "ESPECIAL PLUS" in plan['plan'].upper()
             
-            for tiene_pi in [True, False]:  # Calcular ambas opciones: CON y SIN PI
+            for tiene_pi in [True, False]:
                 
                 if es_ahorro_automatico:
-                    # --- CÁLCULO ESPECIAL PARA AHORRO AUTOMÁTICO (ANUAL) ---
+                    # CÁLCULO ESPECIAL PARA AHORRO AUTOMÁTICO
                     calculo_ahorro = calcular_plan_ahorro_automatico(
                         plan, consumo_anual, DIAS_ANUAL, tiene_pi, es_anual=True
                     )
                     
-                    precio_kwh = f"0.215€/0.105€*"
+                    precio_kwh = "0.215€/0.105€*"
+                    # X: Coste consumo total
                     coste_consumo_anual = calculo_ahorro['coste_consumo']
                     coste_pack = PACK_IBERDROLA if tiene_pi else 0.0
                     
-                    # Bonificación anual fija para Ahorro Automático
+                    # Bonificación anual
                     if tiene_pi:
-                        bonificacion_anual = 10.00 * 12  # 10€/mes con PI = 120€/año
+                        bonificacion_anual = 10.00 * 12  # 120€/año
                     else:
-                        bonificacion_anual = 8.33 * 12   # 8.33€/mes sin PI = 100€/año
-                    
-                    # Información adicional para mostrar
-                    info_extra = ""
-                    if tiene_pi:
-                        info_extra = f" | 🎁 +10€/mes bono"
-                    else:
-                        info_extra = f" | 🎁 +8.33€/mes bono"
-                    info_extra += f" | 📊 {calculo_ahorro['dias_bajo_precio']}d/año a 0.105€"
+                        bonificacion_anual = 8.33 * 12   # 100€/año
                     
                 else:
-                    # --- CÁLCULO NORMAL PARA OTROS PLANES ---
+                    # CÁLCULO NORMAL
                     if tiene_pi:
                         precio_kwh = plan['con_pi_kwh']
                         coste_pack = PACK_IBERDROLA
@@ -2703,46 +2846,44 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, com
                         precio_kwh = plan['sin_pi_kwh']
                         coste_pack = 0.0
                     
+                    # X: Coste consumo total
                     coste_consumo_anual = consumo_anual * precio_kwh
-                    bonificacion_anual = 0.0  # Sin bonificación para planes normales
-                    info_extra = ""
+                    bonificacion_anual = 0.0
                 
-                # Información adicional para Especial Plus
-                if es_especial_plus:
-                    info_extra += " | 📍 Con permanencia"
+                # ===============================================
+                # **CÁLCULO CORREGIDO: (X + Z) - Y**
+                # ===============================================
                 
-                # CÁLCULOS COMUNES PARA TODOS LOS PLANES
+                # Z: Coste potencia anual
                 coste_potencia_anual = potencia * plan['total_potencia'] * DIAS_ANUAL
-                coste_alquiler_anual = ALQUILER_CONTADOR
                 
-                # Cálculo de excedentes anuales
-                excedente_anual_kwh = excedente_mensual_kwh * 12
-                ingreso_excedentes_anual = excedente_anual_kwh * precio_excedente
-                consumo_neto_anual = max(0, consumo_anual - excedente_anual_kwh)
+                # Y: Ingreso por excedentes anual
+                # ingreso_excedentes_anual ya calculado arriba
                 
-                # Si hay excedentes, recalcular el coste de consumo
-                if excedente_anual_kwh > 0:
-                    if es_ahorro_automatico:
-                        # Para ahorro automático, recalcular con consumo neto
-                        calculo_ahorro_neto = calcular_plan_ahorro_automatico(
-                            plan, consumo_neto_anual, DIAS_ANUAL, tiene_pi, es_anual=True
-                        )
-                        coste_consumo_anual = calculo_ahorro_neto['coste_consumo']
-                    else:
-                        coste_consumo_anual = consumo_neto_anual * (plan['con_pi_kwh'] if tiene_pi else plan['sin_pi_kwh'])
-                
-                # SUBTOTAL ANUAL
-                subtotal_anual = coste_consumo_anual + coste_potencia_anual + coste_alquiler_anual + coste_pack
-                
-                # IMPUESTOS ANUALES
-                impuesto_electrico_anual = subtotal_anual * IMPUESTO_ELECTRICO
-                iva_anual = (subtotal_anual + impuesto_electrico_anual) * IVA
-                
-                # TOTAL ANUAL (con descuento bienvenida, bonificación e ingreso por excedentes)
-                total_bruto_anual = subtotal_anual + impuesto_electrico_anual + iva_anual
-                total_neto_anual = total_bruto_anual - DESCUENTO_PRIMERA_FACTURA - bonificacion_anual - ingreso_excedentes_anual
+                # FÓRMULA: (Consumo + Potencia) - Excedentes
+                subtotal_sin_excedentes = coste_consumo_anual + coste_potencia_anual
+                subtotal_con_excedentes = subtotal_sin_excedentes - ingreso_excedentes_anual
                 
                 # Asegurar que no sea negativo
+                if subtotal_con_excedentes < 0:
+                    subtotal_con_excedentes = 0
+                
+                # Coste alquiler contador anual
+                coste_alquiler_anual = ALQUILER_CONTADOR
+                
+                # Coste pack Iberdrola
+                subtotal_final_anual = subtotal_con_excedentes + coste_alquiler_anual + coste_pack
+                
+                # IMPUESTOS
+                impuesto_electrico_anual = subtotal_final_anual * IMPUESTO_ELECTRICO
+                iva_anual = (subtotal_final_anual + impuesto_electrico_anual) * IVA
+                
+                # TOTAL BRUTO ANUAL
+                total_bruto_anual = subtotal_final_anual + impuesto_electrico_anual + iva_anual
+                
+                # Aplicar descuentos
+                total_neto_anual = total_bruto_anual - DESCUENTO_PRIMERA_FACTURA - bonificacion_anual
+                
                 total_anual = max(0, total_neto_anual)
                 mensual = total_anual / 12
                 
@@ -2752,103 +2893,161 @@ def calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, com
                 
                 # Información para mostrar
                 pack_info = '✅ CON' if tiene_pi else '❌ SIN'
-                precio_display = f"{precio_kwh:.3f}€" if not isinstance(precio_kwh, str) else precio_kwh
+                precio_display = f"{precio_kwh}" if not es_ahorro_automatico else f"{precio_kwh}"
                 
-                # Información adicional para excedentes
-                if excedente_anual_kwh > 0:
-                    info_extra += f" | ☀️ +{ingreso_excedentes_anual:.2f}€/año excedentes"
+                # Información adicional
+                info_extra = ""
+                if es_ahorro_automatico:
+                    if tiene_pi:
+                        info_extra = f" | 🎁 +10€/mes bono"
+                    else:
+                        info_extra = f" | 🎁 +8.33€/mes bono"
+                    info_extra += f" | 📊 {calculo_ahorro['dias_bajo_precio']}d/año a 0.105€"
                 
-                # Información de disponibilidad por comunidad
-                if len(comunidades_plan) == 1 and 'Toda España' in comunidades_plan:
-                    info_extra += " | 🗺️ Toda España"
-                elif len(comunidades_plan) < 5:
-                    info_extra += f" | 🗺️ {', '.join(comunidades_plan)}"
-                else:
-                    info_extra += f" | 🗺️ {len(comunidades_plan)} CCAA"
+                if es_especial_plus:
+                    info_extra += " | 📍 Con permanencia"
                 
-                # Añadir a resultados
-                todos_resultados.append({
-                    'plan_data': plan,
+                if excedente_mensual_kwh > 0:
+                    info_extra += f" | ☀️ {excedente_mensual_kwh}kWh/mes excedentes"
+                    info_extra += f" | 📉 -{ingreso_excedentes_anual/12:.2f}€/mes"
+                
+                resultado = {
                     'Plan': plan['plan'],
                     'Pack Iberdrola': pack_info,
                     'Precio kWh': precio_display,
-                    'Mensual Normal': round(mensual, 2),
+                    'Mensual': round(mensual, 2),
                     'Anual': round(total_anual, 2),
                     'Ahorro Mensual': round(ahorro_mensual, 2),
                     'Ahorro Anual': round(ahorro_anual, 2),
                     'Estado': '💚 Ahorras' if ahorro_mensual > 0 else '🔴 Pagas más',
                     'Info Extra': info_extra,
                     'es_especial_plus': es_especial_plus,
+                    'tiene_pi': tiene_pi,  # <--- NUEVO CAMPO
                     'umbral_especial_plus': plan.get('umbral_especial_plus', 15.00)
-                })
+                }
+                
+                todos_resultados.append(resultado)
+                
+                # <--- GUARDAR SOLO LOS CON PI
+                if tiene_pi:
+                    resultados_con_pi.append(resultado)
         
-        # Encontrar el MÁXIMO ahorro de todos los planes (excluyendo Especial Plus)
+        # ===============================================
+        # **FILTRAR PARA MÉTRICAS (SOLO CON PI)**
+        # ===============================================
+        
+        # Filtrar resultados CON PI según regla del Especial Plus
+        ahorros_con_pi_no_especial = [r['Ahorro Mensual'] for r in resultados_con_pi if not r['es_especial_plus']]
+        max_ahorro_con_pi = max(ahorros_con_pi_no_especial) if ahorros_con_pi_no_especial else 0
+        
+        resultados_con_pi_filtrados = []
+        for resultado in resultados_con_pi:
+            if not resultado['es_especial_plus']:
+                resultados_con_pi_filtrados.append(resultado)
+            else:
+                umbral = resultado['umbral_especial_plus']
+                if max_ahorro_con_pi < umbral:
+                    resultados_con_pi_filtrados.append(resultado)
+        
+        # ===============================================
+        # **FILTRAR PARA TABLA COMPLETA**
+        # ===============================================
+        
         ahorros_no_especial = [r['Ahorro Mensual'] for r in todos_resultados if not r['es_especial_plus']]
         max_ahorro = max(ahorros_no_especial) if ahorros_no_especial else 0
         
-        # FILTRAR resultados según regla del Especial Plus (SIN AVISOS)
         resultados_finales = []
         for resultado in todos_resultados:
-            # Si NO es Especial Plus, siempre se muestra
             if not resultado['es_especial_plus']:
                 resultados_finales.append(resultado)
-            # Si ES Especial Plus, solo se muestra si el máximo ahorro es MENOR que el umbral
             else:
                 umbral = resultado['umbral_especial_plus']
                 if max_ahorro < umbral:
                     resultados_finales.append(resultado)
         
-        # Mostrar resultados filtrados
-        df_resultados = pd.DataFrame(resultados_finales)
-        
-        if df_resultados.empty:
-            st.warning(f"ℹ️ No hay planes disponibles para {comunidad} según los criterios de filtrado")
+        # Verificar que tenemos resultados CON PI
+        if not resultados_con_pi_filtrados:
+            st.warning(f"ℹ️ No hay planes CON Pack Iberdrola disponibles para {comunidad}")
             return
         
-        # Encontrar plan más económico (mayor ahorro mensual)
-        mejor_plan = df_resultados.loc[df_resultados['Ahorro Mensual'].idxmax()]
+        # Encontrar MEJOR plan CON PI (para métricas)
+        mejor_plan_con_pi = max(resultados_con_pi_filtrados, key=lambda x: x['Ahorro Mensual'])
+        
+        # Encontrar MEJOR plan de todos (para tabla)
+        mejor_plan_todos = max(resultados_finales, key=lambda x: x['Ahorro Mensual'])
         
         st.write("### 📊 ESTIMACIÓN ANUAL")
         
-        # Información sobre comunidad y excedentes
-        info_comunidad = f" | 🗺️ **Comunidad:** {comunidad}"
-        if excedente_mensual_kwh > 0:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | ☀️ **Excedentes:** {excedente_mensual_kwh}kWh/mes x {precio_excedente}€/kWh = +{excedente_mensual_kwh * precio_excedente * 12:.2f}€/año | Consumo neto anual: {max(0, consumo_anual - (excedente_mensual_kwh * 12)):.0f}kWh")
-        else:
-            st.info(f"💡 **Incluye descuento de 5€ de bienvenida** {info_comunidad} | Consumo anual: {consumo_anual}kWh")
+        # Explicación
+        info_text = f"""
+        **🧮 Fórmula aplicada:** (Consumo + Potencia) - Excedentes
         
-        # Métricas principales
+        - **Consumo anual:** {consumo_anual}kWh
+        - **Potencia:** {potencia}kW
+        - **Excedentes:** {excedente_mensual_kwh}kWh/mes × {precio_excedente}€/kWh = {excedente_mensual_kwh * precio_excedente * 12:.2f}€/año
+        - **Comunidad:** {comunidad} {'(Sin IVA)' if comunidad == 'Canarias' else ''}
+        - **Descuento bienvenida:** 5€
+        - **🔒 Las métricas muestran solo planes CON Pack Iberdrola**
+        """
+        
+        if excedente_mensual_kwh > 0:
+            info_text += f"\n- **Excedentes anuales:** {excedente_anual_kwh}kWh × {precio_excedente}€ = {ingreso_excedentes_anual:.2f}€"
+        
+        st.info(info_text)
+        
+        # ===============================================
+        # **MÉTRICAS PRINCIPALES (SOLO CON PI)**
+        # ===============================================
+        st.write("#### 💰 COMPARATIVA CON PACK IBERDROLA")
+        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             st.metric("💶 Actual Mensual", f"{costo_mensual_actual}€")
         with col2:
-            st.metric("💰 Nuevo Mensual", f"{mejor_plan['Mensual Normal']}€")
+            st.metric("💰 Nuevo Mensual", f"{mejor_plan_con_pi['Mensual']}€")
         with col3:
-            st.metric("📈 Ahorro Mensual", f"{mejor_plan['Ahorro Mensual']}€", 
-                     delta=f"{mejor_plan['Ahorro Mensual']}€" if mejor_plan['Ahorro Mensual'] > 0 else None)
+            st.metric("📈 Ahorro Mensual", f"{mejor_plan_con_pi['Ahorro Mensual']}€", 
+                     delta=f"{mejor_plan_con_pi['Ahorro Mensual']}€" if mejor_plan_con_pi['Ahorro Mensual'] > 0 else None)
         with col4:
-            st.metric("🎯 Ahorro Anual", f"{mejor_plan['Ahorro Anual']}€")
+            st.metric("🎯 Ahorro Anual", f"{mejor_plan_con_pi['Ahorro Anual']}€")
         
-        # Tabla comparativa
-        st.dataframe(df_resultados[['Plan', 'Pack Iberdrola', 'Precio kWh', 'Mensual Normal', 'Anual', 'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']], 
-                    use_container_width=True)
+        # ===============================================
+        # **TABLA COMPLETA (CON Y SIN PI)**
+        # ===============================================
+        st.write("#### 📋 TABLA COMPARATIVA COMPLETA")
+        st.info("**Mostrando todas las opciones disponibles (CON y SIN Pack Iberdrola)**")
         
-        # Recomendación
-        if mejor_plan['Ahorro Mensual'] > 0:
-            mensaje = f"🎯 **MEJOR OPCIÓN**: {mejor_plan['Plan']} {mejor_plan['Pack Iberdrola']} Pack"
-            mensaje += f" - Ahorras {mejor_plan['Ahorro Mensual']}€/mes ({mejor_plan['Ahorro Anual']}€/año)"
-            if mejor_plan['Info Extra']:
-                mensaje += mejor_plan['Info Extra']
-            st.success(mensaje)
-            st.info(f"💡 Pagarías {mejor_plan['Mensual Normal']}€/mes normalmente")
-        else:
-            st.warning(f"ℹ️ Todos los planes son más caros que lo que pagas actualmente ({costo_mensual_actual}€/mes)")
+        df_resultados = pd.DataFrame(resultados_finales)
         
-        # Gráfico comparativo
-        st.write("### 📈 Comparativa Visual (Coste Anual)")
-        chart_data = df_resultados.set_index('Plan')['Anual']
-        st.bar_chart(chart_data)
-            
+        # Ordenar por mejor ahorro (primero CON PI, luego SIN PI)
+        df_resultados['orden_pi'] = df_resultados['Pack Iberdrola'].apply(lambda x: 0 if '✅ CON' in x else 1)
+        df_resultados = df_resultados.sort_values(['orden_pi', 'Ahorro Mensual'], ascending=[True, False])
+        df_resultados = df_resultados.drop('orden_pi', axis=1)
+        
+        columnas_mostrar = ['Plan', 'Pack Iberdrola', 'Precio kWh', 'Mensual', 
+                          'Anual', 'Ahorro Mensual', 'Ahorro Anual', 'Estado', 'Info Extra']
+        
+        st.dataframe(df_resultados[columnas_mostrar], use_container_width=True)
+        
+        # ===============================================
+        # **RECOMENDACIONES**
+        # ===============================================
+        
+        # Recomendación CON PI
+        if mejor_plan_con_pi['Ahorro Mensual'] > 0:
+            mensaje_con_pi = f"🎯 **MEJOR CON PACK IBERDROLA**: {mejor_plan_con_pi['Plan']} - Ahorras {mejor_plan_con_pi['Ahorro Mensual']}€/mes ({mejor_plan_con_pi['Ahorro Anual']}€/año)"
+            if mejor_plan_con_pi['Info Extra']:
+                mensaje_con_pi += mejor_plan_con_pi['Info Extra']
+            st.success(mensaje_con_pi)
+            st.info(f"💡 Pagarías {mejor_plan_con_pi['Mensual']}€/mes normalmente")
+        
+        # Si la mejor opción general es SIN PI
+        if mejor_plan_todos['Ahorro Mensual'] > 0 and mejor_plan_todos['tiene_pi'] == False:
+            st.info(f"💡 **NOTA**: La opción SIN Pack Iberdrola '{mejor_plan_todos['Plan']}' ahorra {mejor_plan_todos['Ahorro Mensual']}€/mes más, pero no incluye el Pack Iberdrola")
+        
+        if mejor_plan_con_pi['Ahorro Mensual'] <= 0:
+            st.warning(f"ℹ️ Todos los planes CON Pack Iberdrola son más caros que lo que pagas actualmente ({costo_mensual_actual}€/mes)")
+        
     except Exception as e:
         st.error(f"❌ Error en el cálculo anual: {e}")
 
