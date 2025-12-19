@@ -106,7 +106,7 @@ def guardar_config_sistema(config):
         json.dump(config, f, indent=4)
 
 def verificar_sesion():
-    """Verifica si la sesión es válida (8 horas)"""
+    """Verifica si la sesión es válida (8 horas) - CORREGIDO"""
     if not st.session_state.get('authenticated', False):
         return False
     
@@ -116,7 +116,7 @@ def verificar_sesion():
         return True
     
     # Calcular horas transcurridas
-    horas_transcurridas = (datetime.now() - st.session_state.login_time).seconds / 3600
+    horas_transcurridas = (datetime.now() - st.session_state.login_time).total_seconds() / 3600
     
     # Cargar configuración del sistema
     config_sistema = cargar_config_sistema()
@@ -124,16 +124,121 @@ def verificar_sesion():
     
     # Verificar si ha expirado
     if horas_transcurridas >= horas_duracion:
-        # Limpiar sesión silenciosamente
+        st.warning("⏰ Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.")
+        
+        # Limpiar sesión
         st.session_state.authenticated = False
         st.session_state.user_type = None
         st.session_state.username = ""
-        if 'login_time' in st.session_state:
-            del st.session_state.login_time
+        st.session_state.login_time = None
+        
+        # Forzar rerun para mostrar login
         st.rerun()
         return False
     
+    # Actualizar tiempo restante en sidebar
+    tiempo_restante = horas_duracion - horas_transcurridas
+    horas = int(tiempo_restante)
+    minutos = int((tiempo_restante - horas) * 60)
+    
+    st.sidebar.info(f"⏳ Sesión expira en: {horas}h {minutos}m")
+    
     return True
+
+def mostrar_panel_usuario():
+    """Panel del usuario normal - CORREGIDO"""
+    # Primero verificar sesión
+    if not verificar_sesion():
+        mostrar_login()
+        return
+    
+    # Mostrar información del usuario
+    if st.session_state.username in cargar_configuracion_usuarios():
+        config = cargar_configuracion_usuarios()[st.session_state.username]
+        st.header(f"👤 {config.get('nombre', 'Usuario')}")
+    else:
+        st.header("👤 Portal del Cliente")
+    
+    # PRIMERA PANTALLA: Consultar modelos de factura
+    consultar_modelos_factura()
+    
+    st.markdown("---")
+    
+    # Comparativas
+    st.subheader("🧮 Comparativas")
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["⚡ Comparativa EXACTA", "📅 Comparativa ESTIMADA", "🔥 Gas", "👁️ PVD", "📋 CUPS Naturgy"])
+    
+    with tab1:
+        comparativa_exacta()
+    with tab2:
+        comparativa_estimada()
+    with tab3:
+        calculadora_gas()
+    with tab4:
+        gestion_pvd_usuario()
+    with tab5:
+        cups_naturgy()
+
+def mostrar_panel_administrador():
+    """Panel de administración - CORREGIDO"""
+    # Primero verificar sesión
+    if not verificar_sesion():
+        mostrar_login()
+        return
+    
+    st.header("🔧 Panel de Administración")
+    
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👁️ PVD", 
+        "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema"
+    ])
+    
+    with tab1:
+        gestion_electricidad()
+    with tab2:
+        gestion_gas()
+    with tab3:
+        gestion_usuarios()
+    with tab4:
+        gestion_pvd_admin()
+    with tab5:
+        gestion_modelos_factura()
+    with tab6:
+        gestion_excedentes()
+    with tab7:
+        gestion_config_sistema()
+
+def main():
+    # RESTAURACIÓN AUTOMÁTICA AL INICIAR
+    if os.path.exists("data_backup"):
+        # Restaurar archivos CSV
+        for archivo in ["precios_luz.csv", "config_excedentes.csv"]:
+            if os.path.exists(f"data_backup/{archivo}") and not os.path.exists(f"data/{archivo}"):
+                shutil.copy(f"data_backup/{archivo}", f"data/{archivo}")
+        
+        # Restaurar modelos de factura
+        if os.path.exists("data_backup/modelos_facturas") and not os.path.exists("modelos_facturas"):
+            shutil.copytree("data_backup/modelos_facturas", "modelos_facturas")
+    
+    inicializar_datos()
+    
+    st.title("⚡ Zelenza CEX - Calculadora Iberdrola")
+    st.markdown("---")
+    
+    if 'authenticated' not in st.session_state:
+        st.session_state.authenticated = False
+        st.session_state.user_type = None
+        st.session_state.username = ""
+        st.session_state.login_time = None
+
+    if not st.session_state.authenticated:
+        mostrar_login()
+    else:
+        # La verificación de sesión se hace dentro de cada panel
+        if st.session_state.user_type == "admin":
+            mostrar_panel_administrador()
+        else:
+            mostrar_panel_usuario()
 
 # Configuración de la página
 st.set_page_config(
@@ -1353,12 +1458,24 @@ def filtrar_planes_por_usuario(df_planes, username, tipo_plan="luz"):
         (df_planes['activo'] == True)
     ]
 
+# --- FUNCIONES PVD CORREGIDAS ---
+
 def gestion_pvd_admin():
     st.subheader("👁️ Administración PVD (Pausa Visual Dinámica)")
     
     # Cargar configuración
     config_pvd = cargar_config_pvd()
     cola_pvd = cargar_cola_pvd()
+    
+    # --- BOTÓN DE ACTUALIZAR MANUAL ---
+    col_refresh1, col_refresh2 = st.columns([3, 1])
+    with col_refresh1:
+        st.write("")
+    with col_refresh2:
+        if st.button("🔄 Actualizar Estado", key="refresh_admin", use_container_width=True):
+            # Verificar y completar pausas automáticamente
+            verificar_pausas_completadas(cola_pvd, config_pvd)
+            st.rerun()
     
     # --- CONFIGURACIÓN DEL SISTEMA ---
     st.write("### ⚙️ Configuración del Sistema para Agentes")
@@ -1422,15 +1539,18 @@ def gestion_pvd_admin():
         st.success("✅ Configuración PVD guardada")
         st.rerun()
     
+    # --- VERIFICAR Y ACTUALIZAR ESTADO AUTOMÁTICAMENTE ---
+    verificar_pausas_completadas(cola_pvd, config_pvd)
+    
     # --- ESTADÍSTICAS ACTUALES ---
     st.markdown("---")
     st.write("### 📊 Estado Actual del Sistema")
     
-    # Calcular estadísticas
+    # Calcular estadísticas actualizadas
     en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
     en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
     completados_hoy = len([p for p in cola_pvd if p['estado'] == 'COMPLETADO' and 
-                          datetime.fromisoformat(p['timestamp_fin']).date() == datetime.now().date()])
+                          datetime.fromisoformat(p.get('timestamp_fin', datetime.now().isoformat())).date() == datetime.now().date()])
     
     col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
     
@@ -1466,16 +1586,18 @@ def gestion_pvd_admin():
                     progreso = min(100, (tiempo_transcurrido / duracion_minutos) * 100)
                     st.progress(int(progreso))
                     
-                    st.write(f"**Agente:** {pausa['usuario_nombre']}")
+                    st.write(f"**Agente:** {pausa.get('usuario_nombre', 'Desconocido')}")
+                    st.write(f"**Usuario ID:** {pausa['usuario_id']}")
                     st.write(f"**Duración:** {duracion_minutos} min ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
                     st.write(f"**Inició:** {tiempo_inicio.strftime('%H:%M:%S')} | **Restante:** {tiempo_restante} min")
+                    
+                    # Verificar si la pausa ha terminado
+                    if tiempo_restante == 0:
+                        st.warning("⏰ **Pausa finalizada automáticamente**")
                 
                 with col_acciones:
                     if st.button("✅ Finalizar", key=f"fin_{pausa['id']}"):
-                        pausa['estado'] = 'COMPLETADO'
-                        pausa['timestamp_fin'] = datetime.now().isoformat()
-                        guardar_cola_pvd(cola_pvd)
-                        st.success(f"✅ Pausa #{pausa['id']} finalizada")
+                        finalizar_pausa(pausa, cola_pvd)
                         st.rerun()
                     
                     if st.button("❌ Cancelar", key=f"cancel_{pausa['id']}"):
@@ -1497,41 +1619,249 @@ def gestion_pvd_admin():
         
         for i, pausa in enumerate(en_espera_ordenados):
             duracion_elegida = pausa.get('duracion_elegida', 'corta')
+            duracion_display = f"{config_pvd['duracion_corta']} min" if duracion_elegida == 'corta' else f"{config_pvd['duracion_larga']} min"
+            
+            col_esp1, col_esp2, col_esp3, col_esp4 = st.columns([3, 2, 2, 1])
+            with col_esp1:
+                st.write(f"**#{i+1}** - {pausa.get('usuario_nombre', 'Desconocido')}")
+            with col_esp2:
+                st.write(f"🆔 {pausa['usuario_id']}")
+            with col_esp3:
+                st.write(f"⏱️ {duracion_display}")
+            with col_esp4:
+                if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}"):
+                    iniciar_pausa_desde_cola(pausa, cola_pvd, config_pvd)
+                    st.rerun()
+    
+    # --- HISTORIAL RECIENTE ---
+    st.markdown("---")
+    st.write("### 📜 Historial Reciente (Últimas 10)")
+    
+    completados = [p for p in cola_pvd if p['estado'] == 'COMPLETADO']
+    completados_recientes = sorted(completados, key=lambda x: x.get('timestamp_fin', ''), reverse=True)[:10]
+    
+    if completados_recientes:
+        for pausa in completados_recientes:
+            fecha_fin = datetime.fromisoformat(pausa.get('timestamp_fin', datetime.now().isoformat()))
+            duracion_elegida = pausa.get('duracion_elegida', 'corta')
             duracion_display = "5 min" if duracion_elegida == 'corta' else "10 min"
             
-            col_esp1, col_esp2, col_esp3 = st.columns([3, 2, 1])
-            with col_esp1:
-                st.write(f"**#{i+1}** - {pausa['usuario_nombre']}")
-            with col_esp2:
-                st.write(f"⏱️ {duracion_display}")
-            with col_esp3:
-                if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}"):
-                    # Verificar si hay espacio
-                    if en_pausa < maximo_simultaneo:
-                        pausa['estado'] = 'EN_CURSO'
-                        pausa['timestamp_inicio'] = datetime.now().isoformat()
-                        guardar_cola_pvd(cola_pvd)
-                        st.success(f"✅ Pausa #{pausa['id']} iniciada")
-                        st.rerun()
-                    else:
-                        st.error("❌ No hay espacio disponible. Espera a que termine alguna pausa.")
+            # Calcular tiempo transcurrido
+            tiempo_finalizacion = fecha_fin.strftime('%H:%M:%S')
+            st.write(f"**{tiempo_finalizacion}** - {pausa.get('usuario_nombre', 'Desconocido')} - {duracion_display}")
+    else:
+        st.info("No hay pausas completadas recientemente")
     
     # --- LIMPIAR HISTORIAL ---
     st.markdown("---")
     st.write("### 🧹 Mantenimiento")
     
-    if st.button("🗑️ Limpiar Historial Antiguo", type="secondary"):
-        # Mantener solo activos y últimos 50 completados
-        activos = [p for p in cola_pvd if p['estado'] in ['ESPERANDO', 'EN_CURSO']]
-        completados = [p for p in cola_pvd if p['estado'] == 'COMPLETADO']
-        completados = sorted(completados, key=lambda x: x.get('timestamp_fin', ''), reverse=True)[:50]
-        nueva_cola = activos + completados
-        guardar_cola_pvd(nueva_cola)
-        st.success("✅ Historial limpiado (solo últimos 50 completados)")
-        st.rerun()
+    col_clean1, col_clean2 = st.columns(2)
+    with col_clean1:
+        if st.button("🗑️ Limpiar Historial Antiguo", type="secondary"):
+            # Mantener solo activos y últimos 50 completados
+            activos = [p for p in cola_pvd if p['estado'] in ['ESPERANDO', 'EN_CURSO']]
+            completados = [p for p in cola_pvd if p['estado'] == 'COMPLETADO']
+            completados = sorted(completados, key=lambda x: x.get('timestamp_fin', ''), reverse=True)[:50]
+            nueva_cola = activos + completados
+            guardar_cola_pvd(nueva_cola)
+            st.success("✅ Historial limpiado (solo últimos 50 completados)")
+            st.rerun()
+    
+    with col_clean2:
+        if st.button("🔄 Reiniciar Sistema PVD", type="secondary"):
+            # Cancelar todas las pausas activas
+            for pausa in cola_pvd:
+                if pausa['estado'] in ['ESPERANDO', 'EN_CURSO']:
+                    pausa['estado'] = 'CANCELADO'
+            guardar_cola_pvd(cola_pvd)
+            st.warning("⚠️ Sistema PVD reiniciado - Todas las pausas canceladas")
+            st.rerun()
+
+def verificar_pausas_completadas(cola_pvd, config_pvd):
+    """Verifica y finaliza automáticamente pausas que han terminado"""
+    hubo_cambios = False
+    
+    for pausa in cola_pvd:
+        if pausa['estado'] == 'EN_CURSO' and 'timestamp_inicio' in pausa:
+            duracion_elegida = pausa.get('duracion_elegida', 'corta')
+            duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+            
+            tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
+            tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+            
+            if tiempo_transcurrido >= duracion_minutos:
+                # Finalizar esta pausa
+                pausa['estado'] = 'COMPLETADO'
+                pausa['timestamp_fin'] = datetime.now().isoformat()
+                hubo_cambios = True
+                
+                # Iniciar la siguiente en cola si hay espacio
+                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
+    
+    if hubo_cambios:
+        guardar_cola_pvd(cola_pvd)
+    
+    return hubo_cambios
+
+def iniciar_siguiente_en_cola(cola_pvd, config_pvd):
+    """Inicia automáticamente la siguiente pausa en la cola si hay espacio"""
+    # Contar pausas en curso
+    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+    maximo = config_pvd['maximo_simultaneo']
+    
+    # Si hay espacio, iniciar la siguiente en cola
+    if en_pausa < maximo:
+        en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
+        if en_espera:
+            siguiente = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))[0]
+            siguiente['estado'] = 'EN_CURSO'
+            siguiente['timestamp_inicio'] = datetime.now().isoformat()
+            
+            # Notificar al usuario
+            if config_pvd.get('sonido_activado', True):
+                notificar_inicio_pausa(siguiente, config_pvd)
+            
+            return True
+    
+    return False
+
+def finalizar_pausa(pausa, cola_pvd):
+    """Finaliza una pausa manualmente"""
+    pausa['estado'] = 'COMPLETADO'
+    pausa['timestamp_fin'] = datetime.now().isoformat()
+    guardar_cola_pvd(cola_pvd)
+    st.success(f"✅ Pausa #{pausa['id']} finalizada")
+
+def iniciar_pausa_desde_cola(pausa, cola_pvd, config_pvd):
+    """Inicia una pausa desde la cola de espera"""
+    # Verificar si hay espacio
+    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+    maximo = config_pvd['maximo_simultaneo']
+    
+    if en_pausa < maximo:
+        pausa['estado'] = 'EN_CURSO'
+        pausa['timestamp_inicio'] = datetime.now().isoformat()
+        guardar_cola_pvd(cola_pvd)
+        st.success(f"✅ Pausa #{pausa['id']} iniciada")
+    else:
+        st.error("❌ No hay espacio disponible. Espera a que termine alguna pausa.")
+
+def notificar_inicio_pausa(pausa, config_pvd):
+    """Envía notificación al usuario cuando su pausa inicia"""
+    try:
+        duracion_minutos = config_pvd['duracion_corta'] if pausa.get('duracion_elegida', 'corta') == 'corta' else config_pvd['duracion_larga']
+        mensaje = f"¡Tu pausa de {duracion_minutos} minutos ha comenzado! ⏰"
+        
+        # Notificación de navegador
+        notification_js = f"""
+        <script>
+        if ("Notification" in window) {{
+            if (Notification.permission === "granted") {{
+                new Notification("Pausa Iniciada 🎉", {{
+                    body: "{mensaje}",
+                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
+                }});
+            }}
+        }}
+        </script>
+        """
+        st.components.v1.html(notification_js, height=0)
+        
+    except Exception as e:
+        print(f"Error en notificación: {e}")
+
+def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
+    """Solicita una pausa PVD para el usuario actual"""
+    # Verificar límite diario de pausas del usuario
+    pausas_hoy = len([p for p in cola_pvd 
+                     if p['usuario_id'] == st.session_state.username and 
+                     datetime.fromisoformat(p.get('timestamp_solicitud', datetime.now().isoformat())).date() == datetime.now().date() and
+                     p['estado'] != 'CANCELADO'])
+    
+    if pausas_hoy >= 5:
+        st.warning(f"⚠️ Has alcanzado el límite de 5 pausas diarias")
+        return False
+    
+    # Verificar si el usuario ya tiene una pausa activa o en espera
+    for pausa in cola_pvd:
+        if pausa['usuario_id'] == st.session_state.username and pausa['estado'] in ['ESPERANDO', 'EN_CURSO']:
+            st.warning(f"⚠️ Ya tienes una pausa {ESTADOS_PVD.get(pausa['estado'])}. Espera a que termine.")
+            return False
+    
+    # Crear nueva pausa
+    nueva_pausa = {
+        'id': str(uuid.uuid4())[:8],
+        'usuario_id': st.session_state.username,
+        'usuario_nombre': st.session_state.get('user_config', {}).get('nombre', 'Usuario'),
+        'duracion_elegida': duracion_elegida,
+        'estado': 'ESPERANDO',
+        'timestamp_solicitud': datetime.now().isoformat(),
+        'timestamp_inicio': None,
+        'timestamp_fin': None
+    }
+    
+    # Añadir a la cola
+    cola_pvd.append(nueva_pausa)
+    guardar_cola_pvd(cola_pvd)
+    
+    # Verificar si puede iniciar inmediatamente
+    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+    maximo = config_pvd['maximo_simultaneo']
+    
+    duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+    
+    if en_pausa < maximo:
+        st.success(f"✅ Pausa de {duracion_minutos} minutos iniciada inmediatamente")
+        nueva_pausa['estado'] = 'EN_CURSO'
+        nueva_pausa['timestamp_inicio'] = datetime.now().isoformat()
+        
+        # Notificar
+        if config_pvd.get('sonido_activado', True):
+            notificar_inicio_pausa(nueva_pausa, config_pvd)
+    else:
+        # Calcular posición en cola
+        en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
+        st.info(f"⏳ Pausa solicitada. Posición en cola: #{en_espera}")
+    
+    guardar_cola_pvd(cola_pvd)
+    return True
+
+def enviar_notificacion_navegador(titulo, mensaje):
+    """Envía notificación al navegador"""
+    try:
+        notification_js = f"""
+        <script>
+        if ("Notification" in window) {{
+            if (Notification.permission === "granted") {{
+                new Notification("{titulo}", {{
+                    body: "{mensaje}",
+                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
+                }});
+            }} else if (Notification.permission !== "denied") {{
+                Notification.requestPermission().then(permission => {{
+                    if (permission === "granted") {{
+                        new Notification("{titulo}", {{
+                            body: "{mensaje}",
+                            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
+                        }});
+                    }}
+                }});
+            }}
+        }}
+        </script>
+        """
+        st.components.v1.html(notification_js, height=0)
+    except Exception as e:
+        print(f"Error en notificación navegador: {e}")
 
 def gestion_pvd_usuario():
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
+    
+    # Verificar y actualizar estado automáticamente
+    config_pvd = cargar_config_pvd()
+    cola_pvd = cargar_cola_pvd()
+    verificar_pausas_completadas(cola_pvd, config_pvd)
     
     # --- CONFIGURACIÓN DE NOTIFICACIONES DEL USUARIO ---
     if 'notificaciones_activas' not in st.session_state:
@@ -1571,17 +1901,14 @@ def gestion_pvd_usuario():
     tiempo_transcurrido = (datetime.now() - st.session_state.last_refresh).seconds
     
     # Mostrar contador de refresco
-    tiempo_restante = max(0, 60 - tiempo_transcurrido)
-    st.caption(f"🕐 Auto-refresco en: {tiempo_restante} segundos")
+    tiempo_restante = max(0, 30 - tiempo_transcurrido)  # Reducido a 30 segundos
+    if tiempo_restante > 0:
+        st.caption(f"🕐 Auto-refresco en: {tiempo_restante} segundos")
     
-    if tiempo_transcurrido > 60:
+    if tiempo_transcurrido > 30:  # Refresco cada 30 segundos
         st.session_state.last_refresh = datetime.now()
         st.rerun()
 
-    # Cargar datos
-    config_pvd = cargar_config_pvd()
-    cola_pvd = cargar_cola_pvd()
-    
     # Verificar si el agente ya tiene una pausa activa
     usuario_pausa_activa = None
     for pausa in cola_pvd:
@@ -1615,11 +1942,20 @@ def gestion_pvd_usuario():
             st.write(f"**Posición en cola:** #{posicion} de {len(en_espera)}")
             st.write(f"**Estado:** {en_pausa}/{maximo} pausas activas")
             
-            # Mostrar estimación simple
+            # Verificar si es nuestro turno
             if posicion == 1 and en_pausa < maximo:
                 st.success("🎯 **¡Próximo!** Serás el siguiente en salir a pausa")
+                # Intentar iniciar automáticamente
+                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
+                st.rerun()
             else:
-                st.info("📋 **En cola:** Esperando a que haya espacio disponible")
+                tiempo_espera = ""
+                if 'timestamp_solicitud' in usuario_pausa_activa:
+                    tiempo_solicitud = datetime.fromisoformat(usuario_pausa_activa['timestamp_solicitud'])
+                    minutos_esperando = (datetime.now() - tiempo_solicitud).seconds // 60
+                    tiempo_espera = f" | Esperando: {minutos_esperando} min"
+                
+                st.info(f"📋 **En cola:** Posición #{posicion}{tiempo_espera}")
             
             # Botón para cancelar
             if st.button("❌ Cancelar mi pausa", type="secondary"):
@@ -1652,11 +1988,19 @@ def gestion_pvd_usuario():
             st.write(f"**Duración total:** {duracion_minutos} minutos ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
             st.write(f"**Inició:** {tiempo_inicio.strftime('%H:%M:%S')}")
             
+            # Verificar si la pausa ha terminado
+            if tiempo_restante == 0:
+                st.success("🎉 **¡Pausa completada!** Puedes volver a solicitar otra si necesitas")
+            
             # Botón para finalizar manualmente
             if st.button("✅ Finalizar pausa ahora", type="primary"):
                 usuario_pausa_activa['estado'] = 'COMPLETADO'
                 usuario_pausa_activa['timestamp_fin'] = datetime.now().isoformat()
                 guardar_cola_pvd(cola_pvd)
+                
+                # Iniciar siguiente en cola
+                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
+                
                 st.success("✅ Pausa completada")
                 st.rerun()
     
@@ -1670,20 +2014,25 @@ def gestion_pvd_usuario():
         en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
         maximo = config_pvd['maximo_simultaneo']
         
-        # ... estadísticas existentes ...
+        col_stats1, col_stats2, col_stats3 = st.columns(3)
+        with col_stats1:
+            st.metric("⏸️ En pausa", f"{en_pausa}/{maximo}")
+        with col_stats2:
+            st.metric("⏳ En espera", en_espera)
+        with col_stats3:
+            # Contar pausas del usuario hoy
+            pausas_hoy = len([p for p in cola_pvd 
+                            if p['usuario_id'] == st.session_state.username and 
+                            datetime.fromisoformat(p.get('timestamp_solicitud', datetime.now().isoformat())).date() == datetime.now().date() and
+                            p['estado'] != 'CANCELADO'])
+            st.metric("📅 Tus pausas hoy", f"{pausas_hoy}/5")
         
         # Verificar límite diario
-        pausas_hoy = len([p for p in cola_pvd 
-                         if p['usuario_id'] == st.session_state.username and 
-                         datetime.fromisoformat(p['timestamp_solicitud']).date() == datetime.now().date() and
-                         p['estado'] != 'CANCELADO'])
-        
         if pausas_hoy >= 5:
             st.warning(f"⚠️ **Límite diario alcanzado** - Has tomado {pausas_hoy} pausas hoy")
             st.info("Puedes tomar más pausas mañana")
-        
         else:
-            # Selección de duración - AHORA SIEMPRE DISPONIBLE
+            # Selección de duración
             st.write("### ⏱️ ¿Cuánto tiempo necesitas descansar?")
             
             # Mostrar estado actual
@@ -1716,231 +2065,65 @@ def gestion_pvd_usuario():
                 ):
                     solicitar_pausa(config_pvd, cola_pvd, "larga")
                     st.rerun()
-            
-            # Información del sistema
-            st.info(f"""💡 **Información del sistema:**
-            - **Agentes trabajando:** {config_pvd['agentes_activos']}
-            - **Máximo en pausa:** {maximo} agentes a la vez
-            - **Ahora mismo:** {en_pausa} en pausa, {en_espera} en espera
-            - **Tus pausas hoy:** {pausas_hoy}/5
-            - **SI HAY ESPACIO:** Entras inmediatamente a pausa
-            - **SI NO HAY ESPACIO:** Te pondremos en cola de espera""")
     
-    # --- NOTIFICACIONES Y SONIDOS MEJORADOS ---
-    if config_pvd.get('sonido_activado', True):
-        ha_notificado = verificar_y_notificar_turno_pvd(config_pvd, cola_pvd, usuario_pausa_activa)
-        
-        # Si se notificó, mostrar botón de confirmación
-        if ha_notificado:
-            col_conf1, col_conf2 = st.columns([3, 1])
-            with col_conf1:
-                st.info("💡 **Se han enviado notificaciones:** Sonido en página + Notificación del navegador")
-            with col_conf2:
-                if st.button("✅ Confirmar aviso", key="confirm_notificacion"):
-                    st.success("¡Perfecto! Tu pausa comenzará pronto")
+    # --- VERIFICAR Y NOTIFICAR TURNO MEJORADO ---
+    if config_pvd.get('sonido_activado', True) and st.session_state.get('notificaciones_activas', True):
+        # Solo verificar si el usuario está en espera
+        if usuario_pausa_activa and usuario_pausa_activa['estado'] == 'ESPERANDO':
+            verificar_y_notificar_turno_pvd_mejorado(config_pvd, cola_pvd, usuario_pausa_activa)
 
-    # --- HISTORIAL DEL AGENTE ---
-    st.markdown("---")
-    st.write("### 📜 Mi Historial de Pausas Hoy")
-    
-    historial_hoy = [p for p in cola_pvd 
-                    if p['usuario_id'] == st.session_state.username 
-                    and p['estado'] == 'COMPLETADO'
-                    and datetime.fromisoformat(p.get('timestamp_fin', datetime.now().isoformat())).date() == datetime.now().date()]
-    
-    if historial_hoy:
-        for pausa in historial_hoy[:5]:  # Mostrar últimas 5
-            fecha_fin = datetime.fromisoformat(pausa.get('timestamp_fin', datetime.now().isoformat()))
-            duracion_elegida = pausa.get('duracion_elegida', 'corta')
-            duracion_display = "5 min" if duracion_elegida == 'corta' else "10 min"
-            
-            # Calcular duración real si tenemos inicio
-            duracion_real = "?"
-            if 'timestamp_inicio' in pausa:
-                inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
-                duracion_real = (fecha_fin - inicio).seconds // 60
-                duracion_real = f"{duracion_real} min"
-            
-            st.write(f"**{fecha_fin.strftime('%H:%M')}** - {duracion_display} ({duracion_real})")
-    else:
-        st.info("📝 No has tomado pausas hoy")
-
-    # --- VISUALIZACIÓN DE LA COLA (si está en espera) ---
-    if usuario_pausa_activa and usuario_pausa_activa['estado'] == 'ESPERANDO':
-        st.markdown("---")
-        st.write("### 📊 Estado de la Cola")
+def verificar_y_notificar_turno_pvd_mejorado(config_pvd, cola_pvd, usuario_pausa_activa):
+    """Verifica mejorado si es el turno del usuario"""
+    try:
+        # Verificar si hay espacio
+        en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+        maximo = config_pvd['maximo_simultaneo']
         
-        # Mostrar personas delante
+        if en_pausa >= maximo:
+            return False
+        
+        # Verificar si es el primero en la cola
         en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
+        if not en_espera:
+            return False
+        
         en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+        primer_en_cola = en_espera_ordenados[0]
         
-        # Encontrar nuestra posición
-        nuestra_posicion = None
-        for i, pausa in enumerate(en_espera_ordenados):
-            if pausa['id'] == usuario_pausa_activa['id']:
-                nuestra_posicion = i + 1
-                break
-        
-        if nuestra_posicion:
-            st.write(f"**Tu posición actual:** #{nuestra_posicion} de {len(en_espera_ordenados)}")
+        if primer_en_cola['id'] == usuario_pausa_activa['id']:
+            # Usar session_state para evitar notificaciones repetidas
+            notificacion_key = f"notificado_turno_{usuario_pausa_activa['id']}"
             
-            # Mostrar las personas delante (máximo 3)
-            personas_delante = en_espera_ordenados[:nuestra_posicion-1]
-            if personas_delante:
-                st.write("**Personas delante de ti:**")
-                for i, pausa in enumerate(personas_delante[-3:]):  # Últimas 3
-                    tiempo_espera = (datetime.now() - datetime.fromisoformat(pausa['timestamp_solicitud'])).seconds // 60
-                    st.write(f"- {pausa['usuario_nombre']} ({tiempo_espera} min esperando)")
-
-def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
-    """Solicita una nueva pausa visual - SIEMPRE permite solicitud"""
-    # Generar nuevo ID
-    nuevo_id = max([p['id'] for p in cola_pvd], default=0) + 1
-    
-    # Obtener duración en minutos
-    duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
-    
-    # Verificar si hay espacio inmediato
-    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-    maximo = config_pvd['maximo_simultaneo']
-    en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
-    
-    estado_inicial = 'EN_CURSO' if en_pausa < maximo else 'ESPERANDO'
-    
-    nuevo_pvd = {
-        'id': nuevo_id,
-        'usuario_id': st.session_state.username,
-        'usuario_nombre': st.session_state.get('user_config', {}).get('nombre', 'Usuario'),
-        'estado': estado_inicial,
-        'duracion_elegida': duracion_elegida,
-        'duracion_minutos': duracion_minutos,
-        'timestamp_solicitud': datetime.now().isoformat(),
-    }
-    
-    # Si va directamente a pausa, añadir timestamp de inicio
-    if estado_inicial == 'EN_CURSO':
-        nuevo_pvd['timestamp_inicio'] = datetime.now().isoformat()
-        mensaje = f"✅ **¡Pausa iniciada inmediatamente!** Tienes {duracion_minutos} minutos"
-        
-        # Notificación de inicio inmediato
-        if st.session_state.get('notificaciones_activas', True):
-            enviar_notificacion_navegador(
-                "Pausa iniciada 🎉", 
-                f"Tu pausa de {duracion_minutos} minutos ha comenzado",
-                "✅"
-            )
-    else:
-        posicion_en_cola = en_espera + 1
-        mensaje = f"✅ **Pausa solicitada** - Estás en cola (posición #{posicion_en_cola}). Te avisaremos cuando haya espacio."
-        
-        # Notificación de estar en cola
-        if st.session_state.get('notificaciones_activas', True):
-            enviar_notificacion_navegador(
-                "Pausa solicitada ⏳", 
-                f"Estás en cola (posición #{posicion_en_cola}). Te avisaremos cuando sea tu turno",
-                "📋"
-            )
-    
-    cola_pvd.append(nuevo_pvd)
-    guardar_cola_pvd(cola_pvd)
-    
-    st.success(mensaje)
-    if estado_inicial == 'EN_CURSO':
-        st.balloons()
-
-def enviar_notificacion_navegador(titulo, mensaje, icono="🔔"):
-    """Envía una notificación del navegador al usuario"""
-    notification_js = f"""
-    <script>
-    // Solicitar permiso para notificaciones (solo una vez)
-    if ("Notification" in window) {{
-        if (Notification.permission === "granted") {{
-            new Notification("{titulo}", {{
-                body: "{mensaje}",
-                icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
-            }});
-        }} else if (Notification.permission !== "denied") {{
-            Notification.requestPermission().then(permission => {{
-                if (permission === "granted") {{
-                    new Notification("{titulo}", {{
-                        body: "{mensaje}",
-                        icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
-                    }});
-                }}
-            }});
-        }}
-    }}
-    </script>
-    """
-    st.components.v1.html(notification_js, height=0)
-
-def verificar_y_notificar_turno_pvd(config_pvd, cola_pvd, usuario_pausa_activa):
-    """Verifica si es el turno del usuario y envía notificaciones"""
-    # Verificar si el usuario tiene notificaciones activadas
-    if not st.session_state.get('notificaciones_activas', True):
-        return False
-    
-    if not usuario_pausa_activa or usuario_pausa_activa['estado'] != 'ESPERANDO':
-        return False
-
-    # Verificar si hay espacio
-    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-    if en_pausa >= config_pvd['maximo_simultaneo']:
-        return
-    
-    # Verificar posición en cola
-    en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-    en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-    
-    if not en_espera_ordenados:
-        return
-    
-    primer_en_cola = en_espera_ordenados[0]
-    
-    # Verificar si es nuestro turno
-    if primer_en_cola['id'] == usuario_pausa_activa['id']:
-        # Usar session_state para evitar notificaciones repetidas
-        if 'ultima_notificacion_turno' not in st.session_state:
-            st.session_state.ultima_notificacion_turno = None
-        
-        hora_actual = datetime.now().isoformat()
-        
-        # Solo notificar si no lo hemos hecho en los últimos 30 segundos
-        if (st.session_state.ultima_notificacion_turno is None or 
-            (datetime.fromisoformat(hora_actual) - datetime.fromisoformat(st.session_state.ultima_notificacion_turno)).seconds > 30):
-            
-            st.session_state.ultima_notificacion_turno = hora_actual
-            
-            # 1. Notificación del navegador
-            titulo = "¡Es tu turno! ⏰"
-            mensaje = f"Hay espacio disponible para tu pausa de {usuario_pausa_activa.get('duracion_minutos', 5)} minutos"
-            enviar_notificacion_navegador(titulo, mensaje)
-            
-            # 2. Sonido en la página
-            audio_html = """
-            <audio autoplay loop>
-                <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
-            </audio>
-            <script>
-                var audio = document.querySelector('audio');
-                audio.volume = 0.7;
-                audio.play().catch(function(error) {
-                    console.log('Error playing audio:', error);
-                });
+            if not st.session_state.get(notificacion_key, False):
+                st.session_state[notificacion_key] = True
                 
-                // Parar después de 15 segundos
-                setTimeout(function() {
-                    audio.pause();
-                    audio.currentTime = 0;
-                }, 15000);
-            </script>
-            """
-            st.components.v1.html(audio_html, height=0)
-            
-            # 3. Mostrar alerta en Streamlit
-            st.success("🔔 **¡ES TU TURNO!** Hay espacio disponible para tu pausa")
-            
-            return True
+                # Notificar
+                duracion_minutos = config_pvd['duracion_corta'] if usuario_pausa_activa.get('duracion_elegida', 'corta') == 'corta' else config_pvd['duracion_larga']
+                
+                # 1. Notificación del navegador
+                titulo = "¡Es tu turno! ⏰"
+                mensaje = f"Hay espacio para tu pausa de {duracion_minutos} minutos"
+                enviar_notificacion_navegador(titulo, mensaje)
+                
+                # 2. Sonido
+                audio_html = """
+                <audio autoplay>
+                    <source src="https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3" type="audio/mpeg">
+                </audio>
+                <script>
+                    var audio = document.querySelector('audio');
+                    audio.volume = 0.7;
+                    audio.play().catch(function(e) {
+                        console.log('Audio error:', e);
+                    });
+                </script>
+                """
+                st.components.v1.html(audio_html, height=0)
+                
+                return True
+    
+    except Exception as e:
+        print(f"Error en verificación de turno: {e}")
     
     return False
 
