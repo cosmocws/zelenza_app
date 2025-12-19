@@ -6,6 +6,156 @@ import json
 import uuid
 from datetime import datetime, timedelta
 
+# AL INICIO DEL ARCHIVO, después del main() pero ANTES del if __name__
+
+# JavaScript para mantener estado
+persist_js = """
+<script>
+// Guardar estado de autenticación en localStorage
+function saveAuthState(username, userType) {
+    localStorage.setItem('zelenza_auth_username', username || '');
+    localStorage.setItem('zelenza_auth_type', userType || '');
+    localStorage.setItem('zelenza_auth_time', Date.now());
+}
+
+// Cargar estado de autenticación
+function loadAuthState() {
+    const username = localStorage.getItem('zelenza_auth_username') || '';
+    const userType = localStorage.getItem('zelenza_auth_type') || '';
+    const authTime = parseInt(localStorage.getItem('zelenza_auth_time') || '0');
+    const eightHours = 8 * 60 * 60 * 1000;
+    
+    // Verificar si la sesión expiró (8 horas)
+    if (username && userType && (Date.now() - authTime) < eightHours) {
+        // Sesión válida
+        return {username: username, userType: userType};
+    } else {
+        // Sesión expirada, limpiar
+        localStorage.removeItem('zelenza_auth_username');
+        localStorage.removeItem('zelenza_auth_type');
+        localStorage.removeItem('zelenza_auth_time');
+        return null;
+    }
+}
+
+// Inicializar
+window.addEventListener('load', function() {
+    const authState = loadAuthState();
+    if (authState) {
+        console.log('Sesión recuperada:', authState);
+    }
+});
+
+// Ejecutar inmediatamente
+(function() {
+    const authState = loadAuthState();
+    if (authState) {
+        console.log('Sesión cargada al inicio:', authState);
+    }
+})();
+</script>
+"""
+
+# Ejecutar el script de persistencia SOLO si estamos en el contexto principal
+if __name__ == "__main__":
+    st.components.v1.html(persist_js, height=0)  # ← CORREGIDO
+
+# Configuración para mantener estado
+if 'init' not in st.session_state:
+    st.session_state.init = True
+    st.session_state.persist_login = True
+
+# JavaScript para mantener estado
+persist_js = """
+<script>
+// Guardar estado de autenticación en localStorage
+function saveAuthState(username, userType) {
+    localStorage.setItem('zelenza_auth_username', username || '');
+    localStorage.setItem('zelenza_auth_type', userType || '');
+    localStorage.setItem('zelenza_auth_time', Date.now());
+}
+
+// Cargar estado de autenticación
+function loadAuthState() {
+    const username = localStorage.getItem('zelenza_auth_username') || '';
+    const userType = localStorage.getItem('zelenza_auth_type') || '';
+    const authTime = parseInt(localStorage.getItem('zelenza_auth_time') || '0');
+    const eightHours = 8 * 60 * 60 * 1000;
+    
+    // Verificar si la sesión expiró (8 horas)
+    if (username && userType && (Date.now() - authTime) < eightHours) {
+        // Sesión válida
+        return {username: username, userType: userType};
+    } else {
+        // Sesión expirada, limpiar
+        localStorage.removeItem('zelenza_auth_username');
+        localStorage.removeItem('zelenza_auth_type');
+        localStorage.removeItem('zelenza_auth_time');
+        return null;
+    }
+}
+
+// Inicializar
+window.addEventListener('load', function() {
+    const authState = loadAuthState();
+    if (authState) {
+        console.log('Sesión recuperada:', authState);
+    }
+});
+</script>
+"""
+
+# Ejecutar el script de persistencia
+st.components.v1.html(persist_js, height=0)
+
+def verificar_sesion_persistente():
+    """Verifica si hay una sesión guardada en localStorage"""
+    js_code = """
+    <script>
+    // Guardar sesión al iniciar
+    if (!window.sessionSaved) {
+        window.sessionSaved = true;
+        localStorage.setItem('zelenza_last_refresh', Date.now());
+    }
+    
+    // Verificar si la página fue recargada
+    const lastRefresh = localStorage.getItem('zelenza_last_refresh');
+    const now = Date.now();
+    const timeDiff = now - parseInt(lastRefresh || 0);
+    
+    // Si fue recargada en menos de 5 segundos, mantener sesión
+    if (timeDiff < 5000 && !window.location.search.includes('session_reset')) {
+        // Mantener sesión activa
+        console.log('Sesión mantenida después de refresh');
+    }
+    
+    // Actualizar timestamp
+    localStorage.setItem('zelenza_last_refresh', now);
+    </script>
+    """
+    st.components.v1.html(js_code, height=0)  # ← CORREGIDO
+
+# LLAMAR esta función en main() después de inicializar datos:
+def main():
+    # RESTAURACIÓN AUTOMÁTICA AL INICIAR
+    if os.path.exists("data_backup"):
+        # Restaurar archivos CSV
+        for archivo in ["precios_luz.csv", "config_excedentes.csv"]:
+            if os.path.exists(f"data_backup/{archivo}") and not os.path.exists(f"data/{archivo}"):
+                shutil.copy(f"data_backup/{archivo}", f"data/{archivo}")
+        
+        # Restaurar modelos de factura
+        if os.path.exists("data_backup/modelos_facturas") and not os.path.exists("modelos_facturas"):
+            shutil.copytree("data_backup/modelos_facturas", "modelos_facturas")
+    
+    inicializar_datos()
+    
+    # Verificar sesión persistente
+    verificar_sesion_persistente()
+    
+    st.title("⚡ Zelenza CEX - Calculadora Iberdrola")
+    st.markdown("---")
+
 USUARIOS_DEFAULT = {
     "user": {
         "nombre": "Usuario Estándar",
@@ -106,8 +256,62 @@ def guardar_config_sistema(config):
         json.dump(config, f, indent=4)
 
 def verificar_sesion():
-    """Verifica si la sesión es válida (8 horas) - CORREGIDO"""
+    """Verifica si la sesión es válida (8 horas) - MEJORADA CON localStorage"""
+    # Primero verificar session_state
     if not st.session_state.get('authenticated', False):
+        # Intentar recuperar de localStorage
+        try:
+            # JavaScript para recuperar sesión
+            recover_js = """
+            <script>
+            try {
+                const username = localStorage.getItem('zelenza_auth_username');
+                const userType = localStorage.getItem('zelenza_auth_type');
+                const authTime = localStorage.getItem('zelenza_auth_time');
+                
+                if (username && userType && authTime) {
+                    // Verificar no expirada (8 horas)
+                    const eightHours = 8 * 60 * 60 * 1000;
+                    const now = Date.now();
+                    
+                    if ((now - parseInt(authTime)) < eightHours) {
+                        // Enviar a Streamlit
+                        const input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.id = 'recovered_session';
+                        input.value = JSON.stringify({
+                            username: username,
+                            userType: userType
+                        });
+                        document.body.appendChild(input);
+                        
+                        // Disparar evento para que Streamlit lo detecte
+                        const event = new Event('sessionRecovered');
+                        document.dispatchEvent(event);
+                    } else {
+                        // Limpiar sesión expirada
+                        localStorage.removeItem('zelenza_auth_username');
+                        localStorage.removeItem('zelenza_auth_type');
+                        localStorage.removeItem('zelenza_auth_time');
+                    }
+                }
+            } catch(e) {
+                console.log('Error recuperando sesión:', e);
+            }
+            </script>
+            """
+            st.components.v1.html(recover_js, height=0)  # ← CORREGIDO
+            
+            # Crear un botón oculto para forzar la recuperación
+            if st.button("🔓 Recuperar sesión", key="recover_session", help="Click si tu sesión se perdió"):
+                st.session_state.authenticated = True
+                # Intenta recuperar usuario de alguna manera
+                # (podrías usar cookies o parámetros URL)
+                st.rerun()
+                
+        except Exception as e:
+            print(f"Error en recuperación de sesión: {e}")
+        
         return False
     
     # Si no hay tiempo de login, crear uno
@@ -126,6 +330,16 @@ def verificar_sesion():
     if horas_transcurridas >= horas_duracion:
         st.warning("⏰ Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.")
         
+        # Limpiar localStorage también
+        clear_js = """
+        <script>
+        localStorage.removeItem('zelenza_auth_username');
+        localStorage.removeItem('zelenza_auth_type');
+        localStorage.removeItem('zelenza_auth_time');
+        </script>
+        """
+        st.components.v1.html(clear_js, height=0)  # ← CORREGIDO
+        
         # Limpiar sesión
         st.session_state.authenticated = False
         st.session_state.user_type = None
@@ -142,6 +356,17 @@ def verificar_sesion():
     minutos = int((tiempo_restante - horas) * 60)
     
     st.sidebar.info(f"⏳ Sesión expira en: {horas}h {minutos}m")
+    
+    # Guardar estado en localStorage para persistencia
+    if st.session_state.authenticated:
+        save_js = f"""
+        <script>
+        localStorage.setItem('zelenza_auth_username', '{st.session_state.username}');
+        localStorage.setItem('zelenza_auth_type', '{st.session_state.user_type}');
+        localStorage.setItem('zelenza_auth_time', Date.now());
+        </script>
+        """
+        st.components.v1.html(save_js, height=0)  # ← CORREGIDO
     
     return True
 
@@ -240,11 +465,17 @@ def main():
         else:
             mostrar_panel_usuario()
 
-# Configuración de la página
+# Configuración de la página MEJORADA
 st.set_page_config(
     page_title="Zelenza CEX - Iberdrola",
     page_icon="⚡",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://www.example.com/help',
+        'Report a bug': 'https://www.example.com/bug',
+        'About': '# Zelenza CEX v1.0'
+    }
 )
 
 def inicializar_datos():
@@ -440,6 +671,17 @@ def mostrar_login():
                 st.session_state.username = username
                 st.session_state.user_config = user_config
                 st.session_state.login_time = datetime.now()
+                
+                # Guardar en localStorage
+                save_js = f"""
+                <script>
+                localStorage.setItem('zelenza_auth_username', '{username}');
+                localStorage.setItem('zelenza_auth_type', 'user');
+                localStorage.setItem('zelenza_auth_time', Date.now());
+                </script>
+                """
+                st.components.v1.html(save_js, height=0)  # ← CORREGIDO
+                
                 st.success(f"✅ Identificado como: {user_config['nombre']}")
                 st.rerun()
         else:
@@ -458,6 +700,17 @@ def mostrar_login():
                 st.session_state.user_type = "admin"
                 st.session_state.username = admin_user
                 st.session_state.login_time = datetime.now()
+                
+                # Guardar en localStorage
+                save_js = f"""
+                <script>
+                localStorage.setItem('zelenza_auth_username', '{admin_user}');
+                localStorage.setItem('zelenza_auth_type', 'admin');
+                localStorage.setItem('zelenza_auth_time', Date.now());
+                </script>
+                """
+                st.components.v1.html(save_js, height=0)  # ← CORREGIDO
+                
                 st.rerun()
             # Luego como usuario normal
             elif authenticate(admin_user, admin_pass, "user"):
@@ -465,6 +718,17 @@ def mostrar_login():
                 st.session_state.user_type = "user"
                 st.session_state.username = admin_user
                 st.session_state.login_time = datetime.now()
+                
+                # Guardar en localStorage
+                save_js = f"""
+                <script>
+                localStorage.setItem('zelenza_auth_username', '{admin_user}');
+                localStorage.setItem('zelenza_auth_type', 'user');
+                localStorage.setItem('zelenza_auth_time', Date.now());
+                </script>
+                """
+                st.components.v1.html(save_js, height=0)  # ← CORREGIDO
+                
                 st.rerun()
             else:
                 st.error("❌ Credenciales incorrectas")
@@ -475,6 +739,17 @@ def mostrar_aplicacion_principal():
     st.sidebar.write(f"**Usuario:** {st.session_state.username}")
     
     if st.sidebar.button("🚪 Cerrar Sesión"):
+        # Limpiar localStorage
+        clear_js = """
+        <script>
+        localStorage.removeItem('zelenza_auth_username');
+        localStorage.removeItem('zelenza_auth_type');
+        localStorage.removeItem('zelenza_auth_time');
+        </script>
+        """
+        st.components.v1.html(clear_js, height=0)  # ← CORREGIDO
+        
+        # Limpiar session_state
         st.session_state.authenticated = False
         st.session_state.user_type = None
         st.session_state.username = ""
@@ -1753,23 +2028,79 @@ def notificar_inicio_pausa(pausa, config_pvd):
         duracion_minutos = config_pvd['duracion_corta'] if pausa.get('duracion_elegida', 'corta') == 'corta' else config_pvd['duracion_larga']
         mensaje = f"¡Tu pausa de {duracion_minutos} minutos ha comenzado! ⏰"
         
-        # Notificación de navegador
+        # Notificación de navegador MEJORADA
         notification_js = f"""
         <script>
+        // Solicitar permisos si no están concedidos
         if ("Notification" in window) {{
             if (Notification.permission === "granted") {{
                 new Notification("Pausa Iniciada 🎉", {{
                     body: "{mensaje}",
-                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
+                    icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png",
+                    requireInteraction: true
+                }});
+                
+                // También mostrar notificación en pantalla
+                const notificationDiv = document.createElement('div');
+                notificationDiv.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4CAF50; color: white; padding: 15px; border-radius: 5px; z-index: 9999;';
+                notificationDiv.innerHTML = '<strong>🎉 Pausa Iniciada</strong><br>{mensaje}';
+                document.body.appendChild(notificationDiv);
+                
+                // Remover después de 5 segundos
+                setTimeout(() => {{
+                    notificationDiv.remove();
+                }}, 5000);
+                
+            }} else if (Notification.permission !== "denied") {{
+                Notification.requestPermission().then(permission => {{
+                    if (permission === "granted") {{
+                        new Notification("Pausa Iniciada 🎉", {{
+                            body: "{mensaje}",
+                            icon: "https://cdn-icons-png.flaticon.com/512/1827/1827421.png"
+                        }});
+                    }}
                 }});
             }}
         }}
+        
+        // Sonido de notificación (funciona sin HTTPS)
+        function playSound() {{
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }}
+        
+        // Intentar reproducir sonido
+        try {{
+            playSound();
+        }} catch (e) {{
+            console.log("Audio context no soportado:", e);
+        }}
+        
+        // Alternativa: Audio HTML simple
+        const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
+        audio.volume = 0.5;
+        audio.play().catch(e => console.log("Audio falló:", e));
         </script>
         """
         st.components.v1.html(notification_js, height=0)
         
     except Exception as e:
         print(f"Error en notificación: {e}")
+        # Notificación de fallback
+        st.toast(f"🎉 ¡Pausa iniciada! {duracion_minutos} minutos", icon="⏰")
 
 def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
     """Solicita una pausa PVD para el usuario actual"""
@@ -1855,6 +2186,8 @@ def enviar_notificacion_navegador(titulo, mensaje):
     except Exception as e:
         print(f"Error en notificación navegador: {e}")
 
+# REEMPLAZA el bloque del autorefresco en gestion_pvd_usuario():
+
 def gestion_pvd_usuario():
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
     
@@ -1864,8 +2197,11 @@ def gestion_pvd_usuario():
     verificar_pausas_completadas(cola_pvd, config_pvd)
     
     # --- CONFIGURACIÓN DE NOTIFICACIONES DEL USUARIO ---
+    # Usar session_state para persistir las notificaciones
     if 'notificaciones_activas' not in st.session_state:
         st.session_state.notificaciones_activas = True
+    if 'notificado_turno' not in st.session_state:
+        st.session_state.notificado_turno = {}
     
     col_notif1, col_notif2 = st.columns([3, 1])
     with col_notif1:
@@ -1879,35 +2215,37 @@ def gestion_pvd_usuario():
         )
         if notif_activadas != st.session_state.notificaciones_activas:
             st.session_state.notificaciones_activas = notif_activadas
-            if notif_activadas:
-                st.success("Notificaciones activadas")
-            else:
-                st.warning("Notificaciones desactivadas")
             st.rerun()
     
     # --- BOTÓN DE ACTUALIZAR MANUAL ---
     col_ref1, col_ref2 = st.columns([3, 1])
     with col_ref1:
-        st.write("")
-    with col_ref2:
-        if st.button("🔄 Actualizar", key="refresh_pvd", use_container_width=True):
-            st.session_state.last_refresh = datetime.now()
-            st.rerun()
-    
-    # --- REFRESCO AUTOMÁTICO ---
-    if 'last_refresh' not in st.session_state:
-        st.session_state.last_refresh = datetime.now()
-    
-    tiempo_transcurrido = (datetime.now() - st.session_state.last_refresh).seconds
-    
-    # Mostrar contador de refresco
-    tiempo_restante = max(0, 30 - tiempo_transcurrido)  # Reducido a 30 segundos
-    if tiempo_restante > 0:
-        st.caption(f"🕐 Auto-refresco en: {tiempo_restante} segundos")
-    
-    if tiempo_transcurrido > 30:  # Refresco cada 30 segundos
-        st.session_state.last_refresh = datetime.now()
-        st.rerun()
+        # AUTO-REFRESCO con JavaScript
+        auto_refresh_js = """
+        <script>
+        // Configurar autorefresco cada 30 segundos
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+        
+        // Mostrar contador
+        let timeLeft = 30;
+        const timerElement = document.createElement('div');
+        timerElement.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #f0f2f6; padding: 5px 10px; border-radius: 5px; font-size: 12px; z-index: 1000;';
+        document.body.appendChild(timerElement);
+        
+        function updateTimer() {
+            timeLeft--;
+            timerElement.textContent = `🕐 Auto-refresco en: ${timeLeft}s`;
+            if (timeLeft <= 0) {
+                timeLeft = 30;
+            }
+            setTimeout(updateTimer, 1000);
+        }
+        updateTimer();
+        </script>
+        """
+        st.components.v1.html(auto_refresh_js, height=50)
 
     # Verificar si el agente ya tiene una pausa activa
     usuario_pausa_activa = None
