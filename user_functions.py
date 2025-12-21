@@ -17,7 +17,7 @@ from database import (
 from pvd_system import (
     temporizador_pvd_mejorado, temporizador_pvd, verificar_confirmacion_pvd, 
     actualizar_temporizadores_pvd, solicitar_pausa, ESTADOS_PVD,
-    calcular_tiempo_estimado_grupo, crear_temporizador_html
+    calcular_tiempo_estimado_grupo, crear_temporizador_html_simplificado
 )
 from utils import obtener_hora_madrid, formatear_hora_madrid
 
@@ -51,7 +51,8 @@ def consultar_modelos_factura():
             ruta_completa = os.path.join(carpeta_empresa, archivo)
             st.write(f"**Modelo:** {archivo}")
             if archivo.lower().endswith(('.png', '.jpg', '.jpeg')):
-                st.image(ruta_completa, use_container_width=True)
+                # CORRECCIÓN: Quitar use_container_width o usar width en su lugar
+                st.image(ruta_completa, width=600)  # <-- CORREGIDO
             st.markdown("---")
     else:
         st.warning(f"⚠️ No hay modelos de factura subidos para {empresa_seleccionada}")
@@ -241,6 +242,130 @@ def calculadora_gas():
         else:
             st.warning("No hay planes de gas activos para mostrar")
 
+def crear_temporizador_html_simplificado(minutos_restantes, usuario_id):
+    """Crea un temporizador visual en HTML/JavaScript SIN notificaciones del navegador"""
+    
+    segundos_totales = minutos_restantes * 60
+    
+    html_code = f"""
+    <div id="temporizador-pvd" style="
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        margin: 20px 0;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        border: 2px solid #00b4d8;
+        position: relative;
+        overflow: hidden;
+    ">
+        <div style="position: absolute; top: 10px; right: 10px; font-size: 12px; opacity: 0.8;">
+            🕒 <span id="hora-actual">00:00:00</span>
+        </div>
+        
+        <h3 style="margin: 0 0 15px 0; color: #00b4d8; font-size: 22px;">
+            ⏱️ TEMPORIZADOR PVD
+        </h3>
+        
+        <div id="contador" style="
+            font-size: 48px;
+            font-weight: bold;
+            margin: 15px 0;
+            color: #4cc9f0;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        ">
+            {minutos_restantes:02d}:00
+        </div>
+        
+        <div style="
+            background: #1f4068;
+            height: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        ">
+            <div id="barra-progreso" style="
+                background: linear-gradient(90deg, #4cc9f0, #4361ee);
+                height: 100%;
+                width: 0%;
+                border-radius: 10px;
+                transition: width 1s ease, background 0.5s ease;
+            "></div>
+        </div>
+        
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        ">
+            <div>🆔 {usuario_id[:8]}...</div>
+            <div id="tiempo-restante-texto">Restante: {minutos_restantes} min</div>
+            <div id="estado-temporizador">⏳ En espera</div>
+        </div>
+    </div>
+    
+    <script>
+    let segundosRestantes = {segundos_totales};
+    const segundosTotales = {segundos_totales};
+    let temporizadorActivo = true;
+    
+    function actualizarHora() {{
+        const ahora = new Date();
+        const hora = ahora.getHours().toString().padStart(2, '0');
+        const minutos = ahora.getMinutes().toString().padStart(2, '0');
+        const segundos = ahora.getSeconds().toString().padStart(2, '0');
+        document.getElementById('hora-actual').textContent = hora + ':' + minutos + ':' + segundos;
+    }}
+    
+    function actualizarTemporizador() {{
+        if (!temporizadorActivo) return;
+        
+        segundosRestantes--;
+        
+        if (segundosRestantes <= 0) {{
+            document.getElementById('contador').textContent = '🎯 ¡TU TURNO!';
+            document.getElementById('contador').style.color = '#ff9900';
+            document.getElementById('barra-progreso').style.width = '100%';
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
+            
+            // Mostrar mensaje para recargar la página
+            document.getElementById('estado-temporizador').textContent = '🎯 ¡TURNO!';
+            document.getElementById('estado-temporizador').style.color = '#ff9900';
+            document.getElementById('estado-temporizador').style.fontWeight = 'bold';
+            
+            return;
+        }}
+        
+        const minutos = Math.floor(segundosRestantes / 60);
+        const segundos = segundosRestantes % 60;
+        document.getElementById('contador').textContent = 
+            minutos.toString().padStart(2, '0') + ':' + 
+            segundos.toString().padStart(2, '0');
+        
+        const progreso = 100 * (1 - (segundosRestantes / segundosTotales));
+        document.getElementById('barra-progreso').style.width = progreso + '%';
+        
+        if (segundosRestantes <= 300 && segundosRestantes > 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
+        }} else if (segundosRestantes <= 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff3300, #cc0000)';
+        }}
+        
+        actualizarHora();
+        
+        setTimeout(actualizarTemporizador, 1000);
+    }}
+    
+    actualizarHora();
+    actualizarTemporizador();
+    </script>
+    """
+    
+    return html_code
+
 def cups_naturgy():
     """Mostrar CUPS de ejemplo para Naturgy"""
     st.subheader("📋 CUPS Naturgy")
@@ -314,7 +439,7 @@ def comparativa_estimada():
         calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh)
 
 def gestion_pvd_usuario():
-    """Sistema de Pausas Visuales para usuarios con grupos"""
+    """Sistema de Pausas Visuales para usuarios con grupos - CONFIRMACIÓN DIRECTA"""
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
     
     config_pvd = cargar_config_pvd()
@@ -340,128 +465,12 @@ def gestion_pvd_usuario():
             st.info(f"**Grupo:** {grupo_usuario}")
             st.write(f"**Agentes en grupo:** {config_grupo.get('agentes_por_grupo', 10)}")
             st.write(f"**Máximo simultáneo:** {config_grupo.get('maximo_simultaneo', 2)}")
-            st.write(f"**Duración corta:** {config_pvd.get('duracion_corta', 5)} min")
-            st.write(f"**Duración larga:** {config_pvd.get('duracion_larga', 10)} min")
     
     hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
     st.caption(f"🕒 **Hora actual (Madrid):** {hora_actual_madrid}")
     
     # Ejecutar verificación automática
     actualizar_temporizadores_pvd()
-    
-    # Verificar notificación de confirmación
-    if verificar_confirmacion_pvd(st.session_state.username, cola_pvd, config_pvd):
-        st.markdown("""
-        <script>
-        window.addEventListener('load', function() {
-            setTimeout(function() {
-                const overlay = document.createElement('div');
-                overlay.id = 'overlay-notificacion-pvd';
-                overlay.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background-color: rgba(0, 0, 0, 0.85);
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    z-index: 9999;
-                `;
-                
-                overlay.innerHTML = `
-                    <div style="
-                        background: linear-gradient(135deg, #00b09b, #96c93d);
-                        color: white;
-                        padding: 30px;
-                        border-radius: 15px;
-                        text-align: center;
-                        max-width: 500px;
-                        width: 90%;
-                        box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-                        animation: pulse 1s infinite;
-                        border: 3px solid white;
-                    ">
-                        <h2 style="margin: 0 0 20px 0; font-size: 28px;">🎉 ¡ES TU TURNO!</h2>
-                        <p style="font-size: 20px; margin: 15px 0; font-weight: bold;">Tu pausa PVD está por comenzar</p>
-                        <p style="opacity: 0.9; margin-bottom: 25px; font-size: 16px;">Haz clic en OK para confirmar que estás listo</p>
-                        
-                        <div style="display: flex; gap: 20px; justify-content: center;">
-                            <button id="btn-confirmar-pvd-overlay" style="
-                                background: white;
-                                color: #00b09b;
-                                border: none;
-                                padding: 15px 40px;
-                                border-radius: 10px;
-                                font-size: 18px;
-                                font-weight: bold;
-                                cursor: pointer;
-                                transition: transform 0.2s;
-                                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                            ">
-                                ✅ OK - Empezar Pausa
-                            </button>
-                            
-                            <button id="btn-cancelar-pvd-overlay" style="
-                                background: #f44336;
-                                color: white;
-                                border: none;
-                                padding: 15px 40px;
-                                border-radius: 10px;
-                                font-size: 18px;
-                                font-weight: bold;
-                                cursor: pointer;
-                                transition: transform 0.2s;
-                                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                            ">
-                                ❌ Cancelar
-                            </button>
-                        </div>
-                    </div>
-                `;
-                
-                document.body.appendChild(overlay);
-                
-                const style = document.createElement('style');
-                style.innerHTML = `
-                    @keyframes pulse {
-                        0% { transform: scale(1); }
-                        50% { transform: scale(1.05); }
-                        100% { transform: scale(1); }
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                document.getElementById('btn-confirmar-pvd-overlay').addEventListener('click', function() {
-                    document.body.removeChild(overlay);
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 2000);
-                });
-                
-                document.getElementById('btn-cancelar-pvd-overlay').addEventListener('click', function() {
-                    document.body.removeChild(overlay);
-                    setTimeout(function() {
-                        window.location.reload();
-                    }, 3000);
-                });
-                
-            }, 1000);
-        });
-        </script>
-        """, unsafe_allow_html=True)
-        
-        st.warning("""
-        **🔔 ¡ATENCIÓN!**
-        
-        Deberías estar viendo una ventana emergente EN LA PÁGINA pidiendo confirmación.
-        
-        Si no la ves:
-        1. La página se recargará automáticamente
-        2. Haz clic en OK cuando aparezca
-        3. La pausa comenzará automáticamente
-        """)
     
     # Estadísticas del grupo
     estado_grupo = temporizador_pvd_mejorado.obtener_estado_grupo(grupo_usuario)
@@ -507,8 +516,8 @@ def gestion_pvd_usuario():
                 # Mostrar temporizador
                 st.markdown(f"### ⏱️ TEMPORIZADOR PARA TU PAUSA (Grupo: {grupo_usuario})")
                 
-                temporizador_html = crear_temporizador_html(int(tiempo_restante), st.session_state.username)
-                st.components.v1.html(temporizador_html, height=280)
+                temporizador_html = crear_temporizador_html_simplificado(int(tiempo_restante), st.session_state.username)
+                st.components.v1.html(temporizador_html, height=240)
                 
                 with st.expander("📊 Información del Grupo", expanded=True):
                     col_info1, col_info2, col_info3 = st.columns(3)
@@ -520,73 +529,88 @@ def gestion_pvd_usuario():
                         espacios_libres = max(0, config_grupo.get('maximo_simultaneo', 2) - estado_grupo['en_pausa'])
                         st.metric("Espacios libres", espacios_libres)
                     
-                    if 'notificado' in usuario_pausa_activa and usuario_pausa_activa['notificado']:
-                        st.success("✅ **¡Has sido notificado!** - Confirma cuando veas la alerta")
-                    
                     if tiempo_restante <= 2:
-                        st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos. ¡Prepárate para la notificación!")
+                        st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos. ¡Prepárate para confirmar!")
                 
+                # Verificar si es su turno y hay espacio
                 if posicion == 1 and estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
-                    # Iniciar pausa automáticamente
-                    usuario_pausa_activa['estado'] = 'EN_CURSO'
-                    usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                    usuario_pausa_activa['confirmado'] = True
-                    guardar_cola_pvd(cola_pvd)
-                    st.success("✅ **¡Pausa iniciada automáticamente!**")
-                    st.rerun()
+                    st.markdown("### 🎯 ¡ES TU TURNO!")
+                    
+                    st.balloons()
+                    
+                    # Mostrar botones de confirmación DIRECTAMENTE EN LA PÁGINA
+                    st.success("**¡Tu turno ha llegado! Confirma que estás listo para comenzar la pausa.**")
+                    
+                    col_conf1, col_conf2 = st.columns(2)
+                    with col_conf1:
+                        if st.button("✅ **CONFIRMAR Y COMENZAR PAUSA**", type="primary", use_container_width=True, 
+                                   help="Confirma que estás listo para comenzar tu pausa"):
+                            # Iniciar pausa automáticamente
+                            usuario_pausa_activa['estado'] = 'EN_CURSO'
+                            usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                            usuario_pausa_activa['confirmado'] = True
+                            guardar_cola_pvd(cola_pvd)
+                            st.success("✅ **Pausa confirmada e iniciada.** ¡Disfruta de tu descanso!")
+                            st.rerun()
+                    
+                    with col_conf2:
+                        if st.button("❌ **CANCELAR MI TURNO**", type="secondary", use_container_width=True,
+                                   help="Cancela tu turno y permanece en la cola"):
+                            usuario_pausa_activa['estado'] = 'CANCELADO'
+                            guardar_cola_pvd(cola_pvd)
+                            temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                            st.warning("❌ **Turno cancelado.** Has sido eliminado de la cola.")
+                            st.rerun()
+                    
+                    st.info("""
+                    **📢 Instrucciones:**
+                    1. Haz clic en **CONFIRMAR** para comenzar tu pausa inmediatamente
+                    2. O haz clic en **CANCELAR** si no puedes tomar la pausa ahora
+                    3. La pausa comenzará automáticamente después de confirmar
+                    """)
                 
-                if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_temporizador"):
-                    usuario_pausa_activa['estado'] = 'CANCELADO'
-                    guardar_cola_pvd(cola_pvd)
-                    temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-                    st.success("✅ Pausa cancelada")
-                    st.rerun()
+                else:
+                    # No es su turno aún
+                    if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_temporizador"):
+                        usuario_pausa_activa['estado'] = 'CANCELADO'
+                        guardar_cola_pvd(cola_pvd)
+                        temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                        st.success("✅ Pausa cancelada")
+                        st.rerun()
                     
             elif tiempo_restante == 0:
+                # Tiempo cumplido - mostrar confirmación directa
                 st.markdown("### 🎯 ¡ES TU TURNO!")
                 
                 st.balloons()
                 
-                with st.container():
-                    st.markdown("""
-                    <div style="
-                        background: linear-gradient(135deg, #00b09b, #96c93d);
-                        color: white;
-                        padding: 30px;
-                        border-radius: 15px;
-                        text-align: center;
-                        margin: 20px 0;
-                    ">
-                        <h2 style="margin: 0; font-size: 32px;">🎉 ¡TU TURNO HA LLEGADO!</h2>
-                        <p style="font-size: 20px; margin: 15px 0;">Debes confirmar cuando veas la alerta en tu navegador</p>
-                        <p style="opacity: 0.9;">La pausa comenzará automáticamente después de tu confirmación</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                
-                st.info("""
-                **📢 Deberías ver o haber visto:**
-                - Una **alerta/ventana emergente** en tu navegador
-                - Con el mensaje: **"¡ES TU TURNO PARA LA PAUSA PVD!"**
-                - Y botones: **OK (Confirmar)** y **Cancelar**
-                
-                **¿Qué hacer?**
-                1. Haz clic en **OK** para confirmar
-                2. La pausa comenzará automáticamente
-                3. Si haces clic en **Cancelar**, seguirás en la cola
-                
-                **Si no ves la alerta:**
-                - Permite **ventanas emergentes** para este sitio
-                - Actualiza la página
-                - La alerta aparecerá de nuevo
-                """)
-                
-                st.markdown("""
-                <script>
-                setTimeout(function() {
-                    window.location.reload();
-                }, 30000);
-                </script>
-                """, unsafe_allow_html=True)
+                # Verificar si hay espacio
+                if estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
+                    st.success("**¡Tu turno ha llegado! Confirma que estás listo para comenzar la pausa.**")
+                    
+                    col_conf1, col_conf2 = st.columns(2)
+                    with col_conf1:
+                        if st.button("✅ **CONFIRMAR Y COMENZAR PAUSA**", type="primary", use_container_width=True, 
+                                   key="confirmar_turno_directo"):
+                            # Iniciar pausa automáticamente
+                            usuario_pausa_activa['estado'] = 'EN_CURSO'
+                            usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                            usuario_pausa_activa['confirmado'] = True
+                            guardar_cola_pvd(cola_pvd)
+                            st.success("✅ **Pausa confirmada e iniciada.** ¡Disfruta de tu descanso!")
+                            st.rerun()
+                    
+                    with col_conf2:
+                        if st.button("❌ **CANCELAR MI TURNO**", type="secondary", use_container_width=True,
+                                   key="cancelar_turno_directo"):
+                            usuario_pausa_activa['estado'] = 'CANCELADO'
+                            guardar_cola_pvd(cola_pvd)
+                            temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                            st.warning("❌ **Turno cancelado.** Has sido eliminado de la cola.")
+                            st.rerun()
+                else:
+                    st.warning("⏳ **Esperando que se libere un espacio en tu grupo...**")
+                    st.info(f"Hay {estado_grupo['en_pausa']} de {config_grupo.get('maximo_simultaneo', 2)} espacios ocupados.")
                 
             else:
                 st.info("⏳ Calculando tiempo estimado...")
@@ -634,7 +658,6 @@ def gestion_pvd_usuario():
             st.write(f"**Finaliza:** {hora_fin_estimada.strftime('%H:%M:%S')} (hora Madrid)")
             
             # NOTA: La finalización ahora es automática gracias al temporizador de 60 segundos
-            # El sistema verifica automáticamente cada 60 segundos y finaliza las pausas completadas
             
             if tiempo_restante == 0:
                 st.success("🎉 **¡Pausa completada automáticamente!** El sistema ha finalizado tu pausa.")
@@ -701,10 +724,17 @@ def gestion_pvd_usuario():
     st.info("""
     **⚙️ Sistema Automático Mejorado:**
     
-    - **Finalización automática**: Las pausas se finalizan solas al terminar el tiempo
-    - **Notificación automática**: El siguiente en cola es notificado automáticamente
-    - **Temporizador interno**: El sistema verifica cada 60 segundos
-    - **Gestión por grupos**: Cada grupo tiene sus propios espacios y configuración
+    - **✅ Confirmación directa**: Botones en la página para confirmar tu turno
+    - **✅ Finalización automática**: Las pausas se finalizan solas al terminar el tiempo
+    - **🔄 Temporizador interno**: El sistema verifica cada 60 segundos
+    - **👥 Gestión por grupos**: Cada grupo tiene sus propios espacios y configuración
+    
+    **📢 ¿Cómo funciona?**
+    1. Solicita una pausa (corta o larga)
+    2. Espera tu turno en la cola de tu grupo
+    3. Cuando sea tu turno, verás botones para **CONFIRMAR** o **CANCELAR**
+    4. Confirma para comenzar tu pausa inmediatamente
+    5. La pausa termina automáticamente
     
     **🔄 El sistema se actualiza automáticamente cada 60 segundos**
     """)
