@@ -9,7 +9,31 @@ import threading
 import time
 import base64
 import io
-import asyncio  # Añadido para manejo asíncrono
+import asyncio
+import pytz
+
+# ==============================================
+# CONFIGURACIÓN DE ZONA HORARIA
+# ==============================================
+
+# Configurar zona horaria de Madrid
+TIMEZONE_MADRID = pytz.timezone('Europe/Madrid')
+
+def obtener_hora_madrid():
+    """Obtiene la hora actual en Madrid"""
+    return datetime.now(TIMEZONE_MADRID)
+
+def formatear_hora_madrid(fecha_hora):
+    """Formatea una fecha/hora a hora de Madrid"""
+    if isinstance(fecha_hora, str):
+        fecha_hora = datetime.fromisoformat(fecha_hora.replace('Z', '+00:00'))
+    
+    if fecha_hora.tzinfo is None:
+        fecha_hora = TIMEZONE_MADRID.localize(fecha_hora)
+    else:
+        fecha_hora = fecha_hora.astimezone(TIMEZONE_MADRID)
+    
+    return fecha_hora.strftime('%H:%M:%S')
 
 # ==============================================
 # CONFIGURACIONES Y CONSTANTES
@@ -160,7 +184,7 @@ class TemporizadorPVD:
                     duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
                     
                     tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
-                    tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+                    tiempo_transcurrido = (obtener_hora_madrid() - tiempo_inicio).total_seconds() / 60
                     tiempo_restante = max(0, duracion_minutos - tiempo_transcurrido)
                     
                     tiempo_estimado_minutos += tiempo_restante
@@ -182,12 +206,14 @@ class TemporizadorPVD:
     def iniciar_temporizador_usuario(self, usuario_id, tiempo_minutos):
         """Inicia un temporizador para un usuario específico"""
         try:
-            tiempo_fin = datetime.now() + timedelta(minutes=tiempo_minutos)
+            tiempo_fin = obtener_hora_madrid() + timedelta(minutes=tiempo_minutos)
             self.temporizadores_activos[usuario_id] = {
-                'tiempo_inicio': datetime.now(),
+                'tiempo_inicio': obtener_hora_madrid(),
                 'tiempo_fin': tiempo_fin,
                 'tiempo_total_minutos': tiempo_minutos,
-                'activo': True
+                'activo': True,
+                'hora_entrada_estimada': tiempo_fin.strftime('%H:%M'),
+                'hora_madrid_inicio': obtener_hora_madrid().strftime('%H:%M:%S')
             }
             
             # Programar notificación automática
@@ -210,8 +236,9 @@ class TemporizadorPVD:
                     if self.temporizadores_activos[usuario_id]['activo']:
                         # Marcar como notificación pendiente
                         self.notificaciones_pendientes[usuario_id] = {
-                            'timestamp': datetime.now(),
-                            'mensaje': '¡Es tu turno para la pausa PVD!'
+                            'timestamp': obtener_hora_madrid(),
+                            'mensaje': '¡Es tu turno para la pausa PVD!',
+                            'hora_madrid': obtener_hora_madrid().strftime('%H:%M:%S')
                         }
                         
                         # Eliminar temporizador
@@ -227,7 +254,7 @@ class TemporizadorPVD:
             return False
     
     def obtener_tiempo_restante(self, usuario_id):
-        """Obtiene el tiempo restante para un usuario"""
+        """Obtiene el tiempo restante para un usuario en minutos"""
         if usuario_id not in self.temporizadores_activos:
             return None
         
@@ -236,14 +263,27 @@ class TemporizadorPVD:
         if not temporizador['activo']:
             return None
         
-        tiempo_restante = temporizador['tiempo_fin'] - datetime.now()
+        tiempo_restante = temporizador['tiempo_fin'] - obtener_hora_madrid()
         
         if tiempo_restante.total_seconds() <= 0:
             # Tiempo completado
             temporizador['activo'] = False
             return 0
         
-        return max(0, int(tiempo_restante.total_seconds() // 60))  # Minutos restantes
+        return max(0, tiempo_restante.total_seconds() / 60)  # Minutos restantes
+    
+    def obtener_tiempo_restante_segundos(self, usuario_id):
+        """Obtiene el tiempo restante para un usuario en segundos"""
+        minutos = self.obtener_tiempo_restante(usuario_id)
+        if minutos is None:
+            return None
+        return int(minutos * 60)
+    
+    def obtener_hora_entrada_estimada(self, usuario_id):
+        """Obtiene la hora estimada de entrada"""
+        if usuario_id in self.temporizadores_activos:
+            return self.temporizadores_activos[usuario_id].get('hora_entrada_estimada', '--:--')
+        return None
     
     def verificar_notificaciones_pendientes(self, usuario_id):
         """Verifica si hay notificaciones pendientes para un usuario"""
@@ -259,6 +299,228 @@ class TemporizadorPVD:
             del self.temporizadores_activos[usuario_id]
             return True
         return False
+
+# ==============================================
+# FUNCIONES DE TEMPORIZADOR EN TIEMPO REAL
+# ==============================================
+
+def mostrar_temporizador_javascript(tiempo_restante_segundos, usuario_id, hora_entrada_estimada):
+    """Genera JavaScript para temporizador en tiempo real"""
+    hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
+    
+    js_code = f"""
+    <script>
+    // Temporizador en tiempo real para usuario {usuario_id}
+    let tiempoRestante = {tiempo_restante_segundos};
+    let temporizadorActivo = true;
+    let notificado = false;
+    
+    function formatearTiempo(segundos) {{
+        const horas = Math.floor(segundos / 3600);
+        const minutos = Math.floor((segundos % 3600) / 60);
+        const segs = segundos % 60;
+        
+        let tiempoFormateado = '';
+        if (horas > 0) {{
+            tiempoFormateado += horas + 'h ';
+        }}
+        if (minutos > 0 || horas > 0) {{
+            tiempoFormateado += minutos.toString().padStart(2, '0') + 'm ';
+        }}
+        tiempoFormateado += segs.toString().padStart(2, '0') + 's';
+        
+        return tiempoFormateado;
+    }}
+    
+    function actualizarTemporizador() {{
+        if (!temporizadorActivo) return;
+        
+        tiempoRestante--;
+        
+        if (tiempoRestante <= 0 && !notificado) {{
+            // Mostrar notificación cuando llegue a 0
+            document.getElementById('temporizador-texto').innerHTML = '🎯 ¡TU TURNO!';
+            document.getElementById('temporizador-texto').style.color = '#00ff00';
+            document.getElementById('temporizador-texto').style.fontSize = '28px';
+            document.getElementById('temporizador-progreso').style.width = '100%';
+            document.getElementById('temporizador-progreso').style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
+            
+            // Actualizar hora de entrada
+            document.getElementById('hora-entrada').innerHTML = '🚀 ¡ENTRADA INMINENTE!';
+            document.getElementById('hora-entrada').style.color = '#00ff00';
+            document.getElementById('hora-entrada').style.fontWeight = 'bold';
+            
+            // Mostrar notificación visual
+            const notifDiv = document.createElement('div');
+            notifDiv.id = 'notificacion-turno';
+            notifDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: linear-gradient(135deg, #00b09b, #96c93d);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                z-index: 9999;
+                font-size: 18px;
+                font-weight: bold;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+                animation: pulse 1s infinite;
+            `;
+            notifDiv.innerHTML = '🎉 ¡ES TU TURNO!<br>Tu pausa PVD está por comenzar';
+            document.body.appendChild(notifDiv);
+            
+            // Añadir animación de pulso
+            const style = document.createElement('style');
+            style.innerHTML = `
+                @keyframes pulse {{
+                    0% {{ transform: scale(1); }}
+                    50% {{ transform: scale(1.05); }}
+                    100% {{ transform: scale(1); }}
+                }}
+            `;
+            document.head.appendChild(style);
+            
+            // Reproducir sonido de notificación (opcional)
+            try {{
+                const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3');
+                audio.volume = 0.3;
+                audio.play();
+            }} catch (e) {{}}
+            
+            notificado = true;
+            
+            // Forzar recarga en 5 segundos
+            setTimeout(function() {{
+                window.location.reload();
+            }}, 5000);
+            
+            return;
+        }}
+        
+        // Calcular horas, minutos, segundos
+        const tiempoFormateado = formatearTiempo(tiempoRestante);
+        
+        // Actualizar display
+        document.getElementById('temporizador-texto').innerHTML = tiempoFormateado;
+        
+        // Actualizar barra de progreso
+        const tiempoTotal = {tiempo_restante_segundos};
+        const progreso = 100 * (1 - (tiempoRestante / tiempoTotal));
+        document.getElementById('temporizador-progreso').style.width = progreso + '%';
+        
+        // Actualizar hora actual
+        const ahora = new Date();
+        const horaMadrid = ahora.toLocaleTimeString('es-ES', {{timeZone: 'Europe/Madrid'}});
+        document.getElementById('hora-actual').innerHTML = '🕒 ' + horaMadrid;
+        
+        // Programar siguiente actualización
+        setTimeout(actualizarTemporizador, 1000);
+    }}
+    
+    // Iniciar temporizador cuando la página cargue
+    window.addEventListener('load', function() {{
+        actualizarTemporizador();
+        
+        // Configurar auto-refresh inteligente
+        const refreshTime = tiempoRestante > 60 ? 10000 : 3000; // 10s si >1min, 3s si menos
+        setTimeout(function() {{
+            if (tiempoRestante > 0) {{
+                window.location.reload();
+            }}
+        }}, refreshTime);
+    }});
+    </script>
+    
+    <style>
+    #temporizador-container {{
+        background: linear-gradient(135deg, #1a2980, #26d0ce);
+        padding: 20px;
+        border-radius: 15px;
+        margin: 15px 0;
+        color: white;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }}
+    #temporizador-header {{
+        text-align: center;
+        font-size: 18px;
+        margin-bottom: 15px;
+        opacity: 0.9;
+    }}
+    #temporizador-texto {{
+        font-size: 32px;
+        font-weight: bold;
+        text-align: center;
+        margin: 15px 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        letter-spacing: 1px;
+    }}
+    #temporizador-bar {{
+        background: rgba(255, 255, 255, 0.2);
+        height: 25px;
+        border-radius: 12px;
+        overflow: hidden;
+        margin: 20px 0;
+    }}
+    #temporizador-progreso {{
+        background: linear-gradient(90deg, #ff7e5f, #feb47b);
+        height: 100%;
+        width: 0%;
+        border-radius: 12px;
+        transition: width 0.5s ease-out;
+    }}
+    #info-horas {{
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+        font-size: 14px;
+    }}
+    .hora-item {{
+        text-align: center;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 8px 12px;
+        border-radius: 8px;
+        flex: 1;
+        margin: 0 5px;
+    }}
+    .hora-label {{
+        font-size: 12px;
+        opacity: 0.7;
+        margin-bottom: 3px;
+    }}
+    .hora-valor {{
+        font-weight: bold;
+        font-size: 16px;
+    }}
+    </style>
+    
+    <div id="temporizador-container">
+        <div id="temporizador-header">⏱️ TEMPORIZADOR PVD - ENTRADA ESTIMADA</div>
+        
+        <div id="temporizador-texto">Cargando...</div>
+        
+        <div id="temporizador-bar">
+            <div id="temporizador-progreso"></div>
+        </div>
+        
+        <div id="info-horas">
+            <div class="hora-item">
+                <div class="hora-label">HORA ACTUAL</div>
+                <div class="hora-valor" id="hora-actual">{hora_actual_madrid}</div>
+            </div>
+            <div class="hora-item">
+                <div class="hora-label">ENTRADA ESTIMADA</div>
+                <div class="hora-valor" id="hora-entrada">{hora_entrada_estimada}</div>
+            </div>
+            <div class="hora-item">
+                <div class="hora-label">ZONA HORARIA</div>
+                <div class="hora-valor">Madrid 🇪🇸</div>
+            </div>
+        </div>
+    </div>
+    """
+    return js_code
 
 # Instancia global del temporizador
 temporizador_pvd = TemporizadorPVD()
@@ -676,7 +938,47 @@ def actualizar_temporizadores_pvd():
         if 'username' in st.session_state:
             notificacion = temporizador_pvd.verificar_notificaciones_pendientes(st.session_state.username)
             if notificacion:
-                st.toast(f"🔔 {notificacion['mensaje']}", icon="🎯")
+                hora_notificacion = formatear_hora_madrid(notificacion['timestamp'])
+                
+                # Mostrar notificación grande y visible
+                with st.container():
+                    st.markdown("""
+                    <style>
+                    .notificacion-turno {
+                        background: linear-gradient(135deg, #00b09b, #96c93d);
+                        color: white;
+                        padding: 20px;
+                        border-radius: 10px;
+                        margin: 10px 0;
+                        animation: pulse 2s infinite;
+                    }
+                    @keyframes pulse {
+                        0% { transform: scale(1); }
+                        50% { transform: scale(1.02); }
+                        100% { transform: scale(1); }
+                    }
+                    </style>
+                    """, unsafe_allow_html=True)
+                    
+                    st.markdown(f"""
+                    <div class="notificacion-turno">
+                        <h3>🎉 ¡TU TURNO HA LLEGADO! ({hora_notificacion})</h3>
+                        <p><strong>{notificacion['mensaje']}</strong></p>
+                        <p>Tu pausa PVD debería iniciar automáticamente en cualquier momento.</p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                # También mostrar toast
+                st.toast(f"🔔 {notificacion['mensaje']} ({hora_notificacion})", icon="🎯")
+                
+                # Forzar recarga en 5 segundos
+                st.markdown("""
+                <script>
+                setTimeout(function() {
+                    window.location.reload();
+                }, 5000);
+                </script>
+                """, unsafe_allow_html=True)
         
         # Para cada usuario en espera, calcular y actualizar temporizador
         en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
@@ -687,18 +989,39 @@ def actualizar_temporizadores_pvd():
             # Calcular tiempo estimado
             tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, usuario_id)
             
-            if tiempo_estimado is not None and tiempo_estimado > 0:
+            if tiempo_estimado is not None:
                 # Verificar si ya tiene un temporizador activo
-                tiempo_restante = temporizador_pvd.obtener_tiempo_restante(usuario_id)
+                tiempo_restante_actual = temporizador_pvd.obtener_tiempo_restante(usuario_id)
                 
-                if tiempo_restante is None or abs(tiempo_restante - tiempo_estimado) > 1:
-                    # Actualizar temporizador
+                if tiempo_estimado > 0:
+                    # Si no tiene temporizador o el tiempo estimado difiere mucho del actual
+                    if tiempo_restante_actual is None or abs(tiempo_restante_actual - tiempo_estimado) > 2:
+                        # Cancelar temporizador existente
+                        temporizador_pvd.cancelar_temporizador(usuario_id)
+                        
+                        # Iniciar nuevo temporizador
+                        temporizador_pvd.iniciar_temporizador_usuario(usuario_id, tiempo_estimado)
+                        
+                        # Registrar en consola (para debugging)
+                        print(f"[PVD] Actualizado temporizador para {usuario_id}: {tiempo_estimado} minutos")
+                
+                elif tiempo_estimado == 0 and tiempo_restante_actual and tiempo_restante_actual > 0:
+                    # Entrada inmediata - cancelar temporizador si existe
                     temporizador_pvd.cancelar_temporizador(usuario_id)
-                    temporizador_pvd.iniciar_temporizador_usuario(usuario_id, tiempo_estimado)
-            
-            elif tiempo_estimado == 0:
-                # Entrada inmediata - cancelar temporizador si existe
+                    
+                    # Marcar como notificación pendiente
+                    temporizador_pvd.notificaciones_pendientes[usuario_id] = {
+                        'timestamp': obtener_hora_madrid(),
+                        'mensaje': '¡Es tu turno para la pausa PVD!',
+                        'hora_madrid': obtener_hora_madrid().strftime('%H:%M:%S')
+                    }
+        
+        # Limpiar temporizadores de usuarios que ya no están en espera
+        usuarios_en_espera = [p['usuario_id'] for p in en_espera]
+        for usuario_id in list(temporizador_pvd.temporizadores_activos.keys()):
+            if usuario_id not in usuarios_en_espera:
                 temporizador_pvd.cancelar_temporizador(usuario_id)
+                print(f"[PVD] Cancelado temporizador para {usuario_id} (ya no en espera)")
         
         return True
     except Exception as e:
@@ -1138,6 +1461,55 @@ def gestion_pvd_usuario():
     """Sistema de Pausas Visuales para usuarios con temporizador en tiempo real"""
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
     
+    # Auto-refresh inteligente
+    auto_refresh = """
+    <script>
+    // Configurar auto-refresh basado en estado
+    function configurarAutoRefresh() {
+        let tiempoRefresh = 30000; // 30 segundos por defecto
+        
+        // Verificar si hay temporizador activo
+        const tieneTemporizador = document.querySelector('[id*="temporizador"]') || 
+                                  document.getElementById('temporizador-container');
+        
+        // Verificar si está en espera
+        const estaEnEspera = document.body.innerText.includes('ESPERANDO') || 
+                             document.body.innerText.includes('En cola');
+        
+        if (tieneTemporizador || estaEnEspera) {
+            tiempoRefresh = 10000; // 10 segundos si hay temporizador o está en espera
+        }
+        
+        // Verificar si el tiempo está por terminar (< 2 minutos)
+        const tiempoTexto = document.getElementById('temporizador-texto');
+        if (tiempoTexto) {
+            const texto = tiempoTexto.innerText;
+            if (texto.includes('m') && !texto.includes('h')) {
+                const minutos = parseInt(texto);
+                if (minutos < 2) {
+                    tiempoRefresh = 5000; // 5 segundos si quedan menos de 2 minutos
+                }
+            }
+        }
+        
+        console.log('Auto-refresh configurado para:', tiempoRefresh / 1000, 'segundos');
+        
+        setTimeout(function() {
+            window.location.reload();
+        }, tiempoRefresh);
+    }
+    
+    // Iniciar cuando la página cargue
+    window.addEventListener('load', configurarAutoRefresh);
+    
+    // También iniciar si la página ya está cargada
+    if (document.readyState === 'complete') {
+        configurarAutoRefresh();
+    }
+    </script>
+    """
+    st.components.v1.html(auto_refresh, height=0)
+    
     # NUEVO: Actualizar temporizadores automáticamente
     actualizar_temporizadores_pvd()
     
@@ -1148,12 +1520,16 @@ def gestion_pvd_usuario():
     if 'notificaciones_activas' not in st.session_state:
         st.session_state.notificaciones_activas = True
     
-    col_notif1, col_notif2 = st.columns([3, 1])
-    with col_notif1:
+    # Botón de actualización manual
+    col_refresh1, col_refresh2, col_refresh3 = st.columns([3, 1, 1])
+    with col_refresh1:
         st.write("")
-    with col_notif2:
+    with col_refresh2:
+        if st.button("🔄 Actualizar", use_container_width=True, type="primary"):
+            st.rerun()
+    with col_refresh3:
         notif_activadas = st.checkbox(
-            "🔔 Notificaciones",
+            "🔔",
             value=st.session_state.notificaciones_activas,
             key="toggle_notificaciones",
             help="Activar/desactivar notificaciones"
@@ -1162,19 +1538,9 @@ def gestion_pvd_usuario():
             st.session_state.notificaciones_activas = notif_activadas
             st.rerun()
     
-    # NUEVO: JavaScript para actualización automática
-    auto_refresh_js = """
-    <script>
-    // Actualizar cada 30 segundos
-    setTimeout(function() {
-        window.location.reload();
-    }, 30000);
-    </script>
-    """
-    st.components.v1.html(auto_refresh_js, height=0)
-    
-    if st.button("🔄 Actualizar Ahora", use_container_width=True, type="primary"):
-        st.rerun()
+    # Mostrar hora actual de Madrid
+    hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
+    st.caption(f"🕒 **Hora actual (Madrid):** {hora_actual_madrid}")
 
     # Buscar pausa activa del usuario
     usuario_pausa_activa = None
@@ -1205,58 +1571,120 @@ def gestion_pvd_usuario():
             st.write(f"**Posición en cola:** #{posicion} de {len(en_espera)}")
             st.write(f"**Estado:** {en_pausa}/{maximo} pausas activas")
             
-            # NUEVO: Mostrar temporizador de cuenta atrás
+            # NUEVO: Mostrar temporizador de cuenta atrás en tiempo real
             tiempo_restante = temporizador_pvd.obtener_tiempo_restante(st.session_state.username)
             
             if tiempo_restante is not None:
                 col_timer1, col_timer2 = st.columns(2)
                 with col_timer1:
                     if tiempo_restante > 0:
-                        # Mostrar temporizador visual
-                        tiempo_total = temporizador_pvd.temporizadores_activos.get(st.session_state.username, {}).get('tiempo_total_minutos', tiempo_restante)
-                        progreso = max(0, min(100, 100 * (1 - (tiempo_restante / max(tiempo_total, 1)))))
-                        st.progress(int(progreso))
+                        # Obtener hora estimada de entrada
+                        hora_entrada_estimada = temporizador_pvd.obtener_hora_entrada_estimada(st.session_state.username)
+                        if not hora_entrada_estimada:
+                            hora_entrada_estimada = (obtener_hora_madrid() + timedelta(minutes=tiempo_restante)).strftime('%H:%M')
                         
-                        # Mostrar tiempo en formato legible
-                        horas = tiempo_restante // 60
-                        minutos = tiempo_restante % 60
-                        
-                        if horas > 0:
-                            tiempo_display = f"{horas}h {minutos}m"
-                        else:
-                            tiempo_display = f"{minutos}m"
-                        
-                        st.metric("⏱️ Tiempo restante estimado", tiempo_display)
+                        # Mostrar temporizador JavaScript en tiempo real
+                        tiempo_segundos = temporizador_pvd.obtener_tiempo_restante_segundos(st.session_state.username)
+                        if tiempo_segundos and tiempo_segundos > 0:
+                            js_temporizador = mostrar_temporizador_javascript(
+                                tiempo_segundos, 
+                                st.session_state.username, 
+                                hora_entrada_estimada
+                            )
+                            st.components.v1.html(js_temporizador, height=220)
+                            
+                            # Información adicional
+                            with st.expander("📊 Información detallada", expanded=False):
+                                st.info(f"""
+                                **Información del temporizador:**
+                                - **Tiempo restante:** {int(tiempo_restante)} minutos
+                                - **Hora estimada de entrada:** {hora_entrada_estimada} (hora Madrid)
+                                - **Posición en cola:** #{posicion}
+                                - **Estado del sistema:** {en_pausa}/{maximo} pausas activas
+                                - **Personas en espera:** {len(en_espera)}
+                                - **Duración de tu pausa:** {duracion_minutos} minutos
+                                """)
+                            
+                            # Verificar si el tiempo se completó
+                            if 'tiempo_restante_anterior' not in st.session_state:
+                                st.session_state.tiempo_restante_anterior = tiempo_restante
+                            
+                            if tiempo_restante == 0 and st.session_state.tiempo_restante_anterior > 0:
+                                st.balloons()
+                                st.success("""
+                                🎉 **¡ES TU TURNO!** 
+                                
+                                Tu pausa PVD está por comenzar. 
+                                El sistema te notificará automáticamente cuando inicie.
+                                """)
+                                
+                                # Forzar recarga en 3 segundos
+                                st.markdown("""
+                                <script>
+                                setTimeout(function() {
+                                    window.location.reload();
+                                }, 3000);
+                                </script>
+                                """, unsafe_allow_html=True)
+                            
+                            st.session_state.tiempo_restante_anterior = tiempo_restante
+                            
                     else:
-                        st.success("🎯 **¡Es tu turno!** Tu pausa debería iniciar en cualquier momento")
+                        # Tiempo completado
+                        st.success("""
+                        🎯 **¡TU TURNO HA LLEGADO!**
+                        
+                        Tu temporizador ha finalizado. Tu pausa PVD debería iniciar en cualquier momento.
+                        Si no inicia automáticamente en 30 segundos, actualiza la página.
+                        """)
+                        
+                        # Mostrar notificación visual
+                        st.balloons()
+                        
+                        # Auto-refresh más frecuente
+                        st.markdown("""
+                        <script>
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 5000);
+                        </script>
+                        """, unsafe_allow_html=True)
                 
                 with col_timer2:
-                    # Información adicional del temporizador
-                    if tiempo_restante > 0:
-                        st.write("**⏳ Entrada estimada:**")
-                        tiempo_entrada = datetime.now() + timedelta(minutes=tiempo_restante)
-                        st.write(f"🕒 {tiempo_entrada.strftime('%H:%M')}")
+                    # Información de tiempo de espera
+                    if 'timestamp_solicitud' in usuario_pausa_activa:
+                        tiempo_solicitud = datetime.fromisoformat(usuario_pausa_activa['timestamp_solicitud'])
+                        minutos_esperando = int((obtener_hora_madrid() - tiempo_solicitud).total_seconds() / 60)
+                        
+                        st.metric("⏱️ Esperando desde", f"{minutos_esperando} min")
+                        
+                        # Mostrar hora de solicitud en Madrid
+                        hora_solicitud_madrid = formatear_hora_madrid(tiempo_solicitud)
+                        st.write(f"**Hora de solicitud:** {hora_solicitud_madrid}")
+                    
+                    # Información del sistema
+                    st.write("**📊 Estado del sistema:**")
+                    st.write(f"• Pausas activas: {en_pausa}/{maximo}")
+                    st.write(f"• Personas en cola: {len(en_espera)}")
+                    
+                    if posicion == 1 and en_pausa < maximo:
+                        st.success("🎯 **¡Próximo!** Serás el siguiente en salir a pausa")
                     else:
-                        st.write("**🚀 Entrada inminente**")
+                        tiempo_estimado_manual = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
+                        if tiempo_estimado_manual and tiempo_estimado_manual > 0:
+                            st.info(f"⏳ **Estimación manual:** {tiempo_estimado_manual} min")
             
             if posicion == 1 and en_pausa < maximo:
-                st.success("🎯 **¡Próximo!** Serás el siguiente en salir a pausa")
-                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
-                st.rerun()
-            else:
-                tiempo_espera = ""
-                if 'timestamp_solicitud' in usuario_pausa_activa:
-                    tiempo_solicitud = datetime.fromisoformat(usuario_pausa_activa['timestamp_solicitud'])
-                    minutos_esperando = (datetime.now() - tiempo_solicitud).seconds // 60
-                    tiempo_espera = f" | Esperando: {minutos_esperando} min"
-                
-                st.info(f"📋 **En cola:** Posición #{posicion}{tiempo_espera}")
+                # Intentar iniciar automáticamente
+                if iniciar_siguiente_en_cola(cola_pvd, config_pvd):
+                    st.success("✅ **¡Pausa iniciada automáticamente!**")
+                    st.rerun()
             
-            if st.button("❌ Cancelar mi pausa", type="secondary", key="cancel_my_pause"):
+            if st.button("❌ Cancelar mi pausa", type="secondary", key="cancel_my_pause", use_container_width=True):
                 usuario_pausa_activa['estado'] = 'CANCELADO'
                 guardar_cola_pvd(cola_pvd)
                 
-                # NUEVO: Cancelar temporizador
+                # Cancelar temporizador
                 temporizador_pvd.cancelar_temporizador(st.session_state.username)
                 
                 st.success("✅ Pausa cancelada")
@@ -1269,7 +1697,7 @@ def gestion_pvd_usuario():
             duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
             
             tiempo_inicio = datetime.fromisoformat(usuario_pausa_activa['timestamp_inicio'])
-            tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+            tiempo_transcurrido = int((obtener_hora_madrid() - tiempo_inicio).total_seconds() / 60)
             tiempo_restante = max(0, duracion_minutos - tiempo_transcurrido)
             
             progreso = min(100, (tiempo_transcurrido / duracion_minutos) * 100)
@@ -1281,15 +1709,26 @@ def gestion_pvd_usuario():
             with col_tiempo2:
                 st.metric("⏳ Restante", f"{tiempo_restante} min")
             
+            # Mostrar horas en formato Madrid
+            hora_inicio_madrid = formatear_hora_madrid(tiempo_inicio)
+            hora_fin_estimada = formatear_hora_madrid(tiempo_inicio + timedelta(minutes=duracion_minutos))
+            
             st.write(f"**Duración total:** {duracion_minutos} minutos ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
-            st.write(f"**Inició:** {tiempo_inicio.strftime('%H:%M:%S')}")
+            st.write(f"**Inició:** {hora_inicio_madrid} (hora Madrid)")
+            st.write(f"**Finaliza estimado:** {hora_fin_estimada} (hora Madrid)")
             
             if tiempo_restante == 0:
                 st.success("🎉 **¡Pausa completada!** Puedes volver a solicitar otra si necesitas")
-            
-            if st.button("✅ Finalizar pausa ahora", type="primary", key="finish_pause_now"):
+                # Auto-completar si ha pasado el tiempo
                 usuario_pausa_activa['estado'] = 'COMPLETADO'
-                usuario_pausa_activa['timestamp_fin'] = datetime.now().isoformat()
+                usuario_pausa_activa['timestamp_fin'] = obtener_hora_madrid().isoformat()
+                guardar_cola_pvd(cola_pvd)
+                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
+                st.rerun()
+            
+            if st.button("✅ Finalizar pausa ahora", type="primary", key="finish_pause_now", use_container_width=True):
+                usuario_pausa_activa['estado'] = 'COMPLETADO'
+                usuario_pausa_activa['timestamp_fin'] = obtener_hora_madrid().isoformat()
                 guardar_cola_pvd(cola_pvd)
                 iniciar_siguiente_en_cola(cola_pvd, config_pvd)
                 st.success("✅ Pausa completada")
@@ -1311,7 +1750,7 @@ def gestion_pvd_usuario():
         with col_stats3:
             pausas_hoy = len([p for p in cola_pvd 
                             if p['usuario_id'] == st.session_state.username and 
-                            datetime.fromisoformat(p.get('timestamp_solicitud', datetime.now().isoformat())).date() == datetime.now().date() and
+                            datetime.fromisoformat(p.get('timestamp_solicitud', obtener_hora_madrid().isoformat())).date() == obtener_hora_madrid().date() and
                             p['estado'] != 'CANCELADO'])
             st.metric("📅 Tus pausas hoy", f"{pausas_hoy}/5")
         
@@ -1326,18 +1765,20 @@ def gestion_pvd_usuario():
             if espacios_libres > 0:
                 st.success(f"✅ **HAY ESPACIO DISPONIBLE** - {espacios_libres} puesto(s) libre(s)")
                 
-                # NUEVO: Calcular tiempo estimado si hay cola
+                # Calcular tiempo estimado si hay cola
                 if en_espera > 0:
                     tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
                     if tiempo_estimado and tiempo_estimado > 0:
-                        st.info(f"⏱️ **Tiempo estimado de espera:** {tiempo_estimado} minutos")
+                        hora_estimada = (obtener_hora_madrid() + timedelta(minutes=tiempo_estimado)).strftime('%H:%M')
+                        st.info(f"⏱️ **Tiempo estimado de espera:** {tiempo_estimado} minutos (entrada ~{hora_estimada})")
             else:
                 st.warning(f"⏳ **SISTEMA LLENO** - Hay {en_espera} persona(s) en cola. Te pondremos en espera.")
                 
-                # NUEVO: Calcular tiempo estimado
+                # Calcular tiempo estimado
                 tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
                 if tiempo_estimado and tiempo_estimado > 0:
-                    st.info(f"⏱️ **Tiempo estimado de espera:** {tiempo_estimado} minutos")
+                    hora_estimada = (obtener_hora_madrid() + timedelta(minutes=tiempo_estimado)).strftime('%H:%M')
+                    st.info(f"⏱️ **Tiempo estimado de espera:** {tiempo_estimado} minutos (entrada ~{hora_estimada})")
             
             col_dura1, col_dura2 = st.columns(2)
             with col_dura1:
@@ -1628,12 +2069,38 @@ def gestion_pvd_admin():
     """Administración del sistema PVD con información de temporizadores"""
     st.subheader("👁️ Administración PVD (Pausa Visual Dinámica)")
     
+    # Mostrar hora actual de Madrid
+    hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
+    st.caption(f"🕒 **Hora del servidor (Madrid):** {hora_actual_madrid}")
+    
     config_pvd = cargar_config_pvd()
     cola_pvd = cargar_cola_pvd()
     
-    if st.button("🔄 Actualizar Estado", key="refresh_admin", use_container_width=True):
-        verificar_pausas_completadas(cola_pvd, config_pvd)
-        st.rerun()
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    with col_btn1:
+        if st.button("🔄 Actualizar Estado", key="refresh_admin", use_container_width=True, type="primary"):
+            verificar_pausas_completadas(cola_pvd, config_pvd)
+            st.rerun()
+    with col_btn2:
+        if st.button("📊 Actualizar Temporizadores", key="refresh_timers", use_container_width=True):
+            actualizar_temporizadores_pvd()
+            st.rerun()
+    with col_btn3:
+        if st.button("🧹 Limpiar Completadas", key="clean_completed", use_container_width=True):
+            # Eliminar pausas completadas de hace más de 1 día
+            fecha_limite = obtener_hora_madrid() - timedelta(days=1)
+            cola_limpia = [p for p in cola_pvd if not (
+                p['estado'] == 'COMPLETADO' and 
+                'timestamp_fin' in p and
+                datetime.fromisoformat(p['timestamp_fin']) < fecha_limite
+            )]
+            
+            if len(cola_limpia) < len(cola_pvd):
+                guardar_cola_pvd(cola_limpia)
+                st.success(f"✅ Limpiadas {len(cola_pvd) - len(cola_limpia)} pausas antiguas")
+                st.rerun()
+            else:
+                st.info("ℹ️ No hay pausas antiguas para limpiar")
     
     # Configuración del sistema
     st.write("### ⚙️ Configuración del Sistema para Agentes")
@@ -1683,7 +2150,7 @@ def gestion_pvd_admin():
         help="Reproduce sonido cuando sea el turno de un agente"
     )
     
-    if st.button("💾 Guardar Configuración", type="primary"):
+    if st.button("💾 Guardar Configuración", type="primary", key="save_config_admin"):
         config_pvd.update({
             'agentes_activos': agentes_activos,
             'maximo_simultaneo': maximo_simultaneo,
@@ -1702,22 +2169,27 @@ def gestion_pvd_admin():
     en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
     en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
     completados_hoy = len([p for p in cola_pvd if p['estado'] == 'COMPLETADO' and 
-                          datetime.fromisoformat(p.get('timestamp_fin', datetime.now().isoformat())).date() == datetime.now().date()])
+                          datetime.fromisoformat(p.get('timestamp_fin', obtener_hora_madrid().isoformat())).date() == obtener_hora_madrid().date()])
+    cancelados_hoy = len([p for p in cola_pvd if p['estado'] == 'CANCELADO' and 
+                         datetime.fromisoformat(p.get('timestamp_solicitud', obtener_hora_madrid().isoformat())).date() == obtener_hora_madrid().date()])
     
-    # NUEVO: Contar temporizadores activos
+    # Contar temporizadores activos
     temporizadores_activos = len(temporizador_pvd.temporizadores_activos)
+    notificaciones_pendientes = len(temporizador_pvd.notificaciones_pendientes)
     
-    col_stat1, col_stat2, col_stat3, col_stat4, col_stat5 = st.columns(5)
+    col_stat1, col_stat2, col_stat3, col_stat4, col_stat5, col_stat6 = st.columns(6)
     with col_stat1:
-        st.metric("👥 Agentes Trabajando", agentes_activos)
+        st.metric("👥 Agentes Activos", agentes_activos)
     with col_stat2:
-        st.metric("⏸️ En Pausa Ahora", f"{en_pausa}/{maximo_simultaneo}")
+        st.metric("⏸️ En Pausa", f"{en_pausa}/{maximo_simultaneo}")
     with col_stat3:
-        st.metric("⏳ Esperando", en_espera)
+        st.metric("⏳ En Espera", en_espera)
     with col_stat4:
         st.metric("✅ Completadas Hoy", completados_hoy)
     with col_stat5:
         st.metric("⏱️ Temporizadores", temporizadores_activos)
+    with col_stat6:
+        st.metric("🔔 Notificaciones", notificaciones_pendientes)
     
     # Pausas en curso
     st.markdown("---")
@@ -1734,29 +2206,34 @@ def gestion_pvd_admin():
                     duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
                     
                     tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
-                    tiempo_transcurrido = (datetime.now() - tiempo_inicio).seconds // 60
+                    tiempo_transcurrido = int((obtener_hora_madrid() - tiempo_inicio).total_seconds() / 60)
                     tiempo_restante = max(0, duracion_minutos - tiempo_transcurrido)
                     
                     progreso = min(100, (tiempo_transcurrido / duracion_minutos) * 100)
                     st.progress(int(progreso))
                     
+                    # Mostrar horas en formato Madrid
+                    hora_inicio_madrid = formatear_hora_madrid(tiempo_inicio)
+                    hora_fin_estimada = formatear_hora_madrid(tiempo_inicio + timedelta(minutes=duracion_minutos))
+                    
                     st.write(f"**Agente:** {pausa.get('usuario_nombre', 'Desconocido')}")
                     st.write(f"**Usuario ID:** {pausa['usuario_id']}")
                     st.write(f"**Duración:** {duracion_minutos} min ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
-                    st.write(f"**Inició:** {tiempo_inicio.strftime('%H:%M:%S')} | **Restante:** {tiempo_restante} min")
+                    st.write(f"**Inició:** {hora_inicio_madrid} | **Finaliza:** {hora_fin_estimada}")
+                    st.write(f"**Transcurrido:** {tiempo_transcurrido} min | **Restante:** {tiempo_restante} min")
                     
                     if tiempo_restante == 0:
                         st.warning("⏰ **Pausa finalizada automáticamente**")
                 
                 with col_acciones:
-                    if st.button("✅ Finalizar", key=f"fin_{pausa['id']}"):
+                    if st.button("✅ Finalizar", key=f"fin_{pausa['id']}", use_container_width=True):
                         pausa['estado'] = 'COMPLETADO'
-                        pausa['timestamp_fin'] = datetime.now().isoformat()
+                        pausa['timestamp_fin'] = obtener_hora_madrid().isoformat()
                         guardar_cola_pvd(cola_pvd)
                         st.success(f"✅ Pausa #{pausa['id']} finalizada")
                         st.rerun()
                     
-                    if st.button("❌ Cancelar", key=f"cancel_{pausa['id']}"):
+                    if st.button("❌ Cancelar", key=f"cancel_{pausa['id']}", use_container_width=True):
                         pausa['estado'] = 'CANCELADO'
                         guardar_cola_pvd(cola_pvd)
                         st.warning(f"⚠️ Pausa #{pausa['id']} cancelada")
@@ -1776,46 +2253,85 @@ def gestion_pvd_admin():
             duracion_elegida = pausa.get('duracion_elegida', 'corta')
             duracion_display = f"{config_pvd['duracion_corta']} min" if duracion_elegida == 'corta' else f"{config_pvd['duracion_larga']} min"
             
-            # NUEVO: Obtener información del temporizador
+            # Obtener información del temporizador
             tiempo_restante = temporizador_pvd.obtener_tiempo_restante(pausa['usuario_id'])
+            hora_entrada_estimada = temporizador_pvd.obtener_hora_entrada_estimada(pausa['usuario_id'])
             info_temporizador = ""
             
             if tiempo_restante is not None:
                 if tiempo_restante > 0:
-                    horas = tiempo_restante // 60
-                    minutos = tiempo_restante % 60
+                    horas = int(tiempo_restante // 60)
+                    minutos = int(tiempo_restante % 60)
                     if horas > 0:
                         info_temporizador = f"⏱️ {horas}h {minutos}m"
                     else:
                         info_temporizador = f"⏱️ {minutos}m"
+                    
+                    if hora_entrada_estimada:
+                        info_temporizador += f" (~{hora_entrada_estimada})"
                 else:
-                    info_temporizador = "🎯 ¡Turno!"
+                    info_temporizador = "🎯 ¡TURNO!"
             
-            col_esp1, col_esp2, col_esp3, col_esp4, col_esp5 = st.columns([2, 2, 2, 2, 1])
-            with col_esp1:
-                st.write(f"**#{i+1}** - {pausa.get('usuario_nombre', 'Desconocido')}")
-            with col_esp2:
-                st.write(f"🆔 {pausa['usuario_id']}")
-            with col_esp3:
-                st.write(f"⏱️ {duracion_display}")
-            with col_esp4:
-                st.write(info_temporizador)
-            with col_esp5:
-                if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}"):
-                    # Verificar si hay espacio
-                    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-                    if en_pausa < config_pvd['maximo_simultaneo']:
-                        pausa['estado'] = 'EN_CURSO'
-                        pausa['timestamp_inicio'] = datetime.now().isoformat()
-                        guardar_cola_pvd(cola_pvd)
-                        
-                        # Cancelar temporizador
-                        temporizador_pvd.cancelar_temporizador(pausa['usuario_id'])
-                        
-                        st.success(f"✅ Pausa #{pausa['id']} iniciada")
-                        st.rerun()
-                    else:
-                        st.error("❌ No hay espacio disponible")
+            # Mostrar hora de solicitud en Madrid
+            hora_solicitud = formatear_hora_madrid(pausa['timestamp_solicitud'])
+            
+            with st.container():
+                col_esp1, col_esp2, col_esp3, col_esp4, col_esp5, col_esp6 = st.columns([2, 2, 1, 2, 2, 1])
+                with col_esp1:
+                    st.write(f"**#{i+1}** - {pausa.get('usuario_nombre', 'Desconocido')}")
+                with col_esp2:
+                    st.write(f"🆔 {pausa['usuario_id'][:10]}...")
+                with col_esp3:
+                    st.write(f"⏱️ {duracion_display}")
+                with col_esp4:
+                    st.write(f"🕒 {hora_solicitud}")
+                with col_esp5:
+                    st.write(info_temporizador)
+                with col_esp6:
+                    if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}", use_container_width=True):
+                        # Verificar si hay espacio
+                        en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+                        if en_pausa < config_pvd['maximo_simultaneo']:
+                            pausa['estado'] = 'EN_CURSO'
+                            pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                            guardar_cola_pvd(cola_pvd)
+                            
+                            # Cancelar temporizador
+                            temporizador_pvd.cancelar_temporizador(pausa['usuario_id'])
+                            
+                            st.success(f"✅ Pausa #{pausa['id']} iniciada")
+                            st.rerun()
+                        else:
+                            st.error("❌ No hay espacio disponible")
+                
+                st.markdown("---")
+    else:
+        st.info("📭 No hay agentes en la cola de espera")
+    
+    # Información de temporizadores activos
+    if temporizadores_activos > 0:
+        st.write("### ⏱️ Temporizadores Activos")
+        
+        for usuario_id, temporizador in temporizador_pvd.temporizadores_activos.items():
+            if temporizador['activo']:
+                tiempo_restante = temporizador_pvd.obtener_tiempo_restante(usuario_id)
+                if tiempo_restante and tiempo_restante > 0:
+                    with st.container():
+                        col_temp1, col_temp2, col_temp3 = st.columns([3, 2, 1])
+                        with col_temp1:
+                            st.write(f"**Usuario:** {usuario_id}")
+                        with col_temp2:
+                            horas = int(tiempo_restante // 60)
+                            minutos = int(tiempo_restante % 60)
+                            if horas > 0:
+                                tiempo_display = f"{horas}h {minutos}m"
+                            else:
+                                tiempo_display = f"{minutos}m"
+                            st.write(f"**Restante:** {tiempo_display}")
+                        with col_temp3:
+                            if st.button("❌", key=f"cancel_temp_{usuario_id}", help="Cancelar temporizador"):
+                                temporizador_pvd.cancelar_temporizador(usuario_id)
+                                st.rerun()
 
 def gestion_modelos_factura():
     """Gestión de modelos de factura"""
