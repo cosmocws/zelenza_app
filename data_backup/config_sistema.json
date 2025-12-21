@@ -1,0 +1,41 @@
+{
+    "login_automatico_activado": false,
+    "sesion_horas_duracion": 8,
+    "grupos_usuarios": {
+        "basico": {
+            "planes_luz": [],
+            "planes_gas": [
+                "RL1"
+            ]
+        },
+        "premium": {
+            "planes_luz": [],
+            "planes_gas": [
+                "RL1",
+                "RL2",
+                "RL3"
+            ]
+        },
+        "empresa": {
+            "planes_luz": [],
+            "planes_gas": [
+                "RL2",
+                "RL3"
+            ]
+        },
+        "CAPTA": {
+            "planes_luz": [
+                "IMPULSA 24h",
+                "ESTABLE",
+                "HOGAR",
+                "AHORRO AUTOM\u00c1TICO",
+                "ESPECIAL PLUS"
+            ],
+            "planes_gas": [
+                "RL1",
+                "RL2",
+                "RL3"
+            ]
+        }
+    }
+}
