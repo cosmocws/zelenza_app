@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 import pandas as pd
-import json  # <-- AÑADIR ESTA LÍNEA
+import json
 from datetime import datetime, timedelta
 import pytz
 
@@ -12,11 +12,12 @@ from calculation import (
 )
 from database import (
     cargar_configuracion_usuarios, cargar_config_pvd, cargar_cola_pvd,
-    guardar_cola_pvd
+    guardar_cola_pvd, cargar_config_sistema
 )
 from pvd_system import (
-    temporizador_pvd, verificar_confirmacion_pvd, actualizar_temporizadores_pvd,
-    solicitar_pausa, ESTADOS_PVD
+    temporizador_pvd_mejorado, temporizador_pvd, verificar_confirmacion_pvd, 
+    actualizar_temporizadores_pvd, solicitar_pausa, ESTADOS_PVD,
+    calcular_tiempo_estimado_grupo, crear_temporizador_html
 )
 from utils import obtener_hora_madrid, formatear_hora_madrid
 
@@ -313,19 +314,20 @@ def comparativa_estimada():
         calcular_estimacion_anual(potencia, consumo_anual, costo_mensual_actual, comunidad, excedente_mensual_kwh)
 
 def gestion_pvd_usuario():
-    """Sistema de Pausas Visuales para usuarios"""
-    # Usar el PVD simplificado
-    from pvd_simplificado import gestion_pvd_usuario_simplificada
-    return gestion_pvd_usuario_simplificada()
-
-def gestion_pvd_usuario_antigua():
-    """Sistema de Pausas Visuales para usuarios con notificación de confirmación"""
+    """Sistema de Pausas Visuales para usuarios con grupos"""
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
     
     config_pvd = cargar_config_pvd()
     cola_pvd = cargar_cola_pvd()
+    usuarios_config = cargar_configuracion_usuarios()
     
-    col_btn1, col_btn2 = st.columns(2)
+    # Obtener grupo del usuario
+    grupo_usuario = usuarios_config.get(st.session_state.username, {}).get('grupo', 'basico')
+    config_sistema = cargar_config_sistema()
+    grupos_config = config_sistema.get('grupos_pvd', {})
+    config_grupo = grupos_config.get(grupo_usuario, {'maximo_simultaneo': 2, 'agentes_por_grupo': 10})
+    
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
     with col_btn1:
         if st.button("🔄 Actualizar Ahora", use_container_width=True, type="primary", key="refresh_pvd_now"):
             st.rerun()
@@ -333,12 +335,21 @@ def gestion_pvd_usuario_antigua():
         if st.button("📊 Actualizar Temporizadores", use_container_width=True, key="refresh_timers_user"):
             actualizar_temporizadores_pvd()
             st.rerun()
+    with col_btn3:
+        if st.button("👥 Ver mi Grupo", use_container_width=True, key="ver_grupo"):
+            st.info(f"**Grupo:** {grupo_usuario}")
+            st.write(f"**Agentes en grupo:** {config_grupo.get('agentes_por_grupo', 10)}")
+            st.write(f"**Máximo simultáneo:** {config_grupo.get('maximo_simultaneo', 2)}")
+            st.write(f"**Duración corta:** {config_pvd.get('duracion_corta', 5)} min")
+            st.write(f"**Duración larga:** {config_pvd.get('duracion_larga', 10)} min")
     
-    hora_actual_madrid = datetime.now(pytz.timezone('Europe/Madrid')).strftime('%H:%M:%S')
+    hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
     st.caption(f"🕒 **Hora actual (Madrid):** {hora_actual_madrid}")
     
+    # Ejecutar verificación automática
     actualizar_temporizadores_pvd()
     
+    # Verificar notificación de confirmación
     if verificar_confirmacion_pvd(st.session_state.username, cola_pvd, config_pvd):
         st.markdown("""
         <script>
@@ -444,7 +455,7 @@ def gestion_pvd_usuario_antigua():
         st.warning("""
         **🔔 ¡ATENCIÓN!**
         
-        Deberías estar viendo una ventana emergente EN LA PÁGIMA pidiendo confirmación.
+        Deberías estar viendo una ventana emergente EN LA PÁGINA pidiendo confirmación.
         
         Si no la ves:
         1. La página se recargará automáticamente
@@ -452,6 +463,25 @@ def gestion_pvd_usuario_antigua():
         3. La pausa comenzará automáticamente
         """)
     
+    # Estadísticas del grupo
+    estado_grupo = temporizador_pvd_mejorado.obtener_estado_grupo(grupo_usuario)
+    
+    col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+    with col_stats1:
+        st.metric("👥 Tu Grupo", grupo_usuario)
+    with col_stats2:
+        st.metric("⏸️ En pausa", f"{estado_grupo['en_pausa']}/{config_grupo.get('maximo_simultaneo', 2)}")
+    with col_stats3:
+        st.metric("⏳ En espera", estado_grupo['en_espera'])
+    with col_stats4:
+        pausas_hoy = len([p for p in cola_pvd 
+                        if p['usuario_id'] == st.session_state.username and 
+                        'timestamp_solicitud' in p and
+                        datetime.fromisoformat(p['timestamp_solicitud']).date() == obtener_hora_madrid().date() and
+                        p['estado'] != 'CANCELADO'])
+        st.metric("📅 Tus pausas hoy", f"{pausas_hoy}/5")
+    
+    # Verificar si tiene pausa activa
     usuario_pausa_activa = None
     for pausa in cola_pvd:
         if pausa['usuario_id'] == st.session_state.username and pausa['estado'] in ['ESPERANDO', 'EN_CURSO']:
@@ -462,58 +492,53 @@ def gestion_pvd_usuario_antigua():
         estado_display = ESTADOS_PVD.get(usuario_pausa_activa['estado'], usuario_pausa_activa['estado'])
         
         if usuario_pausa_activa['estado'] == 'ESPERANDO':
-            st.warning(f"⏳ **Tienes una pausa solicitada** - {estado_display}")
+            st.warning(f"⏳ **Tienes una pausa solicitada** - Grupo: {grupo_usuario}")
             
-            duracion_elegida = usuario_pausa_activa.get('duracion_elegida', 'corta')
-            duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+            # Calcular posición en el grupo
+            en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo_usuario]
+            en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
             
-            en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-            en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-            
-            posicion = next((i+1 for i, p in enumerate(en_espera_ordenados) 
+            posicion = next((i+1 for i, p in enumerate(en_espera_grupo) 
                            if p['id'] == usuario_pausa_activa['id']), 1)
             
-            en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-            maximo = config_pvd['maximo_simultaneo']
-            
-            tiempo_restante = temporizador_pvd.obtener_tiempo_restante(st.session_state.username)
+            tiempo_restante = temporizador_pvd_mejorado.obtener_tiempo_restante(st.session_state.username)
             
             if tiempo_restante is not None and tiempo_restante > 0:
-                st.markdown("### ⏱️ TEMPORIZADOR PARA TU PAUSA")
+                # Mostrar temporizador
+                st.markdown(f"### ⏱️ TEMPORIZADOR PARA TU PAUSA (Grupo: {grupo_usuario})")
                 
-                # Importar la función crear_temporizador_html
-                from notifications import crear_temporizador_html
                 temporizador_html = crear_temporizador_html(int(tiempo_restante), st.session_state.username)
                 st.components.v1.html(temporizador_html, height=280)
                 
-                with st.expander("📊 Información detallada", expanded=True):
+                with st.expander("📊 Información del Grupo", expanded=True):
                     col_info1, col_info2, col_info3 = st.columns(3)
                     with col_info1:
-                        st.metric("Posición en cola", f"#{posicion}")
+                        st.metric("Posición en grupo", f"#{posicion}")
                     with col_info2:
-                        st.metric("Personas esperando", len(en_espera))
+                        st.metric("Personas en grupo", len(en_espera_grupo))
                     with col_info3:
-                        st.metric("Pausas activas", f"{en_pausa}/{maximo}")
+                        espacios_libres = max(0, config_grupo.get('maximo_simultaneo', 2) - estado_grupo['en_pausa'])
+                        st.metric("Espacios libres", espacios_libres)
                     
-                    hora_entrada_estimada = (datetime.now(pytz.timezone('Europe/Madrid')) + timedelta(minutes=tiempo_restante)).strftime('%H:%M')
-                    st.info(f"**Hora estimada de entrada:** {hora_entrada_estimada} (hora Madrid)")
+                    if 'notificado' in usuario_pausa_activa and usuario_pausa_activa['notificado']:
+                        st.success("✅ **¡Has sido notificado!** - Confirma cuando veas la alerta")
                     
-                    if 'notificado_en' in usuario_pausa_activa:
-                        st.success("✅ **Ya se te notificó** - Debes confirmar cuando veas la alerta")
-                    
-                    if tiempo_restante <= 5:
+                    if tiempo_restante <= 2:
                         st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos. ¡Prepárate para la notificación!")
                 
-                if posicion == 1 and en_pausa < maximo:
-                    from pvd_system import iniciar_siguiente_en_cola
-                    if iniciar_siguiente_en_cola(cola_pvd, config_pvd):
-                        st.success("✅ **¡Pausa iniciada automáticamente!**")
-                        st.rerun()
+                if posicion == 1 and estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
+                    # Iniciar pausa automáticamente
+                    usuario_pausa_activa['estado'] = 'EN_CURSO'
+                    usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                    usuario_pausa_activa['confirmado'] = True
+                    guardar_cola_pvd(cola_pvd)
+                    st.success("✅ **¡Pausa iniciada automáticamente!**")
+                    st.rerun()
                 
                 if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_temporizador"):
                     usuario_pausa_activa['estado'] = 'CANCELADO'
                     guardar_cola_pvd(cola_pvd)
-                    temporizador_pvd.cancelar_temporizador(st.session_state.username)
+                    temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
                     st.success("✅ Pausa cancelada")
                     st.rerun()
                     
@@ -566,11 +591,11 @@ def gestion_pvd_usuario_antigua():
             else:
                 st.info("⏳ Calculando tiempo estimado...")
                 
-                tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
+                tiempo_estimado = calcular_tiempo_estimado_grupo(cola_pvd, config_pvd, grupo_usuario, st.session_state.username)
                 
-                if tiempo_estimado and tiempo_estimado > 0:
-                    if not temporizador_pvd.obtener_tiempo_restante(st.session_state.username):
-                        temporizador_pvd.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
+                if tiempo_estimado is not None:
+                    if not temporizador_pvd_mejorado.obtener_tiempo_restante(st.session_state.username):
+                        temporizador_pvd_mejorado.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
                         st.rerun()
                 else:
                     st.warning("No se pudo calcular el tiempo estimado. Por favor, actualiza la página.")
@@ -589,7 +614,7 @@ def gestion_pvd_usuario_antigua():
             else:
                 tiempo_inicio_madrid = pytz.timezone('Europe/Madrid').localize(tiempo_inicio)
             
-            hora_actual_madrid = datetime.now(pytz.timezone('Europe/Madrid'))
+            hora_actual_madrid = obtener_hora_madrid()
             tiempo_transcurrido = int((hora_actual_madrid - tiempo_inicio_madrid).total_seconds() / 60)
             tiempo_restante = max(0, duracion_minutos - tiempo_transcurrido)
             
@@ -608,76 +633,78 @@ def gestion_pvd_usuario_antigua():
             st.write(f"**Inició:** {tiempo_inicio_madrid.strftime('%H:%M:%S')} (hora Madrid)")
             st.write(f"**Finaliza:** {hora_fin_estimada.strftime('%H:%M:%S')} (hora Madrid)")
             
+            # NOTA: La finalización ahora es automática gracias al temporizador de 60 segundos
+            # El sistema verifica automáticamente cada 60 segundos y finaliza las pausas completadas
+            
             if tiempo_restante == 0:
-                st.success("🎉 **¡Pausa completada!** Puedes volver a solicitar otra si necesitas")
+                st.success("🎉 **¡Pausa completada automáticamente!** El sistema ha finalizado tu pausa.")
+                
+                # Si por alguna razón no se actualizó automáticamente, forzar la actualización
                 usuario_pausa_activa['estado'] = 'COMPLETADO'
-                usuario_pausa_activa['timestamp_fin'] = datetime.now(pytz.timezone('Europe/Madrid')).isoformat()
+                usuario_pausa_activa['timestamp_fin'] = obtener_hora_madrid().isoformat()
                 guardar_cola_pvd(cola_pvd)
-                from pvd_system import iniciar_siguiente_en_cola
-                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
+                temporizador_pvd_mejorado._iniciar_siguiente_automatico(cola_pvd, config_pvd, grupo_usuario)
                 st.rerun()
             
             if st.button("✅ Finalizar pausa ahora", type="primary", key="finish_pause_now", use_container_width=True):
                 usuario_pausa_activa['estado'] = 'COMPLETADO'
-                usuario_pausa_activa['timestamp_fin'] = datetime.now(pytz.timezone('Europe/Madrid')).isoformat()
+                usuario_pausa_activa['timestamp_fin'] = obtener_hora_madrid().isoformat()
                 guardar_cola_pvd(cola_pvd)
-                from pvd_system import iniciar_siguiente_en_cola
-                iniciar_siguiente_en_cola(cola_pvd, config_pvd)
-                st.success("✅ Pausa completada")
+                temporizador_pvd_mejorado._iniciar_siguiente_automatico(cola_pvd, config_pvd, grupo_usuario)
+                st.success("✅ Pausa completada manualmente")
                 st.rerun()
     
     else:
-        st.info("👁️ **Sistema de Pausas Visuales Dinámicas**")
-        st.write("Toma una pausa para descansar la vista durante tu jornada")
-        
-        en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-        en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
-        maximo = config_pvd['maximo_simultaneo']
-        
-        col_stats1, col_stats2, col_stats3 = st.columns(3)
-        with col_stats1:
-            st.metric("⏸️ En pausa", f"{en_pausa}/{maximo}")
-        with col_stats2:
-            st.metric("⏳ En espera", en_espera)
-        with col_stats3:
-            pausas_hoy = len([p for p in cola_pvd 
-                            if p['usuario_id'] == st.session_state.username and 
-                            datetime.fromisoformat(p.get('timestamp_solicitud', datetime.now(pytz.timezone('Europe/Madrid')).isoformat())).date() == datetime.now(pytz.timezone('Europe/Madrid')).date() and
-                            p['estado'] != 'CANCELADO'])
-            st.metric("📅 Tus pausas hoy", f"{pausas_hoy}/5")
+        st.info("👁️ **Sistema de Pausas Visuales Dinámicas por Grupos**")
+        st.write(f"**Grupo asignado:** {grupo_usuario}")
         
         if pausas_hoy >= 5:
             st.warning(f"⚠️ **Límite diario alcanzado** - Has tomado {pausas_hoy} pausas hoy")
             st.info("Puedes tomar más pausas mañana")
         else:
-            st.write("### ⏱️ ¿Cuánto tiempo necesitas descansar?")
+            espacios_libres_grupo = max(0, config_grupo.get('maximo_simultaneo', 2) - estado_grupo['en_pausa'])
             
-            espacios_libres = max(0, maximo - en_pausa)
-            
-            if espacios_libres > 0:
-                st.success(f"✅ **HAY ESPACIO DISPONIBLE** - {espacios_libres} puesto(s) libre(s)")
+            if espacios_libres_grupo > 0:
+                st.success(f"✅ **HAY ESPACIO DISPONIBLE EN TU GRUPO** - {espacios_libres_grupo} puesto(s) libre(s)")
             else:
-                st.warning(f"⏳ **SISTEMA LLENO** - Hay {en_espera} persona(s) en cola. Te pondremos en espera.")
+                st.warning(f"⏳ **GRUPO LLENO** - Hay {estado_grupo['en_espera']} persona(s) en espera en tu grupo")
+            
+            st.write("### ⏱️ ¿Cuánto tiempo necesitas descansar?")
             
             col_dura1, col_dura2 = st.columns(2)
             with col_dura1:
-                duracion_corta = config_pvd['duracion_corta']
+                duracion_corta = config_pvd.get('duracion_corta', 5)
                 if st.button(
                     f"☕ **Pausa Corta**\n\n{duracion_corta} minutos\n\nIdeal para estirar",
                     use_container_width=True,
                     type="primary",
-                    key="pausa_corta"
+                    key="pausa_corta_grupo"
                 ):
-                    solicitar_pausa(config_pvd, cola_pvd, "corta")
-                    st.rerun()
+                    if solicitar_pausa(config_pvd, cola_pvd, "corta", grupo_usuario):
+                        st.success("✅ Pausa solicitada. Estás en la cola de tu grupo.")
+                        st.rerun()
             
             with col_dura2:
-                duracion_larga = config_pvd['duracion_larga']
+                duracion_larga = config_pvd.get('duracion_larga', 10)
                 if st.button(
                     f"🌿 **Pausa Larga**\n\n{duracion_larga} minutos\n\nIdeal para desconectar",
                     use_container_width=True,
                     type="secondary",
-                    key="pausa_larga"
+                    key="pausa_larga_grupo"
                 ):
-                    solicitar_pausa(config_pvd, cola_pvd, "larga")
-                    st.rerun()
+                    if solicitar_pausa(config_pvd, cola_pvd, "larga", grupo_usuario):
+                        st.success("✅ Pausa solicitada. Estás en la cola de tu grupo.")
+                        st.rerun()
+    
+    # Información sobre el sistema automático
+    st.markdown("---")
+    st.info("""
+    **⚙️ Sistema Automático Mejorado:**
+    
+    - **Finalización automática**: Las pausas se finalizan solas al terminar el tiempo
+    - **Notificación automática**: El siguiente en cola es notificado automáticamente
+    - **Temporizador interno**: El sistema verifica cada 60 segundos
+    - **Gestión por grupos**: Cada grupo tiene sus propios espacios y configuración
+    
+    **🔄 El sistema se actualiza automáticamente cada 60 segundos**
+    """)

@@ -45,5 +45,37 @@
         "pvd_usuario": true,
         "cups_naturgy": false,
         "modelos_factura": true
+    },
+    "grupos_pvd": {
+        "basico": {
+            "maximo_simultaneo": 2,
+            "agentes_por_grupo": 10,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        },
+        "premium": {
+            "maximo_simultaneo": 3,
+            "agentes_por_grupo": 15,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        },
+        "empresa": {
+            "maximo_simultaneo": 5,
+            "agentes_por_grupo": 25,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        },
+        "CAPTA Equipo Luis": {
+            "agentes_por_grupo": 20,
+            "maximo_simultaneo": 2,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        },
+        "CAPTA": {
+            "agentes_por_grupo": 20,
+            "maximo_simultaneo": 1,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        }
     }
 }

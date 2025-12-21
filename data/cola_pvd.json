@@ -9,7 +9,9 @@
         "timestamp_inicio": "2025-12-21T16:04:31.320214+01:00",
         "timestamp_fin": "2025-12-21T16:04:36.242128+01:00",
         "es_prueba": true,
-        "confirmado": false
+        "confirmado": false,
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "aef305de",
@@ -21,7 +23,9 @@
         "timestamp_inicio": "2025-12-21T16:04:45.976475+01:00",
         "timestamp_fin": "2025-12-21T16:58:53.978282+01:00",
         "es_prueba": true,
-        "confirmado": true
+        "confirmado": true,
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "5f32b4ad",
@@ -33,7 +37,9 @@
         "timestamp_inicio": "2025-12-21T17:32:12.283983+01:00",
         "timestamp_fin": "2025-12-21T17:32:15.998907+01:00",
         "confirmado": false,
-        "notificado_en": "2025-12-21T16:58:53.980039+01:00"
+        "notificado_en": "2025-12-21T16:58:53.980039+01:00",
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "9982151b",
@@ -44,7 +50,9 @@
         "timestamp_solicitud": "2025-12-21T17:43:58.222440+01:00",
         "timestamp_inicio": "2025-12-21T17:43:58.223524+01:00",
         "timestamp_fin": "2025-12-21T17:49:24.093662+01:00",
-        "confirmado": false
+        "confirmado": false,
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "4c7e83c8",
@@ -55,7 +63,9 @@
         "timestamp_solicitud": "2025-12-21T18:08:27.206030+01:00",
         "timestamp_inicio": "2025-12-21T18:08:27.209651+01:00",
         "timestamp_fin": "2025-12-21T18:08:51.114535+01:00",
-        "confirmado": false
+        "confirmado": false,
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "2241521f",
@@ -66,17 +76,21 @@
         "timestamp_solicitud": "2025-12-21T18:31:02.693613+01:00",
         "timestamp_inicio": "2025-12-21T18:31:02.694589+01:00",
         "timestamp_fin": "2025-12-21T18:52:31.707302+01:00",
-        "confirmado": false
+        "confirmado": false,
+        "grupo": "basico",
+        "notificado": false
     },
     {
         "id": "859360de",
         "usuario_id": "0245",
         "usuario_nombre": "Usuario",
         "duracion_elegida": "corta",
-        "estado": "ESPERANDO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2025-12-21T18:31:11.207720+01:00",
-        "timestamp_inicio": null,
-        "timestamp_fin": null,
-        "confirmado": false
+        "timestamp_inicio": "2025-12-21T19:42:29.870422+01:00",
+        "timestamp_fin": "2025-12-21T19:42:32.829860+01:00",
+        "confirmado": true,
+        "grupo": "basico",
+        "notificado": false
     }
 ]

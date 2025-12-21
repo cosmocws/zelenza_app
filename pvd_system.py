@@ -1,513 +1,689 @@
 import streamlit as st
-import uuid
 from datetime import datetime, timedelta
+import json
+import threading
+import time
 from utils import obtener_hora_madrid, formatear_hora_madrid
-from config import ESTADOS_PVD, TIMEZONE_MADRID
-from database import cargar_config_pvd, cargar_cola_pvd, guardar_cola_pvd
-import pytz
+from database import cargar_config_pvd, cargar_cola_pvd, guardar_cola_pvd, cargar_configuracion_usuarios, cargar_config_sistema
+import uuid
 
-# ==============================================
-# TEMPORIZADOR PVD EN TIEMPO REAL
-# ==============================================
-
-class TemporizadorPVD:
-    """Clase para manejar temporizadores de cuenta atrás en PVD"""
+class TemporizadorPVDMejorado:
+    """Clase mejorada para manejar temporizadores PVD con grupos"""
     
     def __init__(self):
-        self.temporizadores_activos = {}
-        self.notificaciones_pendientes = {}
-        self.avisos_enviados = set()
+        self.temporizadores_activos = {}  # {usuario_id: {tipo: 'pausa'/'cola', inicio: tiempo, duracion: minutos}}
+        self.notificaciones_pendientes = {}  # {usuario_id: {timestamp: tiempo, reintentos: 0}}
+        self.grupos_activos = {}  # {grupo_id: {usuarios: [], max_simultaneo: X}}
+        self.ultima_actualizacion = datetime.now()
+        self._iniciar_temporizador_background()
     
-    def calcular_tiempo_estimado_entrada(self, cola_pvd, config_pvd, usuario_id):
-        """Calcula el tiempo estimado para que un usuario entre en PVD"""
+    def _iniciar_temporizador_background(self):
+        """Inicia el temporizador en segundo plano que se ejecuta cada 60 segundos"""
+        def background_task():
+            while True:
+                try:
+                    time.sleep(60)  # Esperar 60 segundos
+                    self._verificar_y_actualizar()
+                except Exception as e:
+                    print(f"Error en temporizador background: {e}")
+        
+        thread = threading.Thread(target=background_task, daemon=True)
+        thread.start()
+    
+    def _verificar_y_actualizar(self):
+        """Verifica y actualiza estados automáticamente"""
         try:
+            # Verificar pausas finalizadas automáticamente
+            cola_pvd = cargar_cola_pvd()
+            config_pvd = cargar_config_pvd()
+            
+            if config_pvd.get('auto_finalizar_pausa', True):
+                self._finalizar_pausas_completadas(cola_pvd, config_pvd)
+            
+            # Verificar notificaciones pendientes
+            if config_pvd.get('notificacion_automatica', True):
+                self._enviar_notificaciones_pendientes(cola_pvd, config_pvd)
+            
+            # Actualizar grupos
+            self._actualizar_grupos()
+            
+            self.ultima_actualizacion = datetime.now()
+            
+        except Exception as e:
+            print(f"Error en verificación automática: {e}")
+    
+    def _finalizar_pausas_completadas(self, cola_pvd, config_pvd):
+        """Finaliza pausas que han completado su tiempo automáticamente"""
+        modificado = False
+        
+        for pausa in cola_pvd:
+            if pausa['estado'] == 'EN_CURSO':
+                duracion_elegida = pausa.get('duracion_elegida', 'corta')
+                duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+                
+                tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
+                tiempo_transcurrido = (obtener_hora_madrid() - tiempo_inicio).total_seconds() / 60
+                
+                if tiempo_transcurrido >= duracion_minutos:
+                    # Finalizar pausa automáticamente
+                    pausa['estado'] = 'COMPLETADO'
+                    pausa['timestamp_fin'] = obtener_hora_madrid().isoformat()
+                    pausa['finalizado_auto'] = True
+                    modificado = True
+                    
+                    # Iniciar siguiente automáticamente
+                    self._iniciar_siguiente_automatico(cola_pvd, config_pvd, pausa.get('grupo'))
+        
+        if modificado:
+            guardar_cola_pvd(cola_pvd)
+    
+    def _iniciar_siguiente_automatico(self, cola_pvd, config_pvd, grupo=None):
+        """Inicia automáticamente al siguiente en la cola después de finalizar una pausa"""
+        # Obtener configuración de grupos
+        config_sistema = cargar_config_sistema()
+        grupos_config = config_sistema.get('grupos_pvd', {})
+        
+        if grupo and grupo in grupos_config:
+            max_grupo = grupos_config[grupo].get('maximo_simultaneo', 2)
+            en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
+            
+            if en_pausa_grupo < max_grupo:
+                # Buscar siguiente en cola del mismo grupo
+                en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
+                en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+                
+                if en_espera_grupo:
+                    siguiente = en_espera_grupo[0]
+                    siguiente['estado'] = 'EN_CURSO'
+                    siguiente['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                    siguiente['notificado'] = True
+                    siguiente['confirmado'] = True  # Se asume confirmación automática
+                    
+                    # Programar notificación para este usuario
+                    self.programar_notificacion_usuario(siguiente['usuario_id'])
+                    
+                    guardar_cola_pvd(cola_pvd)
+                    return True
+        
+        # Si no hay grupo o no funciona por grupo, usar sistema general
+        en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
+        maximo_simultaneo = config_pvd['maximo_simultaneo']
+        
+        if en_pausa < maximo_simultaneo:
+            # Buscar siguiente en cola general
             en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-            en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+            en_espera = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
             
-            posicion_usuario = None
-            for i, pausa in enumerate(en_espera_ordenados):
-                if pausa['usuario_id'] == usuario_id:
-                    posicion_usuario = i + 1
-                    break
-            
-            if posicion_usuario is None:
-                return None
-            
-            en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-            maximo = config_pvd['maximo_simultaneo']
-            
-            if posicion_usuario == 1 and en_pausa < maximo:
-                return 0
-            
-            tiempo_estimado_minutos = 0
-            
-            pausas_en_curso = [p for p in cola_pvd if p['estado'] == 'EN_CURSO']
-            for pausa in pausas_en_curso:
-                if 'timestamp_inicio' in pausa:
-                    duracion_elegida = pausa.get('duracion_elegida', 'corta')
-                    duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
-                    
-                    tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
-                    tiempo_transcurrido = (obtener_hora_madrid() - tiempo_inicio).total_seconds() / 60
-                    tiempo_restante = max(0, duracion_minutos - tiempo_transcurrido)
-                    
-                    tiempo_estimado_minutos += tiempo_restante
-            
-            personas_antes = posicion_usuario - 1
-            for i in range(personas_antes):
-                if i < len(en_espera_ordenados):
-                    duracion_elegida = en_espera_ordenados[i].get('duracion_elegida', 'corta')
-                    duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
-                    tiempo_estimado_minutos += duracion_minutos
-            
-            return int(tiempo_estimado_minutos)
-            
-        except Exception as e:
-            print(f"Error calculando tiempo estimado: {e}")
-            return None
+            if en_espera:
+                siguiente = en_espera[0]
+                siguiente['estado'] = 'EN_CURSO'
+                siguiente['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                siguiente['notificado'] = True
+                siguiente['confirmado'] = True
+                
+                # Programar notificación para este usuario
+                self.programar_notificacion_usuario(siguiente['usuario_id'])
+                
+                guardar_cola_pvd(cola_pvd)
+                return True
+        
+        return False
     
-    def enviar_aviso_cola(self, usuario_id, posicion, tiempo_estimado):
-        """Envía un aviso cuando el usuario está próximo en la cola"""
-        try:
-            if tiempo_estimado <= 5 and tiempo_estimado > 0:
-                aviso_key = f"{usuario_id}_aviso_5min"
-                if aviso_key not in self.avisos_enviados:
-                    self.notificaciones_pendientes[usuario_id] = {
-                        'timestamp': obtener_hora_madrid(),
-                        'mensaje': f'⚠️ ATENCIÓN: Quedan {tiempo_estimado} minutos para tu pausa',
-                        'tipo': 'aviso',
-                        'hora_madrid': obtener_hora_madrid().strftime('%H:%M:%S')
-                    }
-                    self.avisos_enviados.add(aviso_key)
-                    print(f"[PVD] Aviso enviado a {usuario_id}: {tiempo_estimado} minutos restantes")
-                    return True
-            
-            elif tiempo_estimado <= 1 and tiempo_estimado >= 0:
-                aviso_key = f"{usuario_id}_aviso_1min"
-                if aviso_key not in self.avisos_enviados:
-                    self.notificaciones_pendientes[usuario_id] = {
-                        'timestamp': obtener_hora_madrid(),
-                        'mensaje': '🔔 ¡ATENCIÓN! Tu pausa está a punto de comenzar',
-                        'tipo': 'urgente',
-                        'hora_madrid': obtener_hora_madrid().strftime('%H:%M:%S')
-                    }
-                    self.avisos_enviados.add(aviso_key)
-                    print(f"[PVD] Aviso urgente enviado a {usuario_id}")
-                    return True
+    def _enviar_notificaciones_pendientes(self, cola_pvd, config_pvd):
+        """Envía notificaciones a usuarios que están en cola"""
+        config_sistema = cargar_config_sistema()
+        grupos_config = config_sistema.get('grupos_pvd', {})
+        
+        for pausa in cola_pvd:
+            if pausa['estado'] == 'ESPERANDO' and not pausa.get('notificado', False):
+                grupo = pausa.get('grupo', 'basico')
+                
+                # Verificar si es el primero en la cola de su grupo
+                en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
+                en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+                
+                if en_espera_grupo and en_espera_grupo[0]['id'] == pausa['id']:
+                    # Verificar si hay espacio en pausas para este grupo
+                    config_grupo = grupos_config.get(grupo, {'maximo_simultaneo': 2})
+                    max_grupo = config_grupo.get('maximo_simultaneo', 2)
                     
-            return False
-        except Exception as e:
-            print(f"Error enviando aviso de cola: {e}")
-            return False
+                    en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
+                    
+                    if en_pausa_grupo < max_grupo:
+                        # Programar notificación
+                        self.programar_notificacion_usuario(pausa['usuario_id'])
+                        pausa['notificado'] = True
+                        pausa['timestamp_notificacion'] = obtener_hora_madrid().isoformat()
+                        guardar_cola_pvd(cola_pvd)
     
-    def iniciar_temporizador_usuario(self, usuario_id, tiempo_minutos):
-        """Inicia un temporizador para un usuario específico"""
-        try:
-            tiempo_fin = obtener_hora_madrid() + timedelta(minutes=tiempo_minutos)
-            self.temporizadores_activos[usuario_id] = {
-                'tiempo_inicio': obtener_hora_madrid(),
-                'tiempo_fin': tiempo_fin,
-                'tiempo_total_minutos': tiempo_minutos,
-                'activo': True,
-                'hora_entrada_estimada': tiempo_fin.strftime('%H:%M'),
-                'hora_madrid_inicio': obtener_hora_madrid().strftime('%H:%M:%S'),
-                'avisos_enviados': []
+    def _actualizar_grupos(self):
+        """Actualiza la información de grupos activos"""
+        usuarios_config = cargar_configuracion_usuarios()
+        cola_pvd = cargar_cola_pvd()
+        config_sistema = cargar_config_sistema()
+        grupos_config = config_sistema.get('grupos_pvd', {})
+        
+        grupos = {}
+        
+        # Inicializar grupos desde configuración
+        for grupo_id in grupos_config.keys():
+            grupos[grupo_id] = {
+                'usuarios': [],
+                'en_pausa': 0,
+                'en_espera': 0,
+                'completados_hoy': 0
             }
-            
-            print(f"[PVD] Temporizador iniciado para {usuario_id}: {tiempo_minutos} minutos")
-            return True
-        except Exception as e:
-            print(f"Error iniciando temporizador: {e}")
-            return False
+        
+        # Contar pausas por grupo
+        for pausa in cola_pvd:
+            if pausa['estado'] in ['ESPERANDO', 'EN_CURSO', 'COMPLETADO']:
+                usuario_id = pausa['usuario_id']
+                grupo = usuarios_config.get(usuario_id, {}).get('grupo', 'basico')
+                
+                if grupo not in grupos:
+                    grupos[grupo] = {
+                        'usuarios': [],
+                        'en_pausa': 0,
+                        'en_espera': 0,
+                        'completados_hoy': 0
+                    }
+                
+                if usuario_id not in grupos[grupo]['usuarios']:
+                    grupos[grupo]['usuarios'].append(usuario_id)
+                
+                if pausa['estado'] == 'EN_CURSO':
+                    grupos[grupo]['en_pausa'] += 1
+                elif pausa['estado'] == 'ESPERANDO':
+                    grupos[grupo]['en_espera'] += 1
+                elif pausa['estado'] == 'COMPLETADO':
+                    # Verificar si fue hoy
+                    if 'timestamp_fin' in pausa:
+                        try:
+                            fecha_fin = datetime.fromisoformat(pausa['timestamp_fin']).date()
+                            if fecha_fin == obtener_hora_madrid().date():
+                                grupos[grupo]['completados_hoy'] += 1
+                        except:
+                            pass
+        
+        self.grupos_activos = grupos
+    
+    def programar_notificacion_usuario(self, usuario_id, tiempo_minutos=1):
+        """Programa una notificación para un usuario"""
+        self.notificaciones_pendientes[usuario_id] = {
+            'timestamp': obtener_hora_madrid(),
+            'reintentos': 0,
+            'estado': 'pendiente',
+            'usuario_id': usuario_id
+        }
     
     def obtener_tiempo_restante(self, usuario_id):
-        """Obtiene el tiempo restante para un usuario en minutos"""
-        if usuario_id not in self.temporizadores_activos:
-            return None
-        
-        temporizador = self.temporizadores_activos[usuario_id]
-        
-        if not temporizador['activo']:
-            return None
-        
-        tiempo_restante = temporizador['tiempo_fin'] - obtener_hora_madrid()
-        
-        if tiempo_restante.total_seconds() <= 0:
-            temporizador['activo'] = False
-            return 0
-        
-        return max(0, tiempo_restante.total_seconds() / 60)
-    
-    def obtener_tiempo_restante_segundos(self, usuario_id):
-        """Obtiene el tiempo restante para un usuario en segundos"""
-        minutos = self.obtener_tiempo_restante(usuario_id)
-        if minutos is None:
-            return None
-        return int(minutos * 60)
-    
-    def obtener_hora_entrada_estimada(self, usuario_id):
-        """Obtiene la hora estimada de entrada"""
+        """Obtiene tiempo restante para un usuario"""
         if usuario_id in self.temporizadores_activos:
-            return self.temporizadores_activos[usuario_id].get('hora_entrada_estimada', '--:--')
-        return None
-    
-    def verificar_notificaciones_pendientes(self, usuario_id):
-        """Verifica si hay notificaciones pendientes para un usuario"""
-        if usuario_id in self.notificaciones_pendientes:
-            notificacion = self.notificaciones_pendientes.pop(usuario_id)
-            
-            if notificacion.get('tipo') == 'turno':
-                self.avisos_enviados = {a for a in self.avisos_enviados if not a.startswith(f"{usuario_id}_")}
-            
-            return notificacion
+            temporizador = self.temporizadores_activos[usuario_id]
+            tiempo_transcurrido = (obtener_hora_madrid() - temporizador['inicio']).total_seconds() / 60
+            tiempo_restante = max(0, temporizador['duracion'] - tiempo_transcurrido)
+            return tiempo_restante
         return None
     
     def cancelar_temporizador(self, usuario_id):
         """Cancela el temporizador de un usuario"""
         if usuario_id in self.temporizadores_activos:
-            self.temporizadores_activos[usuario_id]['activo'] = False
             del self.temporizadores_activos[usuario_id]
-            
-            self.avisos_enviados = {a for a in self.avisos_enviados if not a.startswith(f"{usuario_id}_")}
-            
-            print(f"[PVD] Temporizador cancelado para {usuario_id}")
-            return True
-        return False
+        if usuario_id in self.notificaciones_pendientes:
+            del self.notificaciones_pendientes[usuario_id]
+    
+    def obtener_estado_grupo(self, grupo_id):
+        """Obtiene el estado de un grupo específico"""
+        return self.grupos_activos.get(grupo_id, {
+            'usuarios': [],
+            'en_pausa': 0,
+            'en_espera': 0,
+            'completados_hoy': 0
+        })
+    
+    def iniciar_temporizador_usuario(self, usuario_id, duracion_minutos):
+        """Inicia un temporizador para un usuario"""
+        self.temporizadores_activos[usuario_id] = {
+            'tipo': 'espera',
+            'inicio': obtener_hora_madrid(),
+            'duracion': duracion_minutos
+        }
 
-# Instancia global del temporizador
-temporizador_pvd = TemporizadorPVD()
+# Instancia global del temporizador mejorado
+temporizador_pvd_mejorado = TemporizadorPVDMejorado()
 
-# ==============================================
-# FUNCIONES PVD
-# ==============================================
+# Funciones de compatibilidad (para mantener el código existente)
+temporizador_pvd = temporizador_pvd_mejorado
 
 def verificar_pausas_completadas(cola_pvd, config_pvd):
-    """Verifica y finaliza automáticamente pausas que han terminado"""
-    hubo_cambios = False
-    
-    for pausa in cola_pvd:
-        if pausa['estado'] == 'EN_CURSO' and 'timestamp_inicio' in pausa:
-            duracion_elegida = pausa.get('duracion_elegida', 'corta')
-            duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
-            
-            tiempo_inicio = datetime.fromisoformat(pausa['timestamp_inicio'])
-            tiempo_inicio_madrid = tiempo_inicio.astimezone(TIMEZONE_MADRID) if tiempo_inicio.tzinfo else TIMEZONE_MADRID.localize(tiempo_inicio)
-            tiempo_transcurrido = (obtener_hora_madrid() - tiempo_inicio_madrid).total_seconds() / 60
-            
-            if tiempo_transcurrido >= duracion_minutos:
-                pausa['estado'] = 'COMPLETADO'
-                pausa['timestamp_fin'] = obtener_hora_madrid().isoformat()
-                hubo_cambios = True
-    
-    if hubo_cambios:
-        guardar_cola_pvd(cola_pvd)
-        iniciar_siguiente_en_cola(cola_pvd, config_pvd)
-    
-    return hubo_cambios
+    """Verifica y finaliza pausas completadas (compatibilidad)"""
+    return temporizador_pvd_mejorado._finalizar_pausas_completadas(cola_pvd, config_pvd)
 
 def iniciar_siguiente_en_cola(cola_pvd, config_pvd):
-    """Inicia automáticamente la siguiente pausa en la cola si hay espacio"""
-    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-    maximo = config_pvd['maximo_simultaneo']
+    """Inicia al siguiente en la cola (compatibilidad)"""
+    return temporizador_pvd_mejorado._iniciar_siguiente_automatico(cola_pvd, config_pvd)
+
+def solicitar_pausa(config_pvd, cola_pvd, duracion_tipo, grupo=None):
+    """Solicita una pausa PVD con soporte para grupos"""
+    from database import guardar_cola_pvd
     
-    if en_pausa < maximo:
-        en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-        if en_espera:
-            en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-            siguiente = en_espera_ordenados[0]
-            
-            if siguiente.get('confirmado', False):
-                siguiente['estado'] = 'EN_CURSO'
-                siguiente['timestamp_inicio'] = datetime.now(pytz.timezone('Europe/Madrid')).isoformat()
-                
-                temporizador_pvd.cancelar_temporizador(siguiente['usuario_id'])
-                
-                if config_pvd.get('sonido_activado', True):
-                    notificar_inicio_pausa(siguiente, config_pvd)
-                
-                guardar_cola_pvd(cola_pvd)
-                return True
-            else:
-                siguiente['notificado_en'] = obtener_hora_madrid().isoformat()
-                guardar_cola_pvd(cola_pvd)
-                print(f"[PVD] Usuario {siguiente['usuario_id']} necesita confirmar antes de empezar")
-                return False
+    # Obtener grupo del usuario si no se especifica
+    if grupo is None:
+        usuarios_config = cargar_configuracion_usuarios()
+        grupo = usuarios_config.get(st.session_state.username, {}).get('grupo', 'basico')
     
-    return False
-
-def notificar_inicio_pausa(pausa, config_pvd):
-    """Envía notificación al usuario cuando su pausa inicia"""
-    try:
-        duracion_minutos = config_pvd['duracion_corta'] if pausa.get('duracion_elegida', 'corta') == 'corta' else config_pvd['duracion_larga']
-        mensaje = f"¡Tu pausa de {duracion_minutos} minutos ha comenzado! ⏰"
-        st.toast(f"🎉 {mensaje}", icon="⏰")
-    except Exception as e:
-        st.warning(f"Error en notificación: {e}")
-
-def verificar_confirmacion_pvd(usuario_id, cola_pvd, config_pvd):
-    """Verifica si el usuario ha confirmado su pausa y la inicia si es necesario"""
-    try:
-        for pausa in cola_pvd:
-            if pausa['usuario_id'] == usuario_id and pausa['estado'] == 'ESPERANDO':
-                en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-                en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-                
-                if en_espera_ordenados and en_espera_ordenados[0]['usuario_id'] == usuario_id:
-                    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-                    maximo = config_pvd['maximo_simultaneo']
-                    
-                    if en_pausa < maximo:
-                        tiempo_solicitud = datetime.fromisoformat(pausa['timestamp_solicitud'])
-                        tiempo_actual = obtener_hora_madrid()
-                        
-                        if (tiempo_actual - tiempo_solicitud).total_seconds() > 30:
-                            if 'notificado_en' not in pausa:
-                                pausa['notificado_en'] = tiempo_actual.isoformat()
-                                guardar_cola_pvd(cola_pvd)
-                                return True
-                break
-        
-        return False
-    except Exception as e:
-        print(f"Error verificando confirmación: {e}")
-        return False
-
-def actualizar_temporizadores_pvd():
-    """Actualiza los temporizadores PVD para usuarios en cola"""
-    try:
-        config_pvd = cargar_config_pvd()
-        cola_pvd = cargar_cola_pvd()
-        
-        hubo_cambios = verificar_pausas_completadas(cola_pvd, config_pvd)
-        
-        if 'username' in st.session_state:
-            notificacion = temporizador_pvd.verificar_notificaciones_pendientes(st.session_state.username)
-            if notificacion:
-                hora_notificacion = formatear_hora_madrid(notificacion['timestamp'])
-                tipo = notificacion.get('tipo', 'turno')
-                
-                if tipo == 'turno':
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #00b09b, #96c93d);
-                        color: white;
-                        padding: 25px;
-                        border-radius: 15px;
-                        margin: 20px 0;
-                        text-align: center;
-                        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-                        border: 3px solid #ffffff;
-                        animation: pulse 2s infinite;
-                    ">
-                        <h2 style="margin: 0 0 15px 0; font-size: 28px;">🎉 ¡ES TU TURNO!</h2>
-                        <p style="font-size: 20px; margin: 10px 0;">{notificacion['mensaje']}</p>
-                        <p style="opacity: 0.9; font-size: 16px;">Hora: {hora_notificacion}</p>
-                        <p style="margin-top: 15px; font-size: 14px;">Confirma cuando estés listo para empezar tu pausa</p>
-                        
-                        <button onclick="window.location.reload();" style="
-                            background: white;
-                            color: #00b09b;
-                            border: none;
-                            padding: 12px 30px;
-                            border-radius: 8px;
-                            font-size: 16px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            margin-top: 20px;
-                            transition: transform 0.2s;
-                        " onmouseover="this.style.transform='scale(1.05)'" 
-                        onmouseout="this.style.transform='scale(1)'">
-                            ✅ Confirmar y Empezar Pausa
-                        </button>
-                    </div>
-                    
-                    <style>
-                    @keyframes pulse {{
-                        0% {{ transform: scale(1); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }}
-                        50% {{ transform: scale(1.02); box-shadow: 0 10px 30px rgba(0,176,155,0.4); }}
-                        100% {{ transform: scale(1); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }}
-                    }}
-                    </style>
-                    """, unsafe_allow_html=True)
-                    
-                    with st.container():
-                        st.warning("📢 **¡ATENCIÓN! Tu pausa PVD está lista**")
-                        
-                        col_btn1, col_btn2 = st.columns(2)
-                        with col_btn1:
-                            if st.button("✅ Confirmar y Empezar Pausa", type="primary", use_container_width=True):
-                                for pausa in cola_pvd:
-                                    if (pausa['usuario_id'] == st.session_state.username and 
-                                        pausa['estado'] == 'ESPERANDO'):
-                                        pausa['estado'] = 'EN_CURSO'
-                                        pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                                        guardar_cola_pvd(cola_pvd)
-                                        st.success("✅ Pausa confirmada y comenzada")
-                                        st.rerun()
-                                        break
-                        
-                        with col_btn2:
-                            if st.button("⏰ Más Tarde", type="secondary", use_container_width=True):
-                                for pausa in cola_pvd:
-                                    if (pausa['usuario_id'] == st.session_state.username and 
-                                        pausa['estado'] == 'ESPERANDO'):
-                                        pausa['timestamp_solicitud'] = obtener_hora_madrid().isoformat()
-                                        guardar_cola_pvd(cola_pvd)
-                                        st.info("⏰ Pausa pospuesta 5 minutos. Se te notificará nuevamente.")
-                                        st.rerun()
-                                        break
-                    
-                    st.markdown(f"""
-                    <script>
-                    setTimeout(function() {{
-                        const confirmado = localStorage.getItem('pvd_confirmado_{st.session_state.username}');
-                        if (!confirmado) {{
-                            window.location.reload();
-                        }}
-                    }}, 60000);
-                    </script>
-                    """, unsafe_allow_html=True)
-                    
-                elif tipo in ['aviso', 'urgente']:
-                    st.warning(f"**{notificacion['mensaje']}** ({hora_notificacion})")
-        
-        en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-        en_espera_ordenados = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-        
-        for i, pausa in enumerate(en_espera_ordenados):
-            usuario_id = pausa['usuario_id']
-            posicion = i + 1
-            
-            tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, usuario_id)
-            
-            if tiempo_estimado is not None:
-                tiempo_restante_actual = temporizador_pvd.obtener_tiempo_restante(usuario_id)
-                
-                if tiempo_estimado > 0:
-                    if tiempo_restante_actual is None or abs(tiempo_restante_actual - tiempo_estimado) > 2:
-                        temporizador_pvd.cancelar_temporizador(usuario_id)
-                        temporizador_pvd.iniciar_temporizador_usuario(usuario_id, tiempo_estimado)
-                        temporizador_pvd.enviar_aviso_cola(usuario_id, posicion, tiempo_estimado)
-                
-                elif tiempo_estimado == 0:
-                    ultima_notificacion_key = f"{usuario_id}_ultima_notif"
-                    ahora = obtener_hora_madrid()
-                    
-                    if ultima_notificacion_key not in temporizador_pvd.notificaciones_pendientes:
-                        temporizador_pvd.notificaciones_pendientes[ultima_notificacion_key] = ahora
-                        
-                        notificar = True
-                        if usuario_id in temporizador_pvd.notificaciones_pendientes:
-                            ultima = temporizador_pvd.notificaciones_pendientes.get(usuario_id, {})
-                            if isinstance(ultima, dict) and 'timestamp' in ultima:
-                                tiempo_ultima = datetime.fromisoformat(ultima['timestamp'])
-                                if (ahora - tiempo_ultima).total_seconds() < 30:
-                                    notificar = False
-                        
-                        if notificar:
-                            temporizador_pvd.notificaciones_pendientes[usuario_id] = {
-                                'timestamp': ahora.isoformat(),
-                                'mensaje': '¡Es tu turno para la pausa PVD! Confirma cuando estés listo.',
-                                'tipo': 'turno',
-                                'hora_madrid': ahora.strftime('%H:%M:%S')
-                            }
-                    
-                    temporizador_pvd.cancelar_temporizador(usuario_id)
-        
-        usuarios_en_espera = [p['usuario_id'] for p in en_espera]
-        for usuario_id in list(temporizador_pvd.temporizadores_activos.keys()):
-            if usuario_id not in usuarios_en_espera:
-                temporizador_pvd.cancelar_temporizador(usuario_id)
-        
-        if hubo_cambios:
-            guardar_cola_pvd(cola_pvd)
-        
-        return True
-    except Exception as e:
-        print(f"Error actualizando temporizadores: {e}")
-        return False
-
-def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
-    """Solicita una pausa PVD para el usuario actual - FUNCIONAMIENTO AUTOMÁTICO"""
+    # Verificar límite diario
     pausas_hoy = len([p for p in cola_pvd 
                      if p['usuario_id'] == st.session_state.username and 
-                     datetime.fromisoformat(p.get('timestamp_solicitud', datetime.now(pytz.timezone('Europe/Madrid')).isoformat())).date() == datetime.now(pytz.timezone('Europe/Madrid')).date() and
+                     'timestamp_solicitud' in p and
+                     datetime.fromisoformat(p['timestamp_solicitud']).date() == obtener_hora_madrid().date() and
                      p['estado'] != 'CANCELADO'])
     
     if pausas_hoy >= 5:
-        st.warning(f"⚠️ Has alcanzado el límite de 5 pausas diarias")
+        st.error("⚠️ Has alcanzado el límite de 5 pausas diarias")
         return False
     
-    for pausa in cola_pvd:
-        if pausa['usuario_id'] == st.session_state.username and pausa['estado'] in ['ESPERANDO', 'EN_CURSO']:
-            estado_display = ESTADOS_PVD.get(pausa['estado'], pausa['estado'])
-            st.warning(f"⚠️ Ya tienes una pausa {estado_display}. Espera a que termine.")
-            return False
-    
+    # Crear nueva pausa
     nueva_pausa = {
         'id': str(uuid.uuid4())[:8],
         'usuario_id': st.session_state.username,
-        'usuario_nombre': st.session_state.get('user_config', {}).get('nombre', 'Usuario'),
-        'duracion_elegida': duracion_elegida,
+        'usuario_nombre': st.session_state.user_config.get('nombre', st.session_state.username),
+        'duracion_elegida': duracion_tipo,
         'estado': 'ESPERANDO',
-        'timestamp_solicitud': datetime.now(pytz.timezone('Europe/Madrid')).isoformat(),
+        'timestamp_solicitud': obtener_hora_madrid().isoformat(),
         'timestamp_inicio': None,
         'timestamp_fin': None,
+        'grupo': grupo,
+        'notificado': False,
         'confirmado': False
     }
     
     cola_pvd.append(nueva_pausa)
     guardar_cola_pvd(cola_pvd)
     
-    en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-    maximo = config_pvd['maximo_simultaneo']
-    duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+    # Calcular tiempo estimado
+    tiempo_estimado = calcular_tiempo_estimado_grupo(cola_pvd, config_pvd, grupo, st.session_state.username)
     
-    if en_pausa < maximo:
-        st.success(f"✅ Pausa de {duracion_minutos} minutos iniciada inmediatamente")
-        nueva_pausa['estado'] = 'EN_CURSO'
-        nueva_pausa['timestamp_inicio'] = datetime.now(pytz.timezone('Europe/Madrid')).isoformat()
-        
-        if config_pvd.get('sonido_activado', True):
-            st.toast(f"🎉 ¡Pausa iniciada! {duracion_minutos} minutos", icon="⏰")
-    else:
-        en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
-        en_espera_lista = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-        en_espera_ordenados = sorted(en_espera_lista, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-        posicion = next((i+1 for i, p in enumerate(en_espera_ordenados) if p['id'] == nueva_pausa['id']), en_espera)
-        
-        st.info(f"⏳ Pausa solicitada. **Posición en cola: #{posicion}**")
-        
-        st.info("""
-        **🔔 NOTIFICACIÓN DE CONFIRMACIÓN:**
-        
-        Cuando sea tu turno, recibirás:
-        1. **Una alerta en el navegador** pidiendo confirmación
-        2. **Debes hacer clic en OK** para empezar tu pausa
-        3. **Si haces clic en Cancelar**, seguirás en la cola
-        
-        ¡Mantén esta pestaña abierta para recibir la notificación!
-        """)
-        
-        tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
-        
-        if tiempo_estimado and tiempo_estimado > 0:
-            temporizador_pvd.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
-            
-            hora_entrada = (datetime.now(pytz.timezone('Europe/Madrid')) + timedelta(minutes=tiempo_estimado)).strftime('%H:%M')
-            
-            with st.expander("📋 Información de tu temporizador", expanded=True):
-                col_temp1, col_temp2 = st.columns(2)
-                with col_temp1:
-                    st.metric("⏱️ Tiempo estimado", f"{tiempo_estimado} minutos")
-                with col_temp2:
-                    st.metric("🕒 Entrada estimada", hora_entrada)
-        else:
-            st.warning("⚠️ No se pudo calcular el tiempo estimado. Se actualizará en la página principal.")
-    
-    guardar_cola_pvd(cola_pvd)
-    
-    if st.button("👁️ Ver mi temporizador PVD", type="primary", use_container_width=True):
-        st.rerun()
+    if tiempo_estimado is not None:
+        temporizador_pvd_mejorado.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
     
     return True
+
+def calcular_tiempo_estimado_grupo(cola_pvd, config_pvd, grupo, usuario_id):
+    """Calcula tiempo estimado considerando grupos"""
+    # Obtener configuración del grupo
+    config_sistema = cargar_config_sistema()
+    grupos_config = config_sistema.get('grupos_pvd', {})
+    config_grupo = grupos_config.get(grupo, {'maximo_simultaneo': 2})
+    max_grupo = config_grupo.get('maximo_simultaneo', 2)
+    
+    # Contar pausas activas en el grupo
+    en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
+    
+    # Contar espera en el grupo
+    en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
+    en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+    
+    # Encontrar posición del usuario
+    posicion = None
+    for i, pausa in enumerate(en_espera_grupo):
+        if pausa['usuario_id'] == usuario_id:
+            posicion = i + 1
+            break
+    
+    if posicion is None:
+        return None
+    
+    # Calcular tiempo estimado basado en pausas activas
+    tiempo_por_pausa = config_pvd['duracion_corta']  # Usar duración corta como base
+    
+    if en_pausa_grupo < max_grupo:
+        # Hay espacio disponible - podría entrar pronto
+        if posicion == 1:
+            return 0  # Próximo en entrar
+        else:
+            # Esperar que terminen las pausas actuales
+            return (posicion - 1) * tiempo_por_pausa
+    else:
+        # Grupo lleno - calcular tiempo basado en pausas restantes
+        pausas_antes = max(0, posicion - 1)
+        tiempo_estimado = pausas_antes * tiempo_por_pausa
+        return max(0, tiempo_estimado)
+
+def verificar_confirmacion_pvd(usuario_id, cola_pvd, config_pvd):
+    """Verifica si un usuario necesita confirmar su pausa"""
+    for pausa in cola_pvd:
+        if pausa['usuario_id'] == usuario_id and pausa['estado'] == 'ESPERANDO':
+            # Verificar si es el primero en su grupo y hay espacio
+            grupo = pausa.get('grupo', 'basico')
+            
+            # Obtener configuración del grupo
+            config_sistema = cargar_config_sistema()
+            grupos_config = config_sistema.get('grupos_pvd', {})
+            config_grupo = grupos_config.get(grupo, {'maximo_simultaneo': 2})
+            max_grupo = config_grupo.get('maximo_simultaneo', 2)
+            
+            # Verificar si es primero en su grupo
+            en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
+            en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+            
+            if en_espera_grupo and en_espera_grupo[0]['id'] == pausa['id']:
+                # Verificar si hay espacio
+                en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
+                
+                if en_pausa_grupo < max_grupo:
+                    return True
+    
+    return False
+
+def actualizar_temporizadores_pvd():
+    """Función de compatibilidad para actualizar temporizadores"""
+    temporizador_pvd_mejorado._verificar_y_actualizar()
+
+# Estados PVD
+ESTADOS_PVD = {
+    "ESPERANDO": "⏳ Esperando",
+    "EN_CURSO": "▶️ En PVD",
+    "COMPLETADO": "✅ Completado",
+    "CANCELADO": "❌ Cancelado"
+}
+
+def crear_temporizador_html(minutos_restantes, usuario_id):
+    """Crea un temporizador visual en HTML/JavaScript con notificación de confirmación"""
+    
+    segundos_totales = minutos_restantes * 60
+    
+    html_code = f"""
+    <div id="temporizador-pvd" style="
+        background: linear-gradient(135deg, #1a1a2e, #16213e);
+        color: white;
+        padding: 20px;
+        border-radius: 15px;
+        margin: 20px 0;
+        text-align: center;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+        border: 2px solid #00b4d8;
+        position: relative;
+        overflow: hidden;
+    ">
+        <div style="position: absolute; top: 10px; right: 10px; font-size: 12px; opacity: 0.8;">
+            🕒 <span id="hora-actual">00:00:00</span>
+        </div>
+        
+        <h3 style="margin: 0 0 15px 0; color: #00b4d8; font-size: 22px;">
+            ⏱️ TEMPORIZADOR PVD
+        </h3>
+        
+        <div id="contador" style="
+            font-size: 48px;
+            font-weight: bold;
+            margin: 15px 0;
+            color: #4cc9f0;
+            text-shadow: 0 0 10px rgba(76, 201, 240, 0.5);
+        ">
+            {minutos_restantes:02d}:00
+        </div>
+        
+        <div style="
+            background: #1f4068;
+            height: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        ">
+            <div id="barra-progreso" style="
+                background: linear-gradient(90deg, #4cc9f0, #4361ee);
+                height: 100%;
+                width: 0%;
+                border-radius: 10px;
+                transition: width 1s ease, background 0.5s ease;
+            "></div>
+        </div>
+        
+        <div id="mensaje-confirmacion" style="
+            display: none;
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            font-weight: bold;
+            animation: fadeIn 0.5s ease;
+        ">
+            ✅ Confirmación recibida. Tu pausa comenzará en breve.
+        </div>
+        
+        <div style="
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+            font-size: 14px;
+            opacity: 0.9;
+        ">
+            <div>🆔 {usuario_id[:8]}...</div>
+            <div id="tiempo-restante-texto">Restante: {minutos_restantes} min</div>
+            <div id="estado-temporizador">⏳ En espera</div>
+        </div>
+    </div>
+    
+    <script>
+    let segundosRestantes = {segundos_totales};
+    const segundosTotales = {segundos_totales};
+    let temporizadorActivo = true;
+    let notificacionMostrada = false;
+    
+    function actualizarHora() {{
+        const ahora = new Date();
+        const hora = ahora.getHours().toString().padStart(2, '0');
+        const minutos = ahora.getMinutes().toString().padStart(2, '0');
+        const segundos = ahora.getSeconds().toString().padStart(2, '0');
+        document.getElementById('hora-actual').textContent = hora + ':' + minutos + ':' + segundos;
+    }}
+    
+    function mostrarNotificacionOverlay() {{
+        // Crear overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'overlay-notificacion-pvd';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
+        
+        overlay.innerHTML = `
+            <div style="
+                background: linear-gradient(135deg, #00b09b, #96c93d);
+                color: white;
+                padding: 30px;
+                border-radius: 15px;
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+                animation: pulse 1s infinite;
+                border: 3px solid white;
+            ">
+                <h2 style="margin: 0 0 20px 0; font-size: 28px;">🎉 ¡ES TU TURNO!</h2>
+                <p style="font-size: 20px; margin: 15px 0; font-weight: bold;">Tu pausa PVD está por comenzar</p>
+                <p style="opacity: 0.9; margin-bottom: 25px; font-size: 16px;">Haz clic en OK para confirmar que estás listo</p>
+                
+                <div style="display: flex; gap: 20px; justify-content: center;">
+                    <button id="btn-confirmar-pvd-overlay" style="
+                        background: white;
+                        color: #00b09b;
+                        border: none;
+                        padding: 15px 40px;
+                        border-radius: 10px;
+                        font-size: 18px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                    ">
+                        ✅ OK - Empezar Pausa
+                    </button>
+                    
+                    <button id="btn-cancelar-pvd-overlay" style="
+                        background: #f44336;
+                        color: white;
+                        border: none;
+                        padding: 15px 40px;
+                        border-radius: 10px;
+                        font-size: 18px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                    ">
+                        ❌ Cancelar
+                    </button>
+                </div>
+                
+                <p style="margin-top: 20px; font-size: 14px; opacity: 0.8;">Esta notificación aparecerá automáticamente</p>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        const style = document.createElement('style');
+        style.innerHTML = `
+            @keyframes pulse {{
+                0% {{ transform: scale(1); }}
+                50% {{ transform: scale(1.05); }}
+                100% {{ transform: scale(1); }}
+            }}
+        `;
+        document.head.appendChild(style);
+        
+        document.getElementById('btn-confirmar-pvd-overlay').addEventListener('click', function() {{
+            document.getElementById('contador').textContent = '✅ CONFIRMADO';
+            document.getElementById('contador').style.color = '#00ff00';
+            document.getElementById('barra-progreso').style.width = '100%';
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
+            
+            document.getElementById('mensaje-confirmacion').style.display = 'block';
+            
+            document.body.removeChild(overlay);
+            
+            try {{
+                const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3');
+                audio.volume = 0.3;
+                audio.play();
+            }} catch(e) {{}}
+            
+            temporizadorActivo = false;
+            
+            setTimeout(() => {{
+                window.location.reload();
+            }}, 5000);
+        }});
+        
+        document.getElementById('btn-cancelar-pvd-overlay').addEventListener('click', function() {{
+            document.body.removeChild(overlay);
+            
+            const mensajeCancel = document.createElement('div');
+            mensajeCancel.style.cssText = `
+                background: #f44336;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin-top: 10px;
+                font-weight: bold;
+                text-align: center;
+            `;
+            mensajeCancel.textContent = '⚠️ Pausa cancelada. Seguirás en la cola.';
+            
+            const temporizadorDiv = document.getElementById('temporizador-pvd');
+            temporizadorDiv.appendChild(mensajeCancel);
+            
+            setTimeout(() => {{
+                window.location.reload();
+            }}, 3000);
+        }});
+        
+        return true;
+    }}
+    
+    function actualizarTemporizador() {{
+        if (!temporizadorActivo) return;
+        
+        segundosRestantes--;
+        
+        if (segundosRestantes <= 0) {{
+            document.getElementById('contador').textContent = '🎯 ¡TU TURNO!';
+            document.getElementById('contador').style.color = '#ff9900';
+            document.getElementById('barra-progreso').style.width = '100%';
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
+            
+            if (!notificacionMostrada) {{
+                mostrarNotificacionOverlay();
+                notificacionMostrada = true;
+            }}
+            
+            return;
+        }}
+        
+        const minutos = Math.floor(segundosRestantes / 60);
+        const segundos = segundosRestantes % 60;
+        document.getElementById('contador').textContent = 
+            minutos.toString().padStart(2, '0') + ':' + 
+            segundos.toString().padStart(2, '0');
+        
+        const progreso = 100 * (1 - (segundosRestantes / segundosTotales));
+        document.getElementById('barra-progreso').style.width = progreso + '%';
+        
+        if (segundosRestantes <= 300 && segundosRestantes > 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
+        }} else if (segundosRestantes <= 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff3300, #cc0000)';
+        }}
+        
+        actualizarHora();
+        
+        setTimeout(actualizarTemporizador, 1000);
+    }}
+    
+    actualizarHora();
+    actualizarTemporizador();
+    </script>
+    """
+    
+    return html_code
+
+def enviar_notificacion_browser(mensaje, tipo="info"):
+    """Envía una notificación al navegador"""
+    try:
+        if tipo == "success":
+            icon = "✅"
+            color = "#00b09b"
+        elif tipo == "warning":
+            icon = "⚠️"
+            color = "#ff9900"
+        elif tipo == "error":
+            icon = "❌"
+            color = "#ff3300"
+        else:
+            icon = "ℹ️"
+            color = "#4cc9f0"
+        
+        st.markdown(f"""
+        <script>
+        if (Notification.permission === "granted") {{
+            new Notification("{icon} Zelenza PVD", {{
+                body: "{mensaje}",
+                icon: "https://img.icons8.com/color/96/000000/clock--v1.png"
+            }});
+        }}
+        </script>
+        """, unsafe_allow_html=True)
+        
+        return True
+    except Exception as e:
+        print(f"Error enviando notificación: {e}")
+        return False

@@ -137,13 +137,40 @@ USUARIOS_DEFAULT = {
     }
 }
 
+# Configuración de grupos PVD
+GRUPOS_PVD_CONFIG = {
+    "basico": {
+        "maximo_simultaneo": 2,
+        "agentes_por_grupo": 10,
+        "duracion_corta": 5,
+        "duracion_larga": 10
+    },
+    "premium": {
+        "maximo_simultaneo": 3,
+        "agentes_por_grupo": 15,
+        "duracion_corta": 5,
+        "duracion_larga": 10
+    },
+    "empresa": {
+        "maximo_simultaneo": 5,
+        "agentes_por_grupo": 25,
+        "duracion_corta": 5,
+        "duracion_larga": 10
+    }
+}
+
+# Actualizar PVD_CONFIG_DEFAULT para incluir temporizador automático
 PVD_CONFIG_DEFAULT = {
     "agentes_activos": 25,
     "maximo_simultaneo": 3,
     "duracion_corta": 5,
     "duracion_larga": 10,
     "sonido_activado": True,
-    "auto_refresh_interval": 60
+    "auto_refresh_interval": 60,
+    "auto_finalizar_pausa": True,  # NUEVO: Finalización automática
+    "notificacion_automatica": True,  # NUEVO: Notificación automática al siguiente
+    "intervalo_temporizador": 60,  # NUEVO: Temporizador interno de 60 segundos
+    "max_reintentos_notificacion": 2  # NUEVO: Máximo de reintentos de notificación
 }
 
 SISTEMA_CONFIG_DEFAULT = {

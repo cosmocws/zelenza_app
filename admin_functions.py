@@ -2,13 +2,14 @@ import streamlit as st
 import pandas as pd
 import json
 import os
+import uuid
 import shutil
 from datetime import datetime, timedelta
 import pytz
 
 from config import (
     COMUNIDADES_AUTONOMAS, PLANES_GAS_ESTRUCTURA, 
-    PMG_COSTE, PMG_IVA, ESTADOS_PVD
+    PMG_COSTE, PMG_IVA, ESTADOS_PVD, GRUPOS_PVD_CONFIG
 )
 from database import (
     cargar_configuracion_usuarios, guardar_configuracion_usuarios,
@@ -17,7 +18,7 @@ from database import (
     cargar_cola_pvd, guardar_cola_pvd
 )
 from pvd_system import (
-    temporizador_pvd, actualizar_temporizadores_pvd,
+    temporizador_pvd_mejorado, temporizador_pvd, actualizar_temporizadores_pvd,
     verificar_pausas_completadas, iniciar_siguiente_en_cola
 )
 from utils import obtener_hora_madrid, formatear_hora_madrid
@@ -472,7 +473,7 @@ def gestion_usuarios():
                     st.rerun()
 
 def gestion_pvd_admin():
-    """Administración del sistema PVD"""
+    """Administración del sistema PVD con grupos"""
     st.subheader("👁️ Administración PVD (Pausa Visual Dinámica)")
     
     hora_actual_madrid = obtener_hora_madrid().strftime('%H:%M:%S')
@@ -480,17 +481,23 @@ def gestion_pvd_admin():
     
     config_pvd = cargar_config_pvd()
     cola_pvd = cargar_cola_pvd()
+    config_sistema = cargar_config_sistema()
+    grupos_config = config_sistema.get('grupos_pvd', GRUPOS_PVD_CONFIG)
     
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
     with col_btn1:
         if st.button("🔄 Actualizar Estado", key="refresh_admin", use_container_width=True, type="primary"):
-            verificar_pausas_completadas(cola_pvd, config_pvd)
+            temporizador_pvd_mejorado._verificar_y_actualizar()
             st.rerun()
     with col_btn2:
         if st.button("📊 Actualizar Temporizadores", key="refresh_timers", use_container_width=True):
-            actualizar_temporizadores_pvd()
+            temporizador_pvd_mejorado._verificar_y_actualizar()
             st.rerun()
     with col_btn3:
+        if st.button("👥 Ver Grupos", key="ver_grupos", use_container_width=True):
+            st.session_state.mostrar_grupos_pvd = not st.session_state.get('mostrar_grupos_pvd', False)
+            st.rerun()
+    with col_btn4:
         if st.button("🧹 Limpiar Completadas", key="clean_completed", use_container_width=True):
             fecha_limite = obtener_hora_madrid() - timedelta(days=1)
             cola_limpia = [p for p in cola_pvd if not (
@@ -506,76 +513,136 @@ def gestion_pvd_admin():
             else:
                 st.info("ℹ️ No hay pausas antiguas para limpiar")
     
-    # Configuración del sistema
-    st.write("### ⚙️ Configuración del Sistema para Agentes")
+    # Configuración del sistema PVD
+    st.write("### ⚙️ Configuración General del Sistema PVD")
     
     col1, col2 = st.columns(2)
     with col1:
-        st.write("**📊 Capacidad del Centro**")
-        agentes_activos = st.number_input(
-            "Total de Agentes Trabajando",
-            min_value=1,
-            max_value=100,
-            value=config_pvd['agentes_activos'],
-            help="Número total de agentes que están trabajando actualmente en el call center"
+        st.write("**🔧 Configuración Automática**")
+        auto_finalizar = st.checkbox(
+            "Finalización automática de pausas",
+            value=config_pvd.get('auto_finalizar_pausa', True),
+            help="Las pausas se finalizan automáticamente al completar su tiempo"
+        )
+        notificacion_auto = st.checkbox(
+            "Notificación automática al siguiente",
+            value=config_pvd.get('notificacion_automatica', True),
+            help="Notifica automáticamente al siguiente en cola"
         )
     with col2:
-        st.write("**⏱️ Límites de Pausas**")
-        maximo_simultaneo = st.number_input(
-            "Máximo en Pausa Simultáneamente",
-            min_value=1,
-            max_value=50,
-            value=config_pvd['maximo_simultaneo'],
-            help="Máximo número de agentes que pueden estar en pausa al mismo tiempo"
+        st.write("**⏱️ Temporizador Interno**")
+        intervalo_temporizador = st.number_input(
+            "Intervalo temporizador (segundos)",
+            min_value=10,
+            max_value=300,
+            value=config_pvd.get('intervalo_temporizador', 60),
+            help="Cada cuántos segundos se ejecuta el temporizador interno"
+        )
+        max_reintentos = st.number_input(
+            "Máximo reintentos notificación",
+            min_value=0,
+            max_value=5,
+            value=config_pvd.get('max_reintentos_notificacion', 2),
+            help="Máximo número de reintentos de notificación"
         )
     
-    st.write("**🕐 Duración de Pausas**")
-    col_dura1, col_dura2 = st.columns(2)
-    with col_dura1:
-        duracion_corta = st.number_input(
-            "Duración Pausa Corta (minutos)",
-            min_value=1,
-            max_value=30,
-            value=config_pvd['duracion_corta'],
-            help="Duración de la pausa corta (ej: 5 minutos)"
-        )
-    with col_dura2:
-        duracion_larga = st.number_input(
-            "Duración Pausa Larga (minutos)",
-            min_value=1,
-            max_value=60,
-            value=config_pvd['duracion_larga'],
-            help="Duración de la pausa larga (ej: 10 minutos)"
-        )
-    
-    # Configuración de auto-refresh
-    st.write("**🔄 Configuración de Auto-Refresh**")
-    auto_refresh_interval = st.number_input(
-        "Intervalo de auto-refresh (segundos)",
-        min_value=5,
-        max_value=300,
-        value=config_pvd.get('auto_refresh_interval', 60),
-        help="Cada cuántos segundos se actualiza automáticamente la página PVD (recomendado: 60 segundos)"
-    )
-    
-    sonido_activado = st.checkbox(
-        "Activar sonido de notificación",
-        value=config_pvd.get('sonido_activado', True),
-        help="Reproduce sonido cuando sea el turno de un agente"
-    )
-    
-    if st.button("💾 Guardar Configuración", type="primary", key="save_config_admin"):
+    if st.button("💾 Guardar Configuración PVD", type="primary", key="save_config_pvd"):
         config_pvd.update({
-            'agentes_activos': agentes_activos,
-            'maximo_simultaneo': maximo_simultaneo,
-            'duracion_corta': duracion_corta,
-            'duracion_larga': duracion_larga,
-            'auto_refresh_interval': auto_refresh_interval,
-            'sonido_activado': sonido_activado
+            'auto_finalizar_pausa': auto_finalizar,
+            'notificacion_automatica': notificacion_auto,
+            'intervalo_temporizador': intervalo_temporizador,
+            'max_reintentos_notificacion': max_reintentos
         })
         guardar_config_pvd(config_pvd)
         st.success("✅ Configuración PVD guardada")
         st.rerun()
+    
+    # Mostrar grupos si está activado
+    if st.session_state.get('mostrar_grupos_pvd', False):
+        st.write("### 👥 Configuración de Grupos PVD")
+        
+        for grupo_id, config_grupo in grupos_config.items():
+            estado = temporizador_pvd_mejorado.obtener_estado_grupo(grupo_id)
+            
+            with st.expander(f"**Grupo: {grupo_id}**", expanded=True):
+                col_g1, col_g2, col_g3, col_g4 = st.columns(4)
+                with col_g1:
+                    nuevos_agentes = st.number_input(
+                        "Agentes en grupo",
+                        min_value=1,
+                        max_value=100,
+                        value=config_grupo.get('agentes_por_grupo', 10),
+                        key=f"agentes_{grupo_id}"
+                    )
+                with col_g2:
+                    nuevo_max = st.number_input(
+                        "Máx. simultáneo",
+                        min_value=1,
+                        max_value=20,
+                        value=config_grupo.get('maximo_simultaneo', 2),
+                        key=f"max_{grupo_id}"
+                    )
+                with col_g3:
+                    nueva_corta = st.number_input(
+                        "Duración corta (min)",
+                        min_value=1,
+                        max_value=30,
+                        value=config_grupo.get('duracion_corta', 5),
+                        key=f"corta_{grupo_id}"
+                    )
+                with col_g4:
+                    nueva_larga = st.number_input(
+                        "Duración larga (min)",
+                        min_value=1,
+                        max_value=60,
+                        value=config_grupo.get('duracion_larga', 10),
+                        key=f"larga_{grupo_id}"
+                    )
+                
+                # Estadísticas del grupo
+                st.write(f"**📊 Estadísticas actuales:**")
+                col_stat1, col_stat2, col_stat3 = st.columns(3)
+                with col_stat1:
+                    st.metric("En pausa", f"{estado['en_pausa']}/{nuevo_max}")
+                with col_stat2:
+                    st.metric("En espera", estado['en_espera'])
+                with col_stat3:
+                    st.metric("Completadas hoy", estado.get('completados_hoy', 0))
+                
+                if st.button("💾 Actualizar Grupo", key=f"update_grupo_pvd_{grupo_id}"):
+                    grupos_config[grupo_id] = {
+                        'agentes_por_grupo': nuevos_agentes,
+                        'maximo_simultaneo': nuevo_max,
+                        'duracion_corta': nueva_corta,
+                        'duracion_larga': nueva_larga
+                    }
+                    
+                    config_sistema['grupos_pvd'] = grupos_config
+                    guardar_config_sistema(config_sistema)
+                    
+                    st.success(f"✅ Grupo {grupo_id} actualizado")
+                    st.rerun()
+        
+        # Crear nuevo grupo PVD
+        st.write("### ➕ Crear Nuevo Grupo PVD")
+        nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo PVD")
+        
+        if st.button("Crear Grupo PVD") and nuevo_grupo_nombre:
+            if nuevo_grupo_nombre not in grupos_config:
+                grupos_config[nuevo_grupo_nombre] = {
+                    'agentes_por_grupo': 10,
+                    'maximo_simultaneo': 2,
+                    'duracion_corta': 5,
+                    'duracion_larga': 10
+                }
+                
+                config_sistema['grupos_pvd'] = grupos_config
+                guardar_config_sistema(config_sistema)
+                
+                st.success(f"✅ Grupo PVD {nuevo_grupo_nombre} creado")
+                st.rerun()
+            else:
+                st.error("❌ El grupo PVD ya existe")
     
     # Estadísticas actuales
     st.markdown("---")
@@ -584,18 +651,20 @@ def gestion_pvd_admin():
     en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
     en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
     completados_hoy = len([p for p in cola_pvd if p['estado'] == 'COMPLETADO' and 
-                          datetime.fromisoformat(p.get('timestamp_fin', obtener_hora_madrid().isoformat())).date() == obtener_hora_madrid().date()])
+                          'timestamp_fin' in p and
+                          datetime.fromisoformat(p['timestamp_fin']).date() == obtener_hora_madrid().date()])
     cancelados_hoy = len([p for p in cola_pvd if p['estado'] == 'CANCELADO' and 
-                         datetime.fromisoformat(p.get('timestamp_solicitud', obtener_hora_madrid().isoformat())).date() == obtener_hora_madrid().date()])
+                         'timestamp_solicitud' in p and
+                         datetime.fromisoformat(p['timestamp_solicitud']).date() == obtener_hora_madrid().date()])
     
-    temporizadores_activos = len(temporizador_pvd.temporizadores_activos)
-    notificaciones_pendientes = len(temporizador_pvd.notificaciones_pendientes)
+    temporizadores_activos = len(temporizador_pvd_mejorado.temporizadores_activos)
+    notificaciones_pendientes = len(temporizador_pvd_mejorado.notificaciones_pendientes)
     
     col_stat1, col_stat2, col_stat3, col_stat4, col_stat5, col_stat6 = st.columns(6)
     with col_stat1:
-        st.metric("👥 Agentes Activos", agentes_activos)
+        st.metric("👥 Agentes Activos", config_pvd.get('agentes_activos', 25))
     with col_stat2:
-        st.metric("⏸️ En Pausa", f"{en_pausa}/{maximo_simultaneo}")
+        st.metric("⏸️ En Pausa", f"{en_pausa}/{config_pvd.get('maximo_simultaneo', 3)}")
     with col_stat3:
         st.metric("⏳ En Espera", en_espera)
     with col_stat4:
@@ -604,6 +673,10 @@ def gestion_pvd_admin():
         st.metric("⏱️ Temporizadores", temporizadores_activos)
     with col_stat6:
         st.metric("🔔 Notificaciones", notificaciones_pendientes)
+    
+    # Información del temporizador automático
+    st.info(f"⏱️ **Temporizador automático:** Ejecutándose cada {config_pvd.get('intervalo_temporizador', 60)} segundos")
+    st.caption(f"Última ejecución: {formatear_hora_madrid(temporizador_pvd_mejorado.ultima_actualizacion)}")
     
     # Pausas en curso
     st.markdown("---")
@@ -629,7 +702,9 @@ def gestion_pvd_admin():
                     hora_inicio_madrid = formatear_hora_madrid(tiempo_inicio)
                     hora_fin_estimada = formatear_hora_madrid(tiempo_inicio + timedelta(minutes=duracion_minutos))
                     
-                    st.write(f"**Agente:** {pausa.get('usuario_nombre', 'Desconocido')}")
+                    grupo_info = f" | 👥 {pausa.get('grupo', 'N/A')}" if 'grupo' in pausa else ""
+                    
+                    st.write(f"**Agente:** {pausa.get('usuario_nombre', 'Desconocido')}{grupo_info}")
                     st.write(f"**Usuario ID:** {pausa['usuario_id']}")
                     st.write(f"**Duración:** {duracion_minutos} min ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
                     st.write(f"**Inició:** {hora_inicio_madrid} | **Finaliza:** {hora_fin_estimada}")
@@ -637,13 +712,16 @@ def gestion_pvd_admin():
                     
                     if tiempo_restante == 0:
                         st.warning("⏰ **Pausa finalizada automáticamente**")
+                        if pausa.get('finalizado_auto', False):
+                            st.success("✅ **SISTEMA:** Finalizado automáticamente por el temporizador")
                 
                 with col_acciones:
                     if st.button("✅ Finalizar", key=f"fin_{pausa['id']}", use_container_width=True):
                         pausa['estado'] = 'COMPLETADO'
                         pausa['timestamp_fin'] = obtener_hora_madrid().isoformat()
                         guardar_cola_pvd(cola_pvd)
-                        st.success(f"✅ Pausa #{pausa['id']} finalizada")
+                        temporizador_pvd_mejorado._iniciar_siguiente_automatico(cola_pvd, config_pvd, pausa.get('grupo'))
+                        st.success(f"✅ Pausa #{pausa['id']} finalizada manualmente")
                         st.rerun()
                     
                     if st.button("❌ Cancelar", key=f"cancel_{pausa['id']}", use_container_width=True):
@@ -658,62 +736,68 @@ def gestion_pvd_admin():
     
     # Cola de espera
     if en_espera > 0:
-        st.write("### 📝 Cola de Espera")
-        en_espera_lista = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
-        en_espera_ordenados = sorted(en_espera_lista, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+        st.write("### 📝 Cola de Espera (Agrupada por Grupos)")
         
-        for i, pausa in enumerate(en_espera_ordenados):
-            duracion_elegida = pausa.get('duracion_elegida', 'corta')
-            duracion_display = f"{config_pvd['duracion_corta']} min" if duracion_elegida == 'corta' else f"{config_pvd['duracion_larga']} min"
+        # Agrupar por grupos
+        grupos_espera = {}
+        for pausa in cola_pvd:
+            if pausa['estado'] == 'ESPERANDO':
+                grupo = pausa.get('grupo', 'sin_grupo')
+                if grupo not in grupos_espera:
+                    grupos_espera[grupo] = []
+                grupos_espera[grupo].append(pausa)
+        
+        for grupo, pausas_grupo in grupos_espera.items():
+            pausas_grupo = sorted(pausas_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
             
-            tiempo_restante = temporizador_pvd.obtener_tiempo_restante(pausa['usuario_id'])
-            hora_entrada_estimada = temporizador_pvd.obtener_hora_entrada_estimada(pausa['usuario_id'])
-            info_temporizador = ""
-            
-            if tiempo_restante is not None:
-                if tiempo_restante > 0:
-                    horas = int(tiempo_restante // 60)
-                    minutos = int(tiempo_restante % 60)
-                    if horas > 0:
-                        info_temporizador = f"⏱️ {horas}h {minutos}m"
-                    else:
-                        info_temporizador = f"⏱️ {minutos}m"
+            with st.expander(f"**Grupo: {grupo}** ({len(pausas_grupo)} en espera)", expanded=True):
+                for i, pausa in enumerate(pausas_grupo):
+                    duracion_elegida = pausa.get('duracion_elegida', 'corta')
+                    duracion_display = f"{config_pvd['duracion_corta']} min" if duracion_elegida == 'corta' else f"{config_pvd['duracion_larga']} min"
                     
-                    if hora_entrada_estimada:
-                        info_temporizador += f" (~{hora_entrada_estimada})"
-                else:
-                    info_temporizador = "🎯 ¡TURNO!"
-            
-            hora_solicitud = formatear_hora_madrid(pausa['timestamp_solicitud'])
-            
-            with st.container():
-                col_esp1, col_esp2, col_esp3, col_esp4, col_esp5, col_esp6 = st.columns([2, 2, 1, 2, 2, 1])
-                with col_esp1:
-                    st.write(f"**#{i+1}** - {pausa.get('usuario_nombre', 'Desconocido')}")
-                with col_esp2:
-                    st.write(f"🆔 {pausa['usuario_id'][:10]}...")
-                with col_esp3:
-                    st.write(f"⏱️ {duracion_display}")
-                with col_esp4:
-                    st.write(f"🕒 {hora_solicitud}")
-                with col_esp5:
-                    st.write(info_temporizador)
-                with col_esp6:
-                    if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}", use_container_width=True):
-                        en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
-                        if en_pausa < config_pvd['maximo_simultaneo']:
-                            pausa['estado'] = 'EN_CURSO'
-                            pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                            guardar_cola_pvd(cola_pvd)
+                    tiempo_restante = temporizador_pvd_mejorado.obtener_tiempo_restante(pausa['usuario_id'])
+                    
+                    hora_solicitud = formatear_hora_madrid(pausa['timestamp_solicitud'])
+                    
+                    with st.container():
+                        col_esp1, col_esp2, col_esp3, col_esp4, col_esp5, col_esp6 = st.columns([2, 2, 1, 2, 2, 1])
+                        with col_esp1:
+                            st.write(f"**#{i+1}** - {pausa.get('usuario_nombre', 'Desconocido')}")
+                        with col_esp2:
+                            st.write(f"🆔 {pausa['usuario_id'][:10]}...")
+                        with col_esp3:
+                            st.write(f"⏱️ {duracion_display}")
+                        with col_esp4:
+                            st.write(f"🕒 {hora_solicitud}")
+                        with col_esp5:
+                            if tiempo_restante is not None and tiempo_restante > 0:
+                                st.write(f"⏳ ~{int(tiempo_restante)} min")
+                            elif pausa.get('notificado', False):
+                                st.write("🔔 Notificado")
+                            else:
+                                st.write("⏱️ Esperando")
+                        with col_esp6:
+                            # Obtener configuración del grupo para verificar espacios
+                            config_grupo = grupos_config.get(grupo, {'maximo_simultaneo': 2})
+                            max_grupo = config_grupo.get('maximo_simultaneo', 2)
                             
-                            temporizador_pvd.cancelar_temporizador(pausa['usuario_id'])
+                            en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
                             
-                            st.success(f"✅ Pausa #{pausa['id']} iniciada")
-                            st.rerun()
-                        else:
-                            st.error("❌ No hay espacio disponible")
-                
-                st.markdown("---")
+                            if en_pausa_grupo < max_grupo and i == 0:
+                                if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}", use_container_width=True):
+                                    pausa['estado'] = 'EN_CURSO'
+                                    pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                                    pausa['confirmado'] = True
+                                    guardar_cola_pvd(cola_pvd)
+                                    
+                                    temporizador_pvd_mejorado.cancelar_temporizador(pausa['usuario_id'])
+                                    
+                                    st.success(f"✅ Pausa #{pausa['id']} iniciada manualmente")
+                                    st.rerun()
+                            else:
+                                st.button("⏳ Esperando...", disabled=True, use_container_width=True)
+                        
+                        st.markdown("---")
     else:
         st.info("📭 No hay agentes en la cola de espera")
     
@@ -721,14 +805,20 @@ def gestion_pvd_admin():
     if temporizadores_activos > 0:
         st.write("### ⏱️ Temporizadores Activos")
         
-        for usuario_id, temporizador in temporizador_pvd.temporizadores_activos.items():
-            if temporizador['activo']:
-                tiempo_restante = temporizador_pvd.obtener_tiempo_restante(usuario_id)
+        for usuario_id, temporizador in temporizador_pvd_mejorado.temporizadores_activos.items():
+            if temporizador.get('activo', True):
+                tiempo_restante = temporizador_pvd_mejorado.obtener_tiempo_restante(usuario_id)
                 if tiempo_restante and tiempo_restante > 0:
                     with st.container():
                         col_temp1, col_temp2, col_temp3 = st.columns([3, 2, 1])
                         with col_temp1:
                             st.write(f"**Usuario:** {usuario_id}")
+                            grupo = "N/A"
+                            for pausa in cola_pvd:
+                                if pausa['usuario_id'] == usuario_id:
+                                    grupo = pausa.get('grupo', 'N/A')
+                                    break
+                            st.write(f"**Grupo:** {grupo}")
                         with col_temp2:
                             horas = int(tiempo_restante // 60)
                             minutos = int(tiempo_restante % 60)
@@ -739,7 +829,7 @@ def gestion_pvd_admin():
                             st.write(f"**Restante:** {tiempo_display}")
                         with col_temp3:
                             if st.button("❌", key=f"cancel_temp_{usuario_id}", help="Cancelar temporizador"):
-                                temporizador_pvd.cancelar_temporizador(usuario_id)
+                                temporizador_pvd_mejorado.cancelar_temporizador(usuario_id)
                                 st.rerun()
 
 def gestion_modelos_factura():
@@ -932,11 +1022,11 @@ def sistema_pruebas_pvd():
         st.write("### 👥 Crear Usuarios de Prueba")
         
         usuarios_prueba = [
-            {"nombre": "Agente Prueba 1", "id": "test_agente1"},
-            {"nombre": "Agente Prueba 2", "id": "test_agente2"},
-            {"nombre": "Agente Prueba 3", "id": "test_agente3"},
-            {"nombre": "Agente Prueba 4", "id": "test_agente4"},
-            {"nombre": "Agente Prueba 5", "id": "test_agente5"}
+            {"nombre": "Agente Prueba 1", "id": "test_agente1", "grupo": "basico"},
+            {"nombre": "Agente Prueba 2", "id": "test_agente2", "grupo": "premium"},
+            {"nombre": "Agente Prueba 3", "id": "test_agente3", "grupo": "empresa"},
+            {"nombre": "Agente Prueba 4", "id": "test_agente4", "grupo": "basico"},
+            {"nombre": "Agente Prueba 5", "id": "test_agente5", "grupo": "premium"}
         ]
         
         col_users1, col_users2 = st.columns(2)
@@ -944,47 +1034,49 @@ def sistema_pruebas_pvd():
         with col_users1:
             st.write("**Añadir a cola de espera:**")
             for usuario in usuarios_prueba[:3]:
-                if st.button(f"➕ {usuario['nombre']} (Espera)", key=f"add_wait_{usuario['id']}", use_container_width=True):
-                    import uuid
+                if st.button(f"➕ {usuario['nombre']} ({usuario['grupo']})", key=f"add_wait_{usuario['id']}", use_container_width=True):
                     nueva_pausa = {
                         'id': str(uuid.uuid4())[:8],
                         'usuario_id': usuario['id'],
                         'usuario_nombre': usuario['nombre'],
                         'duracion_elegida': 'corta',
                         'estado': 'ESPERANDO',
-                        'timestamp_solicitud': datetime.now(pytz.timezone('Europe/Madrid')).isoformat(),
+                        'timestamp_solicitud': obtener_hora_madrid().isoformat(),
                         'timestamp_inicio': None,
                         'timestamp_fin': None,
-                        'es_prueba': True,
-                        'confirmado': False
+                        'grupo': usuario['grupo'],
+                        'notificado': False,
+                        'confirmado': False,
+                        'es_prueba': True
                     }
                     
                     cola_pvd.append(nueva_pausa)
                     guardar_cola_pvd(cola_pvd)
-                    st.success(f"✅ {usuario['nombre']} añadido a la cola")
+                    st.success(f"✅ {usuario['nombre']} añadido a la cola del grupo {usuario['grupo']}")
                     st.rerun()
         
         with col_users2:
             st.write("**Añadir como pausa activa:**")
             for usuario in usuarios_prueba[3:]:
-                if st.button(f"▶️ {usuario['nombre']} (Activa)", key=f"add_active_{usuario['id']}", use_container_width=True):
-                    import uuid
+                if st.button(f"▶️ {usuario['nombre']} ({usuario['grupo']})", key=f"add_active_{usuario['id']}", use_container_width=True):
                     nueva_pausa = {
                         'id': str(uuid.uuid4())[:8],
                         'usuario_id': usuario['id'],
                         'usuario_nombre': usuario['nombre'],
                         'duracion_elegida': 'larga',
                         'estado': 'EN_CURSO',
-                        'timestamp_solicitud': (datetime.now(pytz.timezone('Europe/Madrid')) - timedelta(minutes=2)).isoformat(),
-                        'timestamp_inicio': datetime.now(pytz.timezone('Europe/Madrid')).isoformat(),
+                        'timestamp_solicitud': (obtener_hora_madrid() - timedelta(minutes=2)).isoformat(),
+                        'timestamp_inicio': obtener_hora_madrid().isoformat(),
                         'timestamp_fin': None,
-                        'es_prueba': True,
-                        'confirmado': True
+                        'grupo': usuario['grupo'],
+                        'notificado': True,
+                        'confirmado': True,
+                        'es_prueba': True
                     }
                     
                     cola_pvd.append(nueva_pausa)
                     guardar_cola_pvd(cola_pvd)
-                    st.success(f"✅ {usuario['nombre']} añadido como pausa activa")
+                    st.success(f"✅ {usuario['nombre']} añadido como pausa activa en grupo {usuario['grupo']}")
                     st.rerun()
         
         st.write("**Estado actual de pruebas:**")
@@ -992,7 +1084,7 @@ def sistema_pruebas_pvd():
         if pruebas_activas:
             for pausa in pruebas_activas:
                 estado_display = ESTADOS_PVD.get(pausa['estado'], pausa['estado'])
-                st.write(f"- **{pausa['usuario_nombre']}**: {estado_display}")
+                st.write(f"- **{pausa['usuario_nombre']}** ({pausa.get('grupo', 'N/A')}): {estado_display}")
         else:
             st.info("No hay pruebas activas")
     

@@ -5,7 +5,7 @@ import pandas as pd
 from config import (
     PLANES_GAS_ESTRUCTURA, PMG_COSTE, PMG_IVA,
     USUARIOS_DEFAULT, PVD_CONFIG_DEFAULT,
-    SISTEMA_CONFIG_DEFAULT
+    SISTEMA_CONFIG_DEFAULT, GRUPOS_PVD_CONFIG
 )
 from utils import inicializar_directorios
 
@@ -98,12 +98,37 @@ def cargar_config_sistema():
     """Carga la configuración del sistema"""
     try:
         with open('data/config_sistema.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+            config = json.load(f)
+        
+        # Asegurar que tiene todos los campos necesarios
+        campos_requeridos = ["login_automatico_activado", "sesion_horas_duracion", 
+                           "grupos_usuarios", "secciones_activas", "grupos_pvd"]
+        
+        for campo in campos_requeridos:
+            if campo not in config:
+                if campo == "grupos_pvd":
+                    config[campo] = GRUPOS_PVD_CONFIG
+                elif campo == "secciones_activas":
+                    from config import SECCIONES_USUARIO
+                    config[campo] = {seccion: True for seccion in SECCIONES_USUARIO.keys()}
+                elif campo == "grupos_usuarios":
+                    config[campo] = SISTEMA_CONFIG_DEFAULT.get("grupos_usuarios", {})
+                else:
+                    config[campo] = SISTEMA_CONFIG_DEFAULT.get(campo, True)
+        
+        return config
     except (FileNotFoundError, json.JSONDecodeError):
+        config = SISTEMA_CONFIG_DEFAULT.copy()
+        config['grupos_pvd'] = GRUPOS_PVD_CONFIG
+        
+        # Inicializar secciones activas
+        from config import SECCIONES_USUARIO
+        config['secciones_activas'] = {seccion: True for seccion in SECCIONES_USUARIO.keys()}
+        
         os.makedirs('data', exist_ok=True)
         with open('data/config_sistema.json', 'w', encoding='utf-8') as f:
-            json.dump(SISTEMA_CONFIG_DEFAULT, f, indent=4, ensure_ascii=False)
-        return SISTEMA_CONFIG_DEFAULT.copy()
+            json.dump(config, f, indent=4, ensure_ascii=False)
+        return config
 
 def guardar_config_sistema(config):
     """Guarda la configuración del sistema"""
@@ -111,6 +136,9 @@ def guardar_config_sistema(config):
         os.makedirs('data', exist_ok=True)
         with open('data/config_sistema.json', 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
+        
+        os.makedirs('data_backup', exist_ok=True)
+        shutil.copy('data/config_sistema.json', 'data_backup/config_sistema.json')
         return True
     except Exception as e:
         print(f"Error guardando configuración: {e}")
@@ -129,10 +157,23 @@ def cargar_config_pvd():
             config['duracion_larga'] = duracion_antigua * 2
             guardar_config_pvd(config)
         
-        campos_requeridos = ['agentes_activos', 'maximo_simultaneo', 'duracion_corta', 'duracion_larga', 'sonido_activado']
+        campos_requeridos = ['agentes_activos', 'maximo_simultaneo', 'duracion_corta', 
+                           'duracion_larga', 'sonido_activado', 'auto_finalizar_pausa',
+                           'notificacion_automatica', 'intervalo_temporizador',
+                           'max_reintentos_notificacion']
+        
         for campo in campos_requeridos:
             if campo not in config:
-                config[campo] = PVD_CONFIG_DEFAULT[campo]
+                if campo == 'auto_finalizar_pausa':
+                    config[campo] = True
+                elif campo == 'notificacion_automatica':
+                    config[campo] = True
+                elif campo == 'intervalo_temporizador':
+                    config[campo] = 60
+                elif campo == 'max_reintentos_notificacion':
+                    config[campo] = 2
+                else:
+                    config[campo] = PVD_CONFIG_DEFAULT.get(campo)
         
         if 'auto_refresh_interval' not in config:
             config['auto_refresh_interval'] = 60
@@ -145,9 +186,23 @@ def guardar_config_pvd(config):
     """Guarda la configuración PVD"""
     try:
         from config import PVD_CONFIG_DEFAULT
-        for campo, valor in PVD_CONFIG_DEFAULT.items():
+        campos_requeridos = ['agentes_activos', 'maximo_simultaneo', 'duracion_corta', 
+                           'duracion_larga', 'sonido_activado', 'auto_finalizar_pausa',
+                           'notificacion_automatica', 'intervalo_temporizador',
+                           'max_reintentos_notificacion']
+        
+        for campo in campos_requeridos:
             if campo not in config:
-                config[campo] = valor
+                if campo == 'auto_finalizar_pausa':
+                    config[campo] = True
+                elif campo == 'notificacion_automatica':
+                    config[campo] = True
+                elif campo == 'intervalo_temporizador':
+                    config[campo] = 60
+                elif campo == 'max_reintentos_notificacion':
+                    config[campo] = 2
+                else:
+                    config[campo] = PVD_CONFIG_DEFAULT.get(campo)
         
         if 'auto_refresh_interval' not in config:
             config['auto_refresh_interval'] = 60
@@ -167,7 +222,18 @@ def cargar_cola_pvd():
     """Carga la cola actual de PVD"""
     try:
         with open('data/cola_pvd.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+            cola = json.load(f)
+        
+        # Asegurar que todas las pausas tienen campo 'grupo'
+        for pausa in cola:
+            if 'grupo' not in pausa:
+                pausa['grupo'] = 'basico'
+            if 'notificado' not in pausa:
+                pausa['notificado'] = False
+            if 'confirmado' not in pausa:
+                pausa['confirmado'] = False
+        
+        return cola
     except (FileNotFoundError, json.JSONDecodeError):
         return []
 

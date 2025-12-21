@@ -3,5 +3,10 @@
     "maximo_simultaneo": 1,
     "duracion_corta": 5,
     "duracion_larga": 10,
-    "sonido_activado": true
+    "sonido_activado": true,
+    "auto_finalizar_pausa": true,
+    "notificacion_automatica": true,
+    "intervalo_temporizador": 60,
+    "max_reintentos_notificacion": 2,
+    "auto_refresh_interval": 60
 }
