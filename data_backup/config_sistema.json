@@ -28,7 +28,7 @@
                 "IMPULSA 24h",
                 "ESTABLE",
                 "HOGAR",
-                "AHORRO AUTOM\u00c1TICO",
+                "AHORRO AUTOMÁTICO",
                 "ESPECIAL PLUS"
             ],
             "planes_gas": [
@@ -37,5 +37,13 @@
                 "RL3"
             ]
         }
+    },
+    "secciones_activas": {
+        "comparativa_exacta": true,
+        "comparativa_estimada": true,
+        "calculadora_gas": true,
+        "pvd_usuario": true,
+        "cups_naturgy": false,
+        "modelos_factura": true
     }
 }

@@ -1,53 +1,60 @@
 [
     {
-        "id": "f1006a4e",
-        "usuario_id": "0001",
-        "usuario_nombre": "Usuario",
+        "id": "4207114f",
+        "usuario_id": "test_agente1",
+        "usuario_nombre": "Agente Prueba 1",
         "duracion_elegida": "corta",
         "estado": "COMPLETADO",
-        "timestamp_solicitud": "2025-12-19T23:02:43.333977",
-        "timestamp_inicio": "2025-12-19T23:02:43.335626",
-        "timestamp_fin": "2025-12-19T23:06:23.432867"
+        "timestamp_solicitud": "2025-12-21T16:04:13.680174+01:00",
+        "timestamp_inicio": "2025-12-21T16:04:31.320214+01:00",
+        "timestamp_fin": "2025-12-21T16:04:36.242128+01:00",
+        "es_prueba": true,
+        "confirmado": false
     },
     {
-        "id": 1,
-        "usuario_id": "0001",
-        "usuario_nombre": "Usuario",
-        "estado": "COMPLETADO",
+        "id": "aef305de",
+        "usuario_id": "test_agente4",
+        "usuario_nombre": "Agente Prueba 4",
         "duracion_elegida": "larga",
-        "duracion_minutos": 10,
-        "timestamp_solicitud": "2025-12-19T10:26:30.459885",
-        "timestamp_inicio": "2025-12-19T10:26:30.459893",
-        "timestamp_fin": "2025-12-19T10:27:27.584946"
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2025-12-21T16:02:45.976453+01:00",
+        "timestamp_inicio": "2025-12-21T16:04:45.976475+01:00",
+        "timestamp_fin": "2025-12-21T16:58:53.978282+01:00",
+        "es_prueba": true,
+        "confirmado": true
     },
     {
-        "id": "e4997300",
+        "id": "5f32b4ad",
         "usuario_id": "0001",
         "usuario_nombre": "Usuario",
         "duracion_elegida": "corta",
         "estado": "COMPLETADO",
-        "timestamp_solicitud": "2025-12-19T23:46:55.136408",
-        "timestamp_inicio": "2025-12-19T23:46:55.138878",
-        "timestamp_fin": "2025-12-20T12:56:27.686059"
+        "timestamp_solicitud": "2025-12-21T16:05:42.221388+01:00",
+        "timestamp_inicio": "2025-12-21T17:32:12.283983+01:00",
+        "timestamp_fin": "2025-12-21T17:32:15.998907+01:00",
+        "confirmado": false,
+        "notificado_en": "2025-12-21T16:58:53.980039+01:00"
     },
     {
-        "id": "a13babd8",
+        "id": "9982151b",
         "usuario_id": "0001",
         "usuario_nombre": "Usuario",
         "duracion_elegida": "corta",
         "estado": "COMPLETADO",
-        "timestamp_solicitud": "2025-12-20T12:57:46.968182",
-        "timestamp_inicio": "2025-12-20T12:57:46.975378",
-        "timestamp_fin": "2025-12-20T12:59:35.189378"
+        "timestamp_solicitud": "2025-12-21T17:43:58.222440+01:00",
+        "timestamp_inicio": "2025-12-21T17:43:58.223524+01:00",
+        "timestamp_fin": "2025-12-21T17:49:24.093662+01:00",
+        "confirmado": false
     },
     {
-        "id": "06f848f8",
+        "id": "4c7e83c8",
         "usuario_id": "0001",
         "usuario_nombre": "Usuario",
         "duracion_elegida": "corta",
         "estado": "COMPLETADO",
-        "timestamp_solicitud": "2025-12-21T10:22:35.826980",
-        "timestamp_inicio": "2025-12-21T10:22:35.832127",
-        "timestamp_fin": "2025-12-21T10:22:56.586091"
+        "timestamp_solicitud": "2025-12-21T18:08:27.206030+01:00",
+        "timestamp_inicio": "2025-12-21T18:08:27.209651+01:00",
+        "timestamp_fin": "2025-12-21T18:08:51.114535+01:00",
+        "confirmado": false
     }
 ]
