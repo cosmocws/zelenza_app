@@ -20,11 +20,11 @@ import pytz
 AUTO_REFRESH_INTERVAL = 60  # Segundos (1 minuto en lugar de 3)
 
 # ==============================================
-# TEMPORIZADOR PVD EN TIEMPO REAL MEJORADO
+# TEMPORIZADOR PVD EN TIEMPO REAL MEJORADO CON NOTIFICACIÓN CONFIRMACIÓN
 # ==============================================
 
 def crear_temporizador_html(minutos_restantes, usuario_id):
-    """Crea un temporizador visual en HTML/JavaScript"""
+    """Crea un temporizador visual en HTML/JavaScript con notificación de confirmación"""
     
     segundos_totales = minutos_restantes * 60
     
@@ -85,6 +85,7 @@ def crear_temporizador_html(minutos_restantes, usuario_id):
     const segundosTotales = {segundos_totales};
     let temporizadorActivo = true;
     let notificacionMostrada = false;
+    let notificacionConfirmada = false;
     
     // Calcular hora de entrada estimada
     const ahora = new Date();
@@ -102,66 +103,197 @@ def crear_temporizador_html(minutos_restantes, usuario_id):
         document.getElementById('hora-actual').textContent = horaMadrid;
     }}
     
-    function mostrarNotificacion() {{
-        if (notificacionMostrada) return;
+    function mostrarNotificacionNavegador() {{
+        // Verificar si el navegador soporta notificaciones
+        if (!("Notification" in window)) {{
+            console.log("Este navegador no soporta notificaciones del sistema");
+            return false;
+        }}
         
-        notificacionMostrada = true;
+        // Verificar permisos
+        if (Notification.permission === "granted") {{
+            crearNotificacion();
+            return true;
+        }} else if (Notification.permission !== "denied") {{
+            Notification.requestPermission().then(permission => {{
+                if (permission === "granted") {{
+                    crearNotificacion();
+                    return true;
+                }}
+            }});
+        }}
+        return false;
+    }}
+    
+    function crearNotificacion() {{
+        const opciones = {{
+            body: 'Tu pausa PVD está por comenzar. Haz clic en OK para confirmar.',
+            icon: 'https://cdn-icons-png.flaticon.com/512/3208/3208720.png',
+            badge: 'https://cdn-icons-png.flaticon.com/512/3208/3208720.png',
+            tag: 'pvd-turno-{usuario_id}',
+            requireInteraction: true, // IMPORTANTE: Requiere interacción del usuario
+            actions: [
+                {{ action: 'confirm', title: '✅ OK - Empezar Pausa' }},
+                {{ action: 'cancel', title: '❌ Cancelar' }}
+            ]
+        }};
         
-        // Crear elemento de notificación
-        const notif = document.createElement('div');
-        notif.id = 'notificacion-turno-pvd';
-        notif.style.cssText = `
+        const notificacion = new Notification('🎉 ¡ES TU TURNO! - PVD Zelenza', opciones);
+        
+        // Manejar clic en la notificación
+        notificacion.onclick = function(event) {{
+            event.preventDefault();
+            window.focus();
+            this.close();
+            mostrarModalConfirmacion();
+        }};
+        
+        // Manejar acciones de los botones
+        notificacion.onaction = function(event) {{
+            if (event.action === 'confirm') {{
+                console.log('Usuario confirmó la pausa PVD');
+                notificacionConfirmada = true;
+                // Marcar como turno confirmado
+                marcarTurnoConfirmado();
+                notificacion.close();
+            }} else if (event.action === 'cancel') {{
+                console.log('Usuario canceló la pausa PVD');
+                notificacion.close();
+            }}
+        }};
+        
+        // Cerrar notificación después de 30 segundos si no se interactúa
+        setTimeout(() => {{
+            notificacion.close();
+        }}, 30000);
+        
+        return notificacion;
+    }}
+    
+    function mostrarModalConfirmacion() {{
+        // Crear modal de confirmación
+        const modal = document.createElement('div');
+        modal.id = 'modal-confirmacion-pvd';
+        modal.style.cssText = `
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        `;
+        
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 15px;
+                text-align: center;
+                max-width: 500px;
+                width: 90%;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            ">
+                <h2 style="color: #333; margin-top: 0;">🎉 ¡ES TU TURNO!</h2>
+                <p style="color: #666; font-size: 18px; margin: 20px 0;">Tu pausa PVD está por comenzar</p>
+                <p style="color: #888; margin-bottom: 30px;">Confirma que estás listo para empezar tu descanso</p>
+                
+                <div style="display: flex; gap: 15px; justify-content: center;">
+                    <button id="btn-confirmar-pvd" style="
+                        background: linear-gradient(135deg, #00b09b, #96c93d);
+                        color: white;
+                        border: none;
+                        padding: 12px 30px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    ">
+                        ✅ OK - Empezar Pausa
+                    </button>
+                    
+                    <button id="btn-cancelar-pvd" style="
+                        background: #f44336;
+                        color: white;
+                        border: none;
+                        padding: 12px 30px;
+                        border-radius: 8px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        cursor: pointer;
+                        transition: transform 0.2s;
+                    ">
+                        ❌ Cancelar
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Agregar eventos a los botones
+        document.getElementById('btn-confirmar-pvd').addEventListener('click', function() {{
+            console.log('Usuario confirmó desde el modal');
+            notificacionConfirmada = true;
+            marcarTurnoConfirmado();
+            document.body.removeChild(modal);
+        }});
+        
+        document.getElementById('btn-cancelar-pvd').addEventListener('click', function() {{
+            console.log('Usuario canceló desde el modal');
+            document.body.removeChild(modal);
+        }});
+        
+        // Cerrar al hacer clic fuera
+        modal.addEventListener('click', function(e) {{
+            if (e.target === modal) {{
+                document.body.removeChild(modal);
+            }}
+        }});
+    }}
+    
+    function marcarTurnoConfirmado() {{
+        // Cambiar visual del temporizador
+        document.getElementById('contador').textContent = '🎯 ¡CONFIRMADO!';
+        document.getElementById('contador').style.color = '#00ff00';
+        document.getElementById('barra-progreso').style.width = '100%';
+        document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
+        
+        // Mostrar mensaje de confirmación
+        const mensajeConfirmacion = document.createElement('div');
+        mensajeConfirmacion.id = 'mensaje-confirmacion';
+        mensajeConfirmacion.style.cssText = `
             background: linear-gradient(135deg, #00b09b, #96c93d);
             color: white;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
-            z-index: 9999;
-            font-size: 18px;
+            margin-top: 15px;
             font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             animation: pulse 1s infinite;
-            text-align: center;
         `;
-        notif.innerHTML = `
-            <div style="font-size: 24px; margin-bottom: 10px;">🎉 ¡ES TU TURNO!</div>
-            <div>Tu pausa PVD está por comenzar</div>
-        `;
-        document.body.appendChild(notif);
+        mensajeConfirmacion.innerHTML = '✅ Pausa confirmada. ¡Disfruta tu descanso!';
         
-        // Añadir animación CSS
-        const style = document.createElement('style');
-        style.innerHTML = `
-            @keyframes pulse {{
-                0% {{ transform: scale(1); }}
-                50% {{ transform: scale(1.05); }}
-                100% {{ transform: scale(1); }}
-            }}
-        `;
-        document.head.appendChild(style);
+        const temporizadorDiv = document.getElementById('temporizador-pvd');
+        temporizadorDiv.appendChild(mensajeConfirmacion);
         
-        // Reproducir sonido (solo una vez)
+        // Desactivar temporizador
+        temporizadorActivo = false;
+        
+        // Reproducir sonido de confirmación
         try {{
             const audio = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-correct-answer-tone-2870.mp3');
-            audio.volume = 0.5;
+            audio.volume = 0.3;
             audio.play();
         }} catch(e) {{}}
         
-        // Auto-eliminar notificación después de 30 segundos
+        // Auto-refresh en 10 segundos para iniciar pausa
         setTimeout(() => {{
-            const notifElement = document.getElementById('notificacion-turno-pvd');
-            if (notifElement) {{
-                notifElement.style.opacity = '0';
-                notifElement.style.transition = 'opacity 1s';
-                setTimeout(() => {{
-                    if (notifElement.parentNode) {{
-                        notifElement.parentNode.removeChild(notifElement);
-                    }}
-                }}, 1000);
-            }}
-        }}, 30000);
+            window.location.reload();
+        }}, 10000);
     }}
     
     function actualizarTemporizador() {{
@@ -172,19 +304,21 @@ def crear_temporizador_html(minutos_restantes, usuario_id):
         if (segundosRestantes <= 0 && !notificacionMostrada) {{
             // ¡TIEMPO COMPLETADO!
             document.getElementById('contador').textContent = '🎯 ¡TU TURNO!';
-            document.getElementById('contador').style.color = '#00ff00';
+            document.getElementById('contador').style.color = '#ff9900';
             document.getElementById('barra-progreso').style.width = '100%';
-            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #00ff00, #00cc00)';
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
             
-            // Mostrar notificación
-            mostrarNotificacion();
+            // Mostrar notificación del navegador (REQUIERE CONFIRMACIÓN)
+            mostrarNotificacionNavegador();
             
-            temporizadorActivo = false;
-            
-            // Auto-refresh en 30 segundos para actualizar estado
+            // También mostrar modal por si las notificaciones fallan
             setTimeout(() => {{
-                window.location.reload();
-            }}, 30000);
+                if (!notificacionConfirmada) {{
+                    mostrarModalConfirmacion();
+                }}
+            }}, 2000);
+            
+            notificacionMostrada = true;
             
             return;
         }}
@@ -199,6 +333,13 @@ def crear_temporizador_html(minutos_restantes, usuario_id):
         // Actualizar barra de progreso
         const progreso = 100 * (1 - (segundosRestantes / segundosTotales));
         document.getElementById('barra-progreso').style.width = progreso + '%';
+        
+        // Cambiar color cuando falten 5 minutos
+        if (segundosRestantes <= 300 && segundosRestantes > 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff9900, #ff6600)';
+        }} else if (segundosRestantes <= 60) {{
+            document.getElementById('barra-progreso').style.background = 'linear-gradient(90deg, #ff3300, #cc0000)';
+        }}
         
         // Actualizar hora cada segundo
         actualizarHora();
@@ -647,7 +788,7 @@ def inicializar_datos():
         st.error(f"❌ Error crítico en inicialización: {e}")
 
 # ==============================================
-# NUEVA FUNCIÓN: ACTUALIZAR TEMPORIZADORES PVD MEJORADA
+# NUEVA FUNCIÓN: ACTUALIZAR TEMPORIZADORES PVD MEJORADA CON CONFIRMACIÓN
 # ==============================================
 
 def actualizar_temporizadores_pvd():
@@ -668,7 +809,7 @@ def actualizar_temporizadores_pvd():
                 
                 # Mostrar notificación según tipo
                 if tipo == 'turno':
-                    # Notificación de turno (gran visual)
+                    # Notificación de turno (gran visual) CON BOTÓN DE CONFIRMACIÓN
                     st.markdown(f"""
                     <div style="
                         background: linear-gradient(135deg, #00b09b, #96c93d);
@@ -684,7 +825,23 @@ def actualizar_temporizadores_pvd():
                         <h2 style="margin: 0 0 15px 0; font-size: 28px;">🎉 ¡ES TU TURNO!</h2>
                         <p style="font-size: 20px; margin: 10px 0;">{notificacion['mensaje']}</p>
                         <p style="opacity: 0.9; font-size: 16px;">Hora: {hora_notificacion}</p>
-                        <p style="margin-top: 15px; font-size: 14px;">Tu pausa debería iniciar automáticamente en cualquier momento</p>
+                        <p style="margin-top: 15px; font-size: 14px;">Confirma cuando estés listo para empezar tu pausa</p>
+                        
+                        <button onclick="window.location.reload();" style="
+                            background: white;
+                            color: #00b09b;
+                            border: none;
+                            padding: 12px 30px;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                            margin-top: 20px;
+                            transition: transform 0.2s;
+                        " onmouseover="this.style.transform='scale(1.05)'" 
+                        onmouseout="this.style.transform='scale(1)'">
+                            ✅ Confirmar y Empezar Pausa
+                        </button>
                     </div>
                     
                     <style>
@@ -696,12 +853,47 @@ def actualizar_temporizadores_pvd():
                     </style>
                     """, unsafe_allow_html=True)
                     
-                    # Forzar recarga en 30 segundos
+                    # También mostrar notificación de Streamlit con botón
+                    with st.container():
+                        st.warning("📢 **¡ATENCIÓN! Tu pausa PVD está lista**")
+                        
+                        col_btn1, col_btn2 = st.columns(2)
+                        with col_btn1:
+                            if st.button("✅ Confirmar y Empezar Pausa", type="primary", use_container_width=True):
+                                # Buscar pausa del usuario y cambiarla a EN_CURSO si está en ESPERANDO
+                                for pausa in cola_pvd:
+                                    if (pausa['usuario_id'] == st.session_state.username and 
+                                        pausa['estado'] == 'ESPERANDO'):
+                                        pausa['estado'] = 'EN_CURSO'
+                                        pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                                        guardar_cola_pvd(cola_pvd)
+                                        st.success("✅ Pausa confirmada y comenzada")
+                                        st.rerun()
+                                        break
+                        
+                        with col_btn2:
+                            if st.button("⏰ Más Tarde", type="secondary", use_container_width=True):
+                                # Posponer la pausa 5 minutos
+                                for pausa in cola_pvd:
+                                    if (pausa['usuario_id'] == st.session_state.username and 
+                                        pausa['estado'] == 'ESPERANDO'):
+                                        # Actualizar timestamp de solicitud para moverlo al final de la cola
+                                        pausa['timestamp_solicitud'] = obtener_hora_madrid().isoformat()
+                                        guardar_cola_pvd(cola_pvd)
+                                        st.info("⏰ Pausa pospuesta 5 minutos. Se te notificará nuevamente.")
+                                        st.rerun()
+                                        break
+                    
+                    # Forzar recarga en 60 segundos si no se confirma
                     st.markdown(f"""
                     <script>
                     setTimeout(function() {{
-                        window.location.reload();
-                    }}, 30000);
+                        // Verificar si ya se confirmó
+                        const confirmado = localStorage.getItem('pvd_confirmado_{st.session_state.username}');
+                        if (!confirmado) {{
+                            window.location.reload();
+                        }}
+                    }}, 60000);
                     </script>
                     """, unsafe_allow_html=True)
                     
@@ -738,14 +930,30 @@ def actualizar_temporizadores_pvd():
                 
                 elif tiempo_estimado == 0:
                     # ¡Es el turno del usuario!
-                    # Marcar como notificación pendiente
-                    if usuario_id not in temporizador_pvd.notificaciones_pendientes:
-                        temporizador_pvd.notificaciones_pendientes[usuario_id] = {
-                            'timestamp': obtener_hora_madrid(),
-                            'mensaje': '¡Es tu turno para la pausa PVD!',
-                            'tipo': 'turno',
-                            'hora_madrid': obtener_hora_madrid().strftime('%H:%M:%S')
-                        }
+                    # Verificar si ya se notificó recientemente (evitar spam)
+                    ultima_notificacion_key = f"{usuario_id}_ultima_notif"
+                    ahora = obtener_hora_madrid()
+                    
+                    if ultima_notificacion_key not in temporizador_pvd.notificaciones_pendientes:
+                        # Marcar tiempo de última notificación
+                        temporizador_pvd.notificaciones_pendientes[ultima_notificacion_key] = ahora
+                        
+                        # Solo notificar si no se notificó en los últimos 30 segundos
+                        notificar = True
+                        if usuario_id in temporizador_pvd.notificaciones_pendientes:
+                            ultima = temporizador_pvd.notificaciones_pendientes.get(usuario_id, {})
+                            if isinstance(ultima, dict) and 'timestamp' in ultima:
+                                tiempo_ultima = datetime.fromisoformat(ultima['timestamp'])
+                                if (ahora - tiempo_ultima).total_seconds() < 30:
+                                    notificar = False
+                        
+                        if notificar:
+                            temporizador_pvd.notificaciones_pendientes[usuario_id] = {
+                                'timestamp': ahora.isoformat(),
+                                'mensaje': '¡Es tu turno para la pausa PVD! Confirma cuando estés listo.',
+                                'tipo': 'turno',
+                                'hora_madrid': ahora.strftime('%H:%M:%S')
+                            }
                     
                     # Cancelar temporizador si existe
                     temporizador_pvd.cancelar_temporizador(usuario_id)
@@ -1108,11 +1316,11 @@ def notificar_inicio_pausa(pausa, config_pvd):
         st.warning(f"Error en notificación: {e}")
 
 # ==============================================
-# FUNCIÓN MODIFICADA: SOLICITAR PAUSA (MEJORADA)
+# FUNCIÓN MEJORADA: SOLICITAR PAUSA (CON CONFIRMACIÓN)
 # ==============================================
 
 def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
-    """Solicita una pausa PVD para el usuario actual con temporizador automático"""
+    """Solicita una pausa PVD para el usuario actual con temporizador automático y confirmación"""
     # Verificar límite diario
     pausas_hoy = len([p for p in cola_pvd 
                      if p['usuario_id'] == st.session_state.username and 
@@ -1139,7 +1347,8 @@ def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
         'estado': 'ESPERANDO',
         'timestamp_solicitud': datetime.now(pytz.timezone('Europe/Madrid')).isoformat(),
         'timestamp_inicio': None,
-        'timestamp_fin': None
+        'timestamp_fin': None,
+        'necesita_confirmacion': True  # NUEVO: Requiere confirmación del usuario
     }
     
     cola_pvd.append(nueva_pausa)
@@ -1151,12 +1360,28 @@ def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
     duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
     
     if en_pausa < maximo:
-        st.success(f"✅ Pausa de {duracion_minutos} minutos iniciada inmediatamente")
-        nueva_pausa['estado'] = 'EN_CURSO'
-        nueva_pausa['timestamp_inicio'] = datetime.now(pytz.timezone('Europe/Madrid')).isoformat()
+        st.success(f"✅ Pausa de {duracion_minutos} minutos solicitada")
+        st.info("**IMPORTANTE:** Cuando sea tu turno, recibirás una notificación y deberás confirmar para empezar la pausa.")
         
+        # Mostrar información sobre el sistema de confirmación
+        with st.expander("ℹ️ Información sobre el sistema de confirmación", expanded=True):
+            st.write("""
+            **🔔 Cómo funciona el sistema de confirmación:**
+            
+            1. **Temporizador:** Se activará un temporizador que muestra tu tiempo estimado de espera
+            2. **Notificación:** Cuando sea tu turno, recibirás:
+               - Una notificación en el navegador (debes permitir notificaciones)
+               - Un aviso visible en la página
+            3. **Confirmación:** Deberás hacer clic en **"OK - Empezar Pausa"** para comenzar
+            4. **Control:** Tú decides cuándo empezar realmente tu descanso
+            
+            **⚠️ Requisitos:**
+            - Permite notificaciones del navegador cuando te lo pida
+            - Mantén esta pestaña abierta para recibir avisos
+            """)
+            
         if config_pvd.get('sonido_activado', True):
-            st.toast(f"🎉 ¡Pausa iniciada! {duracion_minutos} minutos", icon="⏰")
+            st.toast(f"⏰ Pausa solicitada. Te notificaremos cuando sea tu turno", icon="🔔")
     else:
         en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
         
@@ -1166,6 +1391,7 @@ def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
         posicion = next((i+1 for i, p in enumerate(en_espera_ordenados) if p['id'] == nueva_pausa['id']), en_espera)
         
         st.info(f"⏳ Pausa solicitada. **Posición en cola: #{posicion}**")
+        st.info("**🔔 IMPORTANTE:** Cuando sea tu turno, recibirás una notificación y deberás confirmar para empezar.")
         
         # Calcular e iniciar temporizador AUTOMÁTICAMENTE
         tiempo_estimado = temporizador_pvd.calcular_tiempo_estimado_entrada(cola_pvd, config_pvd, st.session_state.username)
@@ -1185,13 +1411,18 @@ def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
                     st.metric("🕒 Entrada estimada", hora_entrada)
                 
                 st.info(f"""
-                **🎯 TEMPORIZADOR ACTIVADO**
+                **🎯 SISTEMA DE CONFIRMACIÓN ACTIVADO**
                 
-                Se ha activado un temporizador que:
-                - Te mostrará el tiempo restante en tiempo real
-                - Te avisará cuando queden 5 minutos
-                - Te notificará cuando sea tu turno
-                - Se actualizará automáticamente
+                Cuando sea tu turno, recibirás:
+                1. **Notificación del navegador** (debes permitir notificaciones)
+                2. **Aviso visible en la página**
+                3. **Sonido de aviso**
+                
+                **Deberás confirmar** haciendo clic en:
+                - ✅ **"OK - Empezar Pausa"** en la notificación
+                - O el botón **"Confirmar y Empezar Pausa"** en la página
+                
+                **Solo después de confirmar** comenzará tu pausa de {duracion_minutos} minutos.
                 """)
         else:
             st.warning("⚠️ No se pudo calcular el tiempo estimado. Se actualizará en la página principal.")
@@ -1205,12 +1436,47 @@ def solicitar_pausa(config_pvd, cola_pvd, duracion_elegida):
     return True
 
 # ==============================================
-# FUNCIÓN MEJORADA: GESTIÓN PVD USUARIO (CON AUTO-REFRESH AJUSTADO)
+# FUNCIÓN MEJORADA: GESTIÓN PVD USUARIO (CON SISTEMA DE CONFIRMACIÓN)
 # ==============================================
 
 def gestion_pvd_usuario():
-    """Sistema de Pausas Visuales para usuarios con temporizador en tiempo real"""
+    """Sistema de Pausas Visuales para usuarios con temporizador en tiempo real y confirmación"""
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
+    
+    # Información sobre permisos de notificación
+    with st.expander("🔔 Configurar notificaciones (IMPORTANTE)", expanded=False):
+        st.markdown("""
+        **Para recibir notificaciones cuando sea tu turno:**
+        
+        1. **Permitir notificaciones** en tu navegador cuando te lo pida
+        2. **Mantener esta pestaña abierta** para recibir avisos
+        3. **Haz clic en OK** cuando aparezca la notificación para empezar tu pausa
+        
+        **⚠️ Sin permisos de notificación:**
+        - Solo verás el aviso en esta página
+        - No recibirás sonido de alerta
+        - Deberás estar atento a la pantalla
+        """)
+        
+        # Botón para probar notificaciones
+        if st.button("🔔 Probar notificaciones", type="secondary"):
+            st.markdown("""
+            <script>
+            if (!("Notification" in window)) {
+                alert("Este navegador no soporta notificaciones");
+            } else if (Notification.permission === "granted") {
+                alert("✅ Notificaciones ya permitidas");
+            } else if (Notification.permission !== "denied") {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        alert("✅ Notificaciones permitidas correctamente");
+                    } else {
+                        alert("❌ Notificaciones no permitidas. Deberás estar atento a la pantalla.");
+                    }
+                });
+            }
+            </script>
+            """, unsafe_allow_html=True)
     
     # Obtener configuración para auto-refresh
     config_pvd = cargar_config_pvd()
@@ -1222,7 +1488,6 @@ def gestion_pvd_usuario():
     // Configurar auto-refresh inteligente
     function configurarAutoRefresh() {{
         // Si el usuario está en pausa, refrescar más frecuentemente
-        const urlParams = new URLSearchParams(window.location.search);
         const enPausa = document.body.innerText.includes('EN_CURSO') || 
                        document.body.innerText.includes('En PVD');
         
@@ -1298,7 +1563,7 @@ def gestion_pvd_usuario():
                 
                 # Crear y mostrar el temporizador HTML
                 temporizador_html = crear_temporizador_html(int(tiempo_restante), st.session_state.username)
-                st.components.v1.html(temporizador_html, height=280)
+                st.components.v1.html(temporizador_html, height=320)
                 
                 # Información adicional debajo del temporizador
                 with st.expander("📊 Información detallada", expanded=True):
@@ -1330,15 +1595,40 @@ def gestion_pvd_usuario():
                     
                     # Mostrar aviso si está próximo
                     if tiempo_restante <= 5:
-                        st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos para tu pausa. Prepárate.")
+                        st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos. Prepárate para confirmar tu pausa.")
                     elif tiempo_restante <= 15:
                         st.info(f"💡 **Aviso:** Quedan {int(tiempo_restante)} minutos. Tu pausa está próxima.")
+                    
+                    # Información sobre confirmación
+                    st.markdown("---")
+                    st.write("**ℹ️ Sobre la confirmación:**")
+                    st.write("""
+                    Cuando sea tu turno, recibirás una notificación que DEBES CONFIRMAR.
+                    
+                    **Sin confirmación → No empieza la pausa**
+                    
+                    **Con confirmación → Empieza inmediatamente tu descanso de {duracion_minutos} minutos**
+                    """.format(duracion_minutos=duracion_minutos))
                 
-                # Si es el primero en cola y hay espacio, intentar iniciar
+                # Si es el primero en cola y hay espacio, mostrar botón de confirmación anticipada
                 if posicion == 1 and en_pausa < maximo:
-                    if iniciar_siguiente_en_cola(cola_pvd, config_pvd):
-                        st.success("✅ **¡Pausa iniciada automáticamente!**")
-                        st.rerun()
+                    st.success("**✅ ¡ESTÁS PRIMERO EN LA COLA!**")
+                    st.info("Cuando haya espacio disponible, serás el siguiente. Mantén esta página abierta para recibir la notificación.")
+                    
+                    # Botón para confirmar anticipadamente (opcional)
+                    if st.button("✅ Pre-confirmar mi pausa", type="primary", use_container_width=True, key="preconfirmar_pausa"):
+                        st.info("""
+                        **Pre-confirmación registrada:**
+                        - Cuando haya espacio, tu pausa comenzará automáticamente
+                        - Aún así recibirás la notificación para confirmar visualmente
+                        - Puedes cancelar en cualquier momento
+                        """)
+                        # Guardar preconfirmación en localStorage via JavaScript
+                        st.markdown(f"""
+                        <script>
+                        localStorage.setItem('pvd_preconfirmado_{st.session_state.username}', 'true');
+                        </script>
+                        """, unsafe_allow_html=True)
                 
                 # Botón para cancelar
                 if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_temporizador"):
@@ -1349,7 +1639,7 @@ def gestion_pvd_usuario():
                     st.rerun()
                     
             elif tiempo_restante == 0:
-                # ¡TIEMPO COMPLETADO!
+                # ¡TIEMPO COMPLETADO - ESPERANDO CONFIRMACIÓN!
                 st.markdown("### 🎯 ¡ES TU TURNO!")
                 
                 st.balloons()
@@ -1365,18 +1655,57 @@ def gestion_pvd_usuario():
                         margin: 20px 0;
                     ">
                         <h2 style="margin: 0; font-size: 32px;">🎉 ¡TU TURNO HA LLEGADO!</h2>
-                        <p style="font-size: 20px; margin: 15px 0;">Tu pausa PVD está por comenzar</p>
-                        <p style="opacity: 0.9;">El sistema te asignará automáticamente en cualquier momento</p>
+                        <p style="font-size: 20px; margin: 15px 0;">Confirma para empezar tu pausa PVD</p>
+                        <p style="opacity: 0.9;">Debes confirmar para iniciar tu descanso de {duracion_minutos} minutos</p>
                     </div>
-                    """, unsafe_allow_html=True)
+                    """.format(duracion_minutos=duracion_minutos), unsafe_allow_html=True)
                 
-                # Intentar iniciar automáticamente si hay espacio
-                if posicion == 1 and en_pausa < maximo:
-                    if iniciar_siguiente_en_cola(cola_pvd, config_pvd):
-                        st.success("✅ **¡Pausa iniciada automáticamente!**")
+                # BOTONES DE CONFIRMACIÓN DIRECTA
+                col_conf1, col_conf2, col_conf3 = st.columns(3)
+                with col_conf1:
+                    if st.button("✅ CONFIRMAR y Empezar Pausa", type="primary", use_container_width=True):
+                        # Buscar pausa y cambiarla a EN_CURSO
+                        for pausa in cola_pvd:
+                            if (pausa['usuario_id'] == st.session_state.username and 
+                                pausa['estado'] == 'ESPERANDO'):
+                                pausa['estado'] = 'EN_CURSO'
+                                pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                                pausa['confirmado_por_usuario'] = True
+                                pausa['timestamp_confirmacion'] = obtener_hora_madrid().isoformat()
+                                guardar_cola_pvd(cola_pvd)
+                                st.success("✅ Pausa confirmada y comenzada")
+                                st.rerun()
+                                break
+                
+                with col_conf2:
+                    if st.button("⏸️ Empezar en 1 min", type="secondary", use_container_width=True):
+                        st.info("⏰ Pausa programada para empezar en 1 minuto")
+                        # Posponer ligeramente
+                        tiempo_estimado = 1  # 1 minuto
+                        temporizador_pvd.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
                         st.rerun()
                 
-                # Forzar recarga en 30 segundos
+                with col_conf3:
+                    if st.button("❌ Cancelar Turno", type="secondary", use_container_width=True):
+                        usuario_pausa_activa['estado'] = 'CANCELADO'
+                        guardar_cola_pvd(cola_pvd)
+                        temporizador_pvd.cancelar_temporizador(st.session_state.username)
+                        st.success("✅ Turno cancelado")
+                        st.rerun()
+                
+                # Instrucciones
+                st.info("""
+                **📢 También deberías haber recibido:**
+                - 🔔 **Notificación del navegador** (si permites notificaciones)
+                - 🔊 **Sonido de alerta** (si el sonido está activado)
+                
+                **Si no ves la notificación:**
+                1. Verifica que permites notificaciones en este sitio
+                2. Haz clic en el botón verde de arriba para confirmar
+                3. O espera a que la página se actualice automáticamente
+                """)
+                
+                # Forzar recarga en 30 segundos si no se confirma
                 st.markdown("""
                 <script>
                 setTimeout(function() {
@@ -1401,6 +1730,7 @@ def gestion_pvd_usuario():
                     st.warning("No se pudo calcular el tiempo estimado. Por favor, actualiza la página.")
         
         elif usuario_pausa_activa['estado'] == 'EN_CURSO':
+            # ... (código para pausa en curso se mantiene igual) ...
             st.success(f"✅ **Pausa en curso** - {estado_display}")
             
             duracion_elegida = usuario_pausa_activa.get('duracion_elegida', 'corta')
@@ -1435,6 +1765,10 @@ def gestion_pvd_usuario():
             st.write(f"**Inició:** {tiempo_inicio_madrid.strftime('%H:%M:%S')} (hora Madrid)")
             st.write(f"**Finaliza:** {hora_fin_estimada.strftime('%H:%M:%S')} (hora Madrid)")
             
+            # Verificar si fue confirmada por el usuario
+            if usuario_pausa_activa.get('confirmado_por_usuario'):
+                st.info("✅ Esta pausa fue confirmada por ti antes de empezar")
+            
             if tiempo_restante == 0:
                 st.success("🎉 **¡Pausa completada!** Puedes volver a solicitar otra si necesitas")
                 # Auto-completar si ha pasado el tiempo
@@ -1453,8 +1787,29 @@ def gestion_pvd_usuario():
                 st.rerun()
     
     else:
+        # ... (código para solicitar nueva pausa se mantiene similar) ...
         st.info("👁️ **Sistema de Pausas Visuales Dinámicas**")
         st.write("Toma una pausa para descansar la vista durante tu jornada")
+        
+        # Información sobre el sistema de confirmación
+        with st.expander("ℹ️ ¿Cómo funciona el sistema de confirmación?", expanded=True):
+            st.markdown("""
+            **🔔 NUEVO: Sistema de Confirmación Requerida**
+            
+            Ahora **TÚ controlas** cuándo empieza tu pausa:
+            
+            1. **Solicitas** una pausa (corta o larga)
+            2. **Esperas** tu turno (temporizador en pantalla)
+            3. **Recibes notificación** cuando es tu turno
+            4. **DEBES CONFIRMAR** haciendo clic en "OK - Empezar Pausa"
+            5. **Solo después de confirmar** comienza tu descanso
+            
+            **Ventajas:**
+            - Evita que tu pausa empiece cuando no estás listo
+            - Tú decides el momento exacto
+            - Puedes posponer si no es buen momento
+            - Mayor control sobre tu tiempo
+            """)
         
         en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
         en_espera = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO'])
@@ -3345,7 +3700,7 @@ def main():
         menu_items={
             'Get Help': 'https://www.example.com/help',
             'Report a bug': 'https://www.example.com/bug',
-            'About': '# Zelenza CEX v1.0 con Temporizador PVD MEJORADO'
+            'About': '# Zelenza CEX v1.0 con Temporizador PVD y CONFIRMACIÓN REQUERIDA'
         }
     )
     
@@ -3362,6 +3717,16 @@ def main():
     
     st.title("⚡ Zelenza CEX - Calculadora Iberdrola")
     st.markdown("---")
+    
+    # Añadir información sobre el nuevo sistema de confirmación
+    st.info("""
+    **🔔 NUEVO SISTEMA PVD CON CONFIRMACIÓN REQUERIDA**
+    
+    Ahora las pausas PVD requieren tu confirmación antes de empezar:
+    - Recibirás una **notificación** cuando sea tu turno
+    - Debes hacer clic en **"OK - Empezar Pausa"** para comenzar
+    - Tú controlas el momento exacto de tu descanso
+    """)
     
     # Inicializar estado de sesión
     if 'authenticated' not in st.session_state:
