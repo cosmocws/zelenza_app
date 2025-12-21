@@ -1817,12 +1817,12 @@ def gestion_pvd_usuario():
                         st.success("✅ **¡Pausa iniciada automáticamente!**")
                         st.rerun()
                 
-                # Forzar recarga en 3 segundos
+                # Forzar recarga en 60 segundos
                 st.markdown("""
                 <script>
                 setTimeout(function() {
                     window.location.reload();
-                }, 3000);
+                }, 60000);
                 </script>
                 """, unsafe_allow_html=True)
                 
