@@ -1170,12 +1170,12 @@ def actualizar_temporizadores_pvd():
                 # También mostrar toast
                 st.toast(f"🔔 {notificacion['mensaje']} ({hora_notificacion})", icon="🎯")
                 
-                # Forzar recarga en 5 segundos
+                # Forzar recarga en 60 segundos
                 st.markdown("""
                 <script>
                 setTimeout(function() {
                     window.location.reload();
-                }, 5000);
+                }, 60000);
                 </script>
                 """, unsafe_allow_html=True)
         
