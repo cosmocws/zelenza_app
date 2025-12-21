@@ -56,5 +56,27 @@
         "timestamp_inicio": "2025-12-21T18:08:27.209651+01:00",
         "timestamp_fin": "2025-12-21T18:08:51.114535+01:00",
         "confirmado": false
+    },
+    {
+        "id": "2241521f",
+        "usuario_id": "0001",
+        "usuario_nombre": "Usuario",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2025-12-21T18:31:02.693613+01:00",
+        "timestamp_inicio": "2025-12-21T18:31:02.694589+01:00",
+        "timestamp_fin": "2025-12-21T18:52:31.707302+01:00",
+        "confirmado": false
+    },
+    {
+        "id": "859360de",
+        "usuario_id": "0245",
+        "usuario_nombre": "Usuario",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2025-12-21T18:31:11.207720+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "confirmado": false
     }
 ]
