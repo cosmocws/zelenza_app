@@ -458,7 +458,10 @@ def gestion_pvd_usuario():
             st.rerun()
     with col_btn2:
         if st.button("📊 Ver Estado Cola", use_container_width=True, key="ver_estado_cola"):
-            st.rerun()
+            # Mostrar estado de la cola
+            en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo_usuario])
+            en_espera_grupo = len([p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo_usuario])
+            st.info(f"**Grupo {grupo_usuario}:** {en_pausa_grupo}/{config_grupo.get('maximo_simultaneo', 2)} en pausa, {en_espera_grupo} en espera")
     with col_btn3:
         if st.button("👥 Ver mi Grupo", use_container_width=True, key="ver_grupo"):
             st.info(f"**Grupo:** {grupo_usuario}")
@@ -511,14 +514,76 @@ def gestion_pvd_usuario():
             
             tiempo_restante = temporizador_pvd_mejorado.obtener_tiempo_restante(st.session_state.username)
             
-            if tiempo_restante is not None and tiempo_restante > 0:
-                # Mostrar temporizador
-                st.markdown(f"### ⏱️ TEMPORIZADOR PARA TU PAUSA (Grupo: {grupo_usuario})")
+            # IMPORTANTE: VERIFICAR SI ES SU TURNO - MOSTRAR PREGUNTA
+            if posicion == 1 and estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
+                # ¡ES SU TURNO! - MOSTRAR PREGUNTA DE CONFIRMACIÓN
+                st.markdown("### 🎯 ¡ES TU TURNO! - NECESITAS CONFIRMAR")
                 
-                temporizador_html = crear_temporizador_html_simplificado(int(tiempo_restante), st.session_state.username)
-                st.components.v1.html(temporizador_html, height=240)
+                st.balloons()
                 
-                with st.expander("📊 Información del Grupo", expanded=True):
+                # Mostrar alerta grande
+                st.warning("""
+                ⚠️ **¡ATENCIÓN!**
+                
+                **¡Es tu turno para la pausa PVD!**
+                
+                **Debes confirmar que estás listo para comenzar.**
+                
+                Si no confirmas en 2 minutos, pasarás al final de la cola.
+                """)
+                
+                # Obtener información de la pausa
+                duracion_elegida = usuario_pausa_activa.get('duracion_elegida', 'corta')
+                duracion_minutos = config_pvd['duracion_corta'] if duracion_elegida == 'corta' else config_pvd['duracion_larga']
+                
+                st.info(f"**Duración de pausa:** {duracion_minutos} minutos ({'Corta' if duracion_elegida == 'corta' else 'Larga'})")
+                
+                # BOTONES DE CONFIRMACIÓN
+                col_conf1, col_conf2 = st.columns(2)
+                with col_conf1:
+                    if st.button("✅ **SÍ, COMENZAR PAUSA AHORA**", 
+                               type="primary", 
+                               use_container_width=True,
+                               key="confirmar_pausa_si"):
+                        # Iniciar pausa SOLO SI EL USUARIO CONFIRMA
+                        usuario_pausa_activa['estado'] = 'EN_CURSO'
+                        usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
+                        usuario_pausa_activa['confirmado'] = True
+                        guardar_cola_pvd(cola_pvd)
+                        st.success("✅ **Pausa confirmada e iniciada.** ¡Disfruta de tu descanso!")
+                        st.rerun()
+                
+                with col_conf2:
+                    if st.button("❌ **NO, CANCELAR MI TURNO**",
+                               type="secondary",
+                               use_container_width=True,
+                               key="cancelar_turno_no"):
+                        usuario_pausa_activa['estado'] = 'CANCELADO'
+                        guardar_cola_pvd(cola_pvd)
+                        temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                        st.warning("❌ **Turno cancelado.** Has sido eliminado de la cola.")
+                        st.rerun()
+                
+                # Contador de tiempo para confirmar
+                if 'confirmacion_inicio' not in st.session_state:
+                    st.session_state.confirmacion_inicio = obtener_hora_madrid()
+                
+                tiempo_confirmacion = (obtener_hora_madrid() - st.session_state.confirmacion_inicio).total_seconds()
+                minutos_restantes_confirmacion = max(0, 120 - tiempo_confirmacion) / 60  # 2 minutos para confirmar
+                
+                st.progress(min(100, (tiempo_confirmacion / 120) * 100))
+                st.caption(f"⏳ **Tiempo para confirmar:** {int(minutos_restantes_confirmacion)} minutos y {int((minutos_restantes_confirmacion % 1) * 60)} segundos")
+                
+                if tiempo_confirmacion > 120:  # 2 minutos sin confirmar
+                    st.error("⏰ **Tiempo de confirmación agotado.** Pasando al siguiente en cola...")
+                    usuario_pausa_activa['estado'] = 'CANCELADO'
+                    guardar_cola_pvd(cola_pvd)
+                    temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                    st.rerun()
+            
+            else:
+                # No es su turno aún - mostrar información normal
+                with st.expander("📊 Información de tu pausa en espera", expanded=True):
                     col_info1, col_info2, col_info3 = st.columns(3)
                     with col_info1:
                         st.metric("Posición en grupo", f"#{posicion}")
@@ -528,121 +593,18 @@ def gestion_pvd_usuario():
                         espacios_libres = max(0, config_grupo.get('maximo_simultaneo', 2) - estado_grupo['en_pausa'])
                         st.metric("Espacios libres", espacios_libres)
                     
-                    if tiempo_restante <= 2:
-                        st.warning(f"🔔 **Atención:** Quedan {int(tiempo_restante)} minutos. ¡Prepárate para confirmar!")
+                    if tiempo_restante and tiempo_restante > 0:
+                        st.info(f"⏱️ **Tiempo estimado:** ~{int(tiempo_restante)} minutos")
+                    else:
+                        st.info("⏱️ **Tiempo estimado:** Calculando...")
                 
-                # IMPORTANTE: VERIFICAR SI ES SU TURNO Y HAY ESPACIO - REQUIERE CONFIRMACIÓN
-                if posicion == 1 and estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
-                    st.markdown("### 🎯 ¡ES TU TURNO! - NECESITAS CONFIRMAR")
-                    
-                    st.balloons()
-                    
-                    # NOTA: NO INICIAMOS AUTOMÁTICAMENTE. EL USUARIO DEBE CONFIRMAR
-                    st.success("**¡Tu turno ha llegado! Necesitas confirmar que estás listo para comenzar la pausa.**")
-                    
-                    col_conf1, col_conf2 = st.columns(2)
-                    with col_conf1:
-                        if st.button("✅ **CONFIRMAR Y COMENZAR PAUSA**", type="primary", use_container_width=True, 
-                                   help="Confirma que estás listo para comenzar tu pausa"):
-                            # Iniciar pausa SOLO SI EL USUARIO CONFIRMA
-                            usuario_pausa_activa['estado'] = 'EN_CURSO'
-                            usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                            usuario_pausa_activa['confirmado'] = True
-                            guardar_cola_pvd(cola_pvd)
-                            st.success("✅ **Pausa confirmada e iniciada.** ¡Disfruta de tu descanso!")
-                            st.rerun()
-                    
-                    with col_conf2:
-                        if st.button("❌ **CANCELAR MI TURNO**", type="secondary", use_container_width=True,
-                                   help="Cancela tu turno y sal de la cola"):
-                            usuario_pausa_activa['estado'] = 'CANCELADO'
-                            guardar_cola_pvd(cola_pvd)
-                            temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-                            st.warning("❌ **Turno cancelado.** Has sido eliminado de la cola.")
-                            st.rerun()
-                    
-                    st.info("""
-                    **📢 Instrucciones IMPORTANTES:**
-                    1. **Tu turno ha llegado** pero debes confirmar para comenzar
-                    2. Haz clic en **CONFIRMAR** para comenzar tu pausa inmediatamente
-                    3. O haz clic en **CANCELAR** si no puedes tomar la pausa ahora
-                    4. **La pausa NO comenzará automáticamente** - necesitas confirmar
-                    5. Si no confirmas en 5 minutos, pasará al siguiente
-                    """)
-                    
-                    # Temporizador de confirmación
-                    if 'confirmacion_inicio' not in st.session_state:
-                        st.session_state.confirmacion_inicio = obtener_hora_madrid()
-                    
-                    tiempo_confirmacion = (obtener_hora_madrid() - st.session_state.confirmacion_inicio).total_seconds()
-                    minutos_restantes_confirmacion = max(0, 300 - tiempo_confirmacion) / 60  # 5 minutos para confirmar
-                    
-                    st.warning(f"⏳ **Tiempo para confirmar:** {int(minutos_restantes_confirmacion)} minutos")
-                    st.progress(min(100, (tiempo_confirmacion / 300) * 100))
-                    
-                    if tiempo_confirmacion > 300:  # 5 minutos sin confirmar
-                        st.error("⏰ **Tiempo de confirmación agotado.** Pasando al siguiente en cola...")
-                        usuario_pausa_activa['estado'] = 'CANCELADO'
-                        guardar_cola_pvd(cola_pvd)
-                        temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-                        st.rerun()
-                
-                else:
-                    # No es su turno aún
-                    if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_temporizador"):
-                        usuario_pausa_activa['estado'] = 'CANCELADO'
-                        guardar_cola_pvd(cola_pvd)
-                        temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-                        st.success("✅ Pausa cancelada")
-                        st.rerun()
-                    
-            elif tiempo_restante == 0 or tiempo_restante is None:
-                # Tiempo cumplido - mostrar confirmación obligatoria
-                st.markdown("### 🎯 ¡ES TU TURNO! - NECESITAS CONFIRMAR")
-                
-                st.balloons()
-                
-                # Verificar si hay espacio
-                if estado_grupo['en_pausa'] < config_grupo.get('maximo_simultaneo', 2):
-                    st.success("**¡Tu turno ha llegado! Necesitas confirmar que estás listo para comenzar la pausa.**")
-                    
-                    col_conf1, col_conf2 = st.columns(2)
-                    with col_conf1:
-                        if st.button("✅ **CONFIRMAR Y COMENZAR PAUSA**", type="primary", use_container_width=True, 
-                                   key="confirmar_turno_directo_obligatorio"):
-                            # Iniciar pausa SOLO SI EL USUARIO CONFIRMA
-                            usuario_pausa_activa['estado'] = 'EN_CURSO'
-                            usuario_pausa_activa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                            usuario_pausa_activa['confirmado'] = True
-                            guardar_cola_pvd(cola_pvd)
-                            st.success("✅ **Pausa confirmada e iniciada.** ¡Disfruta de tu descanso!")
-                            st.rerun()
-                    
-                    with col_conf2:
-                        if st.button("❌ **CANCELAR MI TURNO**", type="secondary", use_container_width=True,
-                                   key="cancelar_turno_directo_obligatorio"):
-                            usuario_pausa_activa['estado'] = 'CANCELADO'
-                            guardar_cola_pvd(cola_pvd)
-                            temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-                            st.warning("❌ **Turno cancelado.** Has sido eliminado de la cola.")
-                            st.rerun()
-                    
-                    st.warning("⚠️ **Debes confirmar para comenzar tu pausa. No comenzará automáticamente.**")
-                else:
-                    st.warning("⏳ **Esperando que se libere un espacio en tu grupo...**")
-                    st.info(f"Hay {estado_grupo['en_pausa']} de {config_grupo.get('maximo_simultaneo', 2)} espacios ocupados.")
-                
-            else:
-                st.info("⏳ Calculando tiempo estimado...")
-                
-                tiempo_estimado = calcular_tiempo_estimado_grupo(cola_pvd, config_pvd, grupo_usuario, st.session_state.username)
-                
-                if tiempo_estimado is not None:
-                    if not temporizador_pvd_mejorado.obtener_tiempo_restante(st.session_state.username):
-                        temporizador_pvd_mejorado.iniciar_temporizador_usuario(st.session_state.username, tiempo_estimado)
-                        st.rerun()
-                else:
-                    st.warning("No se pudo calcular el tiempo estimado. Por favor, actualiza la página.")
+                # Botón para cancelar
+                if st.button("❌ Cancelar mi pausa", type="secondary", use_container_width=True, key="cancelar_pausa_espera"):
+                    usuario_pausa_activa['estado'] = 'CANCELADO'
+                    guardar_cola_pvd(cola_pvd)
+                    temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+                    st.success("✅ Pausa cancelada")
+                    st.rerun()
         
         elif usuario_pausa_activa['estado'] == 'EN_CURSO':
             st.success(f"✅ **Pausa en curso** - {estado_display}")
@@ -698,6 +660,7 @@ def gestion_pvd_usuario():
                 st.rerun()
     
     else:
+        # Usuario no tiene pausa activa - puede solicitar una
         st.info("👁️ **Sistema de Pausas Visuales Dinámicas por Grupos**")
         st.write(f"**Grupo asignado:** {grupo_usuario}")
         
@@ -739,7 +702,7 @@ def gestion_pvd_usuario():
                         st.success("✅ Pausa solicitada. Estás en la cola de tu grupo.")
                         st.rerun()
     
-    # Información sobre el sistema automático
+    # Información sobre el sistema
     st.markdown("---")
     st.info("""
     **⚙️ Sistema Automático Mejorado:**
@@ -748,16 +711,17 @@ def gestion_pvd_usuario():
     - **✅ Finalización automática**: Las pausas se finalizan solas al terminar el tiempo
     - **🔄 Temporizador interno**: El sistema verifica cada 60 segundos
     - **👥 Gestión por grupos**: Cada grupo tiene sus propios espacios y configuración
-    - **🔄 Autorefresh**: La página se actualiza automáticamente cada 60 segundos
+    - **🔄 Sin autorefresh**: La página NO se actualiza automáticamente
     
     **📢 ¿Cómo funciona?**
     1. Solicita una pausa (corta o larga)
     2. Espera tu turno en la cola de tu grupo
-    3. Cuando sea tu turno, verás botones para **CONFIRMAR** o **CANCELAR**
+    3. **Cuando sea tu turno, verás una ALERTA GRANDE preguntando si confirmas**
     4. **DEBES CONFIRMAR** para comenzar tu pausa - NO comienza automáticamente
-    5. La pausa termina automáticamente
+    5. Si no confirmas en 2 minutos, pierdes tu turno
+    6. La pausa termina automáticamente
     
     **⚠️ IMPORTANTE:**
-    - Si no confirmas en 5 minutos, perderás tu turno
-    - La página se actualiza automáticamente cada 60 segundos
+    - La página NO se refresca automáticamente
+    - Debes hacer clic en **🔄 Actualizar Ahora** para ver cambios
     """)

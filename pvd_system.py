@@ -78,55 +78,50 @@ class TemporizadorPVDMejorado:
             guardar_cola_pvd(cola_pvd)
     
     def _iniciar_siguiente_automatico(self, cola_pvd, config_pvd, grupo=None):
-        """Inicia automáticamente al siguiente en la cola después de finalizar una pausa"""
+        """NO inicia automáticamente al siguiente - solo marca como disponible"""
         # Obtener configuración de grupos
         config_sistema = cargar_config_sistema()
         grupos_config = config_sistema.get('grupos_pvd', {})
-        
+    
         if grupo and grupo in grupos_config:
             max_grupo = grupos_config[grupo].get('maximo_simultaneo', 2)
             en_pausa_grupo = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO' and p.get('grupo') == grupo])
-            
+        
             if en_pausa_grupo < max_grupo:
                 # Buscar siguiente en cola del mismo grupo
                 en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
                 en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-                
+            
                 if en_espera_grupo:
                     siguiente = en_espera_grupo[0]
-                    siguiente['estado'] = 'EN_CURSO'
-                    siguiente['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                    siguiente['notificado'] = True
-                    siguiente['confirmado'] = True  # Se asume confirmación automática
-                    
-                    # Programar notificación para este usuario
-                    self.programar_notificacion_usuario(siguiente['usuario_id'])
-                    
+                    # IMPORTANTE: NO CAMBIAMOS EL ESTADO AQUÍ
+                    # Solo marcamos que está listo para ser notificado
+                    siguiente['notificado'] = False
+                    siguiente['listo_para_confirmar'] = True
+                    siguiente['timestamp_disponible'] = obtener_hora_madrid().isoformat()
+                
                     guardar_cola_pvd(cola_pvd)
                     return True
-        
+    
         # Si no hay grupo o no funciona por grupo, usar sistema general
         en_pausa = len([p for p in cola_pvd if p['estado'] == 'EN_CURSO'])
         maximo_simultaneo = config_pvd['maximo_simultaneo']
-        
+    
         if en_pausa < maximo_simultaneo:
             # Buscar siguiente en cola general
             en_espera = [p for p in cola_pvd if p['estado'] == 'ESPERANDO']
             en_espera = sorted(en_espera, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
-            
+        
             if en_espera:
                 siguiente = en_espera[0]
-                siguiente['estado'] = 'EN_CURSO'
-                siguiente['timestamp_inicio'] = obtener_hora_madrid().isoformat()
-                siguiente['notificado'] = True
-                siguiente['confirmado'] = True
-                
-                # Programar notificación para este usuario
-                self.programar_notificacion_usuario(siguiente['usuario_id'])
-                
+                # IMPORTANTE: NO CAMBIAMOS EL ESTADO AQUÍ
+                siguiente['notificado'] = False
+                siguiente['listo_para_confirmar'] = True
+                siguiente['timestamp_disponible'] = obtener_hora_madrid().isoformat()
+            
                 guardar_cola_pvd(cola_pvd)
                 return True
-        
+    
         return False
     
     def _enviar_notificaciones_pendientes(self, cola_pvd, config_pvd):
