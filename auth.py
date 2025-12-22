@@ -1,5 +1,5 @@
 import streamlit as st
-from datetime import datetime
+from datetime import datetime  # <-- AÑADIR ESTE IMPORT
 from database import cargar_configuracion_usuarios, cargar_config_sistema
 from utils import generar_id_unico_usuario, obtener_hora_madrid
 from config import TIMEZONE_MADRID
@@ -43,6 +43,10 @@ def authenticate(username, password, user_type):
 
 def identificar_usuario_automatico():
     """Identifica automáticamente al usuario por su dispositivo"""
+    # Primero verificar si ya tenemos sesión
+    if 'authenticated' in st.session_state and st.session_state.authenticated:
+        return st.session_state.username, st.session_state.user_config
+    
     device_id = generar_id_unico_usuario()
     usuarios_config = cargar_configuracion_usuarios()
     
@@ -71,9 +75,11 @@ def identificar_usuario_automatico():
 
 def verificar_sesion():
     """Verifica si la sesión es válida"""
+    # Si no está autenticado, retornar False inmediatamente
     if not st.session_state.get('authenticated', False):
         return False
     
+    # Si no hay login_time, establecerlo ahora
     if 'login_time' not in st.session_state:
         st.session_state.login_time = datetime.now()
         return True
@@ -81,7 +87,17 @@ def verificar_sesion():
     config_sistema = cargar_config_sistema()
     horas_duracion = config_sistema.get("sesion_horas_duracion", 8)
     
-    horas_transcurridas = (datetime.now() - st.session_state.login_time).total_seconds() / 3600
+    # Calcular horas transcurridas
+    if isinstance(st.session_state.login_time, str):
+        # Convertir de string a datetime si es necesario
+        try:
+            login_time = datetime.fromisoformat(st.session_state.login_time)
+        except:
+            login_time = datetime.now()
+    else:
+        login_time = st.session_state.login_time
+    
+    horas_transcurridas = (datetime.now() - login_time).total_seconds() / 3600
     
     if horas_transcurridas >= horas_duracion:
         st.warning("⏰ Tu sesión ha expirado. Por favor, vuelve a iniciar sesión.")
@@ -95,8 +111,8 @@ def verificar_sesion():
         
         # Cancelar temporizador si existe
         if 'username' in st.session_state:
-            from pvd_system import temporizador_pvd
-            temporizador_pvd.cancelar_temporizador(st.session_state.username)
+            from pvd_system import temporizador_pvd_mejorado
+            temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
         
         st.rerun()
         return False
@@ -109,3 +125,14 @@ def verificar_sesion():
     st.sidebar.info(f"⏳ Sesión: {horas}h {minutos}m restantes")
     
     return True
+
+def mantener_sesion():
+    """Función para mantener la sesión activa durante autorefresh"""
+    # Esta función se llama durante cada refresh para mantener la sesión
+    if 'authenticated' in st.session_state and st.session_state.authenticated:
+        # Actualizar tiempo de sesión para evitar expiración durante autorefresh
+        if 'login_time' in st.session_state:
+            # No actualizamos el login_time, solo verificamos que no haya expirado
+            pass
+        return True
+    return False

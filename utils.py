@@ -45,15 +45,36 @@ def formatear_hora_madrid(fecha_hora):
         return "00:00:00"
 
 def generar_id_unico_usuario():
-    """Genera un ID único para el dispositivo del usuario"""
+    """Genera un ID único para el dispositivo del usuario con persistencia"""
     import streamlit as st
+    
+    # Usar session_state como respaldo
     if 'device_id' not in st.session_state:
         device_id = f"dev_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}"
         st.session_state.device_id = device_id
-    return st.session_state.device_id
+    
+    return st.session_state.get('device_id', f"dev_{uuid.uuid4().hex[:12]}_{int(datetime.now().timestamp())}")
 
 def inicializar_directorios():
     """Inicializa los directorios necesarios"""
     os.makedirs("data", exist_ok=True)
     os.makedirs("data_backup", exist_ok=True)
     os.makedirs("modelos_facturas", exist_ok=True)
+
+def crear_autorefresh_safe():
+    """Crea un sistema de autorefresh que no pierde la sesión"""
+    import streamlit as st
+    import time
+    
+    # Esta función sería llamada desde el main loop
+    current_time = time.time()
+    
+    if 'last_autorefresh' not in st.session_state:
+        st.session_state.last_autorefresh = current_time
+    
+    # Verificar si ha pasado 60 segundos
+    if current_time - st.session_state.last_autorefresh > 60:
+        st.session_state.last_autorefresh = current_time
+        return True
+    
+    return False

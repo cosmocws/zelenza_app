@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 import shutil
+from datetime import datetime, timedelta
+import time
 from config import *
 from auth import *
 from database import *
@@ -24,9 +26,34 @@ def main():
         }
     )
     
+    # INICIALIZACIÓN DE SESIÓN
+    if 'app_initialized' not in st.session_state:
+        st.session_state.app_initialized = True
+        st.session_state.last_refresh = time.time()
+        st.session_state.refresh_counter = 60
+    
+    # SISTEMA DE AUTOREFRESH SUAVE
+    current_time = time.time()
+    time_diff = current_time - st.session_state.last_refresh
+    st.session_state.refresh_counter = max(0, 60 - int(time_diff))
+    
+    # Mostrar contador de autorefresh en sidebar
+    with st.sidebar:
+        if st.session_state.refresh_counter <= 5:
+            st.warning(f"🔄 Refrescando en: {st.session_state.refresh_counter}s")
+        else:
+            st.info(f"🔄 Siguiente refresh: {st.session_state.refresh_counter}s")
+        
+        if st.button("🔄 Refrescar ahora", use_container_width=True):
+            st.rerun()
+    
+    # Ejecutar autorefresh cada 60 segundos
+    if time_diff > 60:
+        st.session_state.last_refresh = current_time
+        st.rerun()
+    
     # Inicializar temporizador PVD en segundo plano
     if 'temporizador_iniciado' not in st.session_state:
-        # Esto asegura que el temporizador se inicie una sola vez
         st.session_state.temporizador_iniciado = True
     
     # Mostrar información sobre el sistema mejorado
@@ -35,19 +62,13 @@ def main():
     
     # Información sobre el sistema mejorado
     st.info("""
-    **🔔 SISTEMA PVD MEJORADO v2.0:**
+    **🔔 Objetivo: RETENER. Consecuencia: LA VENTA.**
     
-    - **✅ Finalización automática**: Las pausas se finalizan solas
-    - **🔔 Notificación automática**: El siguiente en cola es notificado automáticamente
-    - **⏱️ Temporizador interno**: Verificación cada 60 segundos
-    - **👥 Sistema por grupos**: Cada grupo tiene su propia configuración
-    - **🔄 Sin intervención manual**: Todo funciona automáticamente
-    
-    **⚙️ Características:**
-    1. No es necesario darle a "Finalizar PVD"
-    2. El siguiente recibe notificación automática
-    3. Gestión inteligente por grupos de usuarios
-    4. Temporizador de 60 segundos en segundo plano
+    - **✅ No vendas un producto, ofrece la solución a un problema.**
+    - **🔔 Detrás de cada objeción hay un cliente esperando ser convencido.**
+    - **⏱️ La retención es la meta. La venta, su resultado natural.**
+    - **👥 Tu voz es su guía. Tu confianza, su certeza.**
+    - **🔄 Olvida el 'no' de ayer. Hoy hay un 'sí' nuevo esperándote.**
     """)
     
     # Restauración automática al iniciar
@@ -61,14 +82,19 @@ def main():
     
     inicializar_datos()
     
-    # Inicializar estado de sesión
-    if 'authenticated' not in st.session_state:
-        st.session_state.authenticated = False
-        st.session_state.user_type = None
-        st.session_state.username = ""
-        st.session_state.login_time = None
-        st.session_state.user_config = {}
-        st.session_state.device_id = None
+    # INICIALIZAR ESTADO DE SESIÓN CON VALORES POR DEFECTO
+    session_defaults = {
+        'authenticated': False,
+        'user_type': None,
+        'username': "",
+        'login_time': None,
+        'user_config': {},
+        'device_id': None
+    }
+    
+    for key, default_value in session_defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = default_value
     
     # Verificar si ya está autenticado
     if st.session_state.get('authenticated', False):
@@ -108,12 +134,8 @@ def main():
         # Botón para cerrar sesión
         if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
             # Limpiar sesión
-            st.session_state.authenticated = False
-            st.session_state.user_type = None
-            st.session_state.username = ""
-            st.session_state.login_time = None
-            st.session_state.user_config = {}
-            st.session_state.device_id = None
+            for key in session_defaults.keys():
+                st.session_state[key] = session_defaults[key]
             
             # Cancelar temporizador si existe
             if 'username' in st.session_state:
@@ -177,6 +199,34 @@ def main():
             mostrar_panel_administrador()
         else:
             mostrar_panel_usuario()
+        
+        # JavaScript para autoreflash visual (sin recargar sesión)
+        st.markdown("""
+        <script>
+        // Contador visual para el usuario
+        let visualCounter = 60;
+        const counterElement = document.createElement('div');
+        counterElement.style.position = 'fixed';
+        counterElement.style.bottom = '10px';
+        counterElement.style.right = '10px';
+        counterElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        counterElement.style.color = 'white';
+        counterElement.style.padding = '5px 10px';
+        counterElement.style.borderRadius = '5px';
+        counterElement.style.fontSize = '12px';
+        counterElement.style.zIndex = '9999';
+        counterElement.innerHTML = `🔄 Auto-refresh: ${visualCounter}s`;
+        document.body.appendChild(counterElement);
+        
+        setInterval(() => {
+            visualCounter--;
+            if (visualCounter <= 0) {
+                visualCounter = 60;
+            }
+            counterElement.innerHTML = `🔄 Auto-refresh: ${visualCounter}s`;
+        }, 1000);
+        </script>
+        """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
