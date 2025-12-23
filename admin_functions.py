@@ -643,6 +643,48 @@ def gestion_pvd_admin():
                 st.rerun()
             else:
                 st.error("❌ El grupo PVD ya existe")
+
+        # Borrar grupo PVD existente
+        st.write("### 🗑️ Borrar Grupo PVD")
+        grupos_existentes = list(grupos_config.keys())
+        if grupos_existentes:
+            grupo_a_borrar = st.selectbox(
+                "Seleccionar grupo a borrar",
+                grupos_existentes,
+                key="borrar_grupo_pvd"
+            )
+    
+            if st.button("🗑️ Borrar Grupo", key="borrar_grupo_btn", type="secondary"):
+                if len(grupos_existentes) <= 1:
+                    st.error("❌ No puedes borrar todos los grupos. Debe quedar al menos uno.")
+                elif grupo_a_borrar == 'basico':
+                    st.error("❌ No puedes borrar el grupo 'basico' (grupo por defecto).")
+                else:
+                    # Confirmación
+                    confirmacion = st.text_input(f"Escribe 'BORRAR {grupo_a_borrar}' para confirmar")
+                    if confirmacion == f"BORRAR {grupo_a_borrar}":
+                        # Borrar grupo de la configuración
+                        del grupos_config[grupo_a_borrar]
+                        config_sistema['grupos_pvd'] = grupos_config
+                        guardar_config_sistema(config_sistema)
+                
+                        # Actualizar usuarios que tenían ese grupo
+                        usuarios_config = cargar_configuracion_usuarios()
+                        usuarios_modificados = 0
+                        for username, config in usuarios_config.items():
+                            if config.get('grupo') == grupo_a_borrar:
+                                usuarios_config[username]['grupo'] = 'basico'
+                                usuarios_modificados += 1
+                
+                        if usuarios_modificados > 0:
+                            guardar_configuracion_usuarios(usuarios_config)
+                
+                        st.success(f"✅ Grupo '{grupo_a_borrar}' borrado. {usuarios_modificados} usuarios asignados al grupo 'basico'.")
+                        st.rerun()
+                    elif confirmacion:
+                        st.error("❌ Texto de confirmación incorrecto.")
+        else:
+            st.info("No hay grupos para borrar")
     
     # Estadísticas actuales
     st.markdown("---")

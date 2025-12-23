@@ -441,6 +441,16 @@ def comparativa_estimada():
 def gestion_pvd_usuario():
     """Sistema de Pausas Visuales para usuarios con grupos - CONFIRMACIÓN OBLIGATORIA"""
     st.subheader("👁️ Sistema de Pausas Visuales (PVD)")
+
+    # Verificar si ya se está mostrando notificación en sidebar
+    if 'mostrar_notificacion_sidebar' in st.session_state and st.session_state.mostrar_notificacion_sidebar:
+        st.info("🎯 **¡Tienes una notificación en la barra lateral!**")
+        st.write("Por favor, revisa la barra lateral de la izquierda para confirmar o cancelar tu turno.")
+        st.markdown("---")
+        # Mostrar botón para ir directamente
+        if st.button("👈 Ir a la barra lateral", use_container_width=True):
+            st.markdown('<script>document.querySelector(\'[data-testid="stSidebar"]\').scrollIntoView();</script>', unsafe_allow_html=True)
+        return
     
     config_pvd = cargar_config_pvd()
     cola_pvd = cargar_cola_pvd()

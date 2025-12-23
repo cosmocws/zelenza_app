@@ -9,6 +9,7 @@ from ui_components import mostrar_login, mostrar_panel_usuario
 from admin_functions import mostrar_panel_administrador
 from pvd_system import temporizador_pvd_mejorado
 from utils import obtener_hora_madrid, formatear_hora_madrid
+from sidebar_notifications import verificar_turno_sidebar
 
 def main():
     """Función principal de la aplicación"""
@@ -24,6 +25,35 @@ def main():
             'About': '# Zelenza CEX v2.0 con PVD Mejorado y Grupos'
         }
     )
+
+    st.markdown("""
+    <style>
+    @keyframes pulse {
+        0% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.05); opacity: 0.9; }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .sidebar-notification {
+        animation: pulse 2s infinite, blink 3s infinite;
+        border-left: 5px solid #00b09b !important;
+    }
+
+    .stButton > button {
+        transition: all 0.3s ease;
+    }
+
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    </style>
+    """, unsafe_allow_html=True)
     
     # Inicializar temporizador PVD en segundo plano
     if 'temporizador_iniciado' not in st.session_state:
@@ -99,6 +129,17 @@ def main():
                     st.sidebar.write(f"• Agentes: {config_grupo.get('agentes_por_grupo', 10)}")
                     st.sidebar.write(f"• Máx. simultáneo: {config_grupo.get('maximo_simultaneo', 2)}")
         
+        # Verificar y mostrar notificación en la barra lateral si es el turno
+        if st.session_state.user_type == "user":
+            # Primero verificar el turno en sidebar
+            if verificar_turno_sidebar():
+                # Si se muestra la notificación en sidebar, no mostrar la info normal del PVD
+                st.sidebar.markdown("---")
+                st.sidebar.warning("⚠️ **TURNO ACTIVO** - Por favor confirma o cancela arriba")
+            else:
+                # Mostrar info normal del PVD (el código existente)
+                cola_pvd = cargar_cola_pvd()
+
         # Botón para cerrar sesión
         if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
             # Limpiar sesión

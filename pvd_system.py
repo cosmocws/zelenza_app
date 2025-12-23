@@ -150,6 +150,9 @@ class TemporizadorPVDMejorado:
                         pausa['notificado'] = True
                         pausa['timestamp_notificacion'] = obtener_hora_madrid().isoformat()
                         guardar_cola_pvd(cola_pvd)
+
+                        # Añadir flag para mostrar en sidebar
+                        pausa['notificar_sidebar'] = True
     
     def _actualizar_grupos(self):
         """Actualiza la información de grupos activos"""
