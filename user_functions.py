@@ -131,17 +131,48 @@ def calculadora_gas():
     
     if st.button("🔄 Calcular Comparativa Gas", type="primary"):
         resultados = []
+        
+        # OBTENER PLANES PERMITIDOS PARA EL USUARIO
+        from database import cargar_configuracion_usuarios, cargar_config_sistema
         usuarios_config = cargar_configuracion_usuarios()
+        config_sistema = cargar_config_sistema()
+        grupos = config_sistema.get("grupos_usuarios", {})
+        
+        usuario_id = st.session_state.username
+        grupo_usuario = ""
         planes_permitidos = []
         
-        if st.session_state.username in usuarios_config:
-            config_usuario = usuarios_config[st.session_state.username]
-            planes_permitidos = config_usuario.get("planes_gas", ["RL1", "RL2", "RL3"])
+        if usuario_id in usuarios_config:
+            config_usuario = usuarios_config[usuario_id]
+            grupo_usuario = config_usuario.get('grupo', '')
+            
+            if grupo_usuario and grupo_usuario in grupos:
+                # Usar planes del grupo
+                permisos_grupo = grupos[grupo_usuario]
+                planes_permitidos = permisos_grupo.get("planes_gas", [])
+                st.info(f"👥 Usando permisos del grupo: {grupo_usuario}")
+            else:
+                # Usar planes específicos del usuario
+                planes_permitidos = config_usuario.get("planes_gas", [])
+                st.info(f"👤 Usando permisos específicos del usuario")
         else:
+            # Usuario no existe en configuración, usar todos los planes
+            planes_permitidos = ["RL1", "RL2", "RL3"]
+            st.info("ℹ️ Usando todos los planes disponibles")
+        
+        # DEBUG: Mostrar información
+        st.write(f"**Planes permitidos:** {planes_permitidos}")
+        
+        # Si planes_permitidos está vacío o es "TODOS", usar todos los planes
+        if not planes_permitidos or planes_permitidos == "TODOS":
             planes_permitidos = ["RL1", "RL2", "RL3"]
         
         for rl, plan in planes_gas.items():
-            if plan["activo"] and rl in planes_permitidos:
+            # VERIFICAR SI EL PLAN ESTÁ PERMITIDO
+            if rl not in planes_permitidos:
+                continue  # Saltar este plan si no está permitido
+            
+            if plan["activo"]:
                 for tiene_pmg in [True, False]:
                     coste_anual = calcular_coste_gas_completo(plan, consumo_anual, tiene_pmg, es_canarias)
                     coste_mensual = coste_anual / 12
@@ -240,7 +271,9 @@ def calculadora_gas():
                     st.warning(f"⚠️ Con {mejor_recomendado['Plan']} {mejor_recomendado['Pack Mantenimiento']} PMG pagarías {abs(ahorro_mensual_rec):,.2f}€/mes más")
         
         else:
-            st.warning("No hay planes de gas activos para mostrar")
+            st.warning(f"⚠️ No hay planes de gas activos o permitidos para mostrar")
+            st.info(f"**Planes permitidos para tu grupo/usuario:** {planes_permitidos}")
+            st.info(f"**Planes disponibles:** RL1, RL2, RL3")
 
 def crear_temporizador_html_simplificado(minutos_restantes, usuario_id):
     """Crea un temporizador visual en HTML/JavaScript SIN notificaciones del navegador"""
@@ -581,7 +614,8 @@ def gestion_pvd_usuario():
                 tiempo_confirmacion = (obtener_hora_madrid() - st.session_state.confirmacion_inicio).total_seconds()
                 minutos_restantes_confirmacion = max(0, 120 - tiempo_confirmacion) / 60  # 2 minutos para confirmar
                 
-                st.progress(min(100, (tiempo_confirmacion / 120) * 100))
+                progreso_porcentaje = min(100, (tiempo_confirmacion / 120) * 100)
+                st.progress(progreso_porcentaje / 100)
                 st.caption(f"⏳ **Tiempo para confirmar:** {int(minutos_restantes_confirmacion)} minutos y {int((minutos_restantes_confirmacion % 1) * 60)} segundos")
                 
                 if tiempo_confirmacion > 120:  # 2 minutos sin confirmar

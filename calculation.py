@@ -95,23 +95,51 @@ def filtrar_planes_por_usuario(df_planes, username, tipo_plan="luz"):
     grupos = config_sistema.get("grupos_usuarios", {})
     
     if username not in usuarios_config:
-        return df_planes[df_planes['activo'] == True]
+        # Si no existe el usuario, devolver todos los activos
+        if tipo_plan == "luz":
+            return df_planes[df_planes['activo'] == True]
+        else:
+            # Para gas, devolver todos los planes activos
+            return df_planes
     
     config_usuario = usuarios_config[username]
     grupo_usuario = config_usuario.get('grupo')
     
+    # DEBUG: Mostrar información para diagnóstico
+    print(f"DEBUG - Usuario: {username}, Grupo: {grupo_usuario}, Tipo plan: {tipo_plan}")
+    print(f"DEBUG - Config usuario planes: {config_usuario.get(f'planes_{tipo_plan}')}")
+    
     if not grupo_usuario or grupo_usuario not in grupos:
+        # Usar planes específicos del usuario si no tiene grupo válido
         planes_permitidos = config_usuario.get(f"planes_{tipo_plan}", [])
+        print(f"DEBUG - Usando planes del usuario: {planes_permitidos}")
     else:
+        # Usar planes del grupo
         permisos_grupo = grupos[grupo_usuario]
         planes_permitidos = permisos_grupo.get(f"planes_{tipo_plan}", [])
+        print(f"DEBUG - Usando planes del grupo {grupo_usuario}: {planes_permitidos}")
     
     if not planes_permitidos:
-        return df_planes[df_planes['activo'] == True]
+        # Si no hay planes permitidos, devolver todos los activos
+        if tipo_plan == "luz":
+            return df_planes[df_planes['activo'] == True]
+        else:
+            return df_planes
     
     if planes_permitidos == "TODOS":
-        return df_planes[df_planes['activo'] == True]
+        # Si es "TODOS", devolver todos los activos
+        if tipo_plan == "luz":
+            return df_planes[df_planes['activo'] == True]
+        else:
+            return df_planes
     
+    # Para gas, necesitamos un tratamiento especial
+    if tipo_plan == "gas":
+        # Los planes de gas no están en un DataFrame como los de luz
+        # Se manejan directamente en la función calculadora_gas
+        return df_planes  # Devolver el DataFrame original (aunque no se use para gas)
+    
+    # Para luz, filtrar normalmente
     return df_planes[
         (df_planes['plan'].isin(planes_permitidos)) & 
         (df_planes['activo'] == True)

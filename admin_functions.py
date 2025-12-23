@@ -126,6 +126,35 @@ def gestion_electricidad():
             activo = st.checkbox("Plan activo", 
                                value=st.session_state.editing_plan.get('activo', True) if st.session_state.editing_plan else True)
         
+        # Campo para umbral del Especial Plus
+        st.write("### ⚙️ Configuración Especial Plus (si aplica)")
+        
+        # Verificar si el plan es "ESPECIAL PLUS"
+        es_especial_plus = "ESPECIAL PLUS" in nombre_plan.upper() if nombre_plan else False
+        
+        if es_especial_plus or (st.session_state.editing_plan and 
+                               "ESPECIAL PLUS" in str(st.session_state.editing_plan.get('plan', '')).upper()):
+            
+            if st.session_state.editing_plan:
+                umbral_actual = st.session_state.editing_plan.get('umbral_especial_plus', 15.00)
+            else:
+                umbral_actual = 15.00
+            
+            umbral_especial_plus = st.number_input(
+                "Umbral Especial Plus (€)",
+                min_value=0.0,
+                max_value=100.0,
+                value=umbral_actual,
+                step=0.5,
+                format="%.2f",
+                help="Ahorro mínimo mensual necesario para mostrar el plan Especial Plus"
+            )
+            
+            st.info(f"ℹ️ El plan Especial Plus solo se mostrará si el mejor plan normal ahorra menos de {umbral_especial_plus}€/mes")
+        else:
+            umbral_especial_plus = 0.00
+            st.info("ℹ️ Este no es un plan Especial Plus (no aplica umbral)")
+        
         # Comunidades autónomas
         st.write("### 🗺️ Comunidades Autónomas Disponibles")
         comunidades_actuales = []
@@ -163,16 +192,9 @@ def gestion_electricidad():
                     'valle': valle,
                     'total_potencia': total_potencia,
                     'activo': activo,
-                    'comunidades_autonomas': ';'.join(comunidades_seleccionadas)
+                    'comunidades_autonomas': ';'.join(comunidades_seleccionadas),
+                    'umbral_especial_plus': umbral_especial_plus
                 }
-                
-                if st.session_state.editing_plan is not None and 'umbral_especial_plus' in st.session_state.editing_plan:
-                    nuevo_plan_data['umbral_especial_plus'] = st.session_state.editing_plan['umbral_especial_plus']
-                else:
-                    if "ESPECIAL PLUS" in nombre_plan.upper():
-                        nuevo_plan_data['umbral_especial_plus'] = 15.00
-                    else:
-                        nuevo_plan_data['umbral_especial_plus'] = 0.00
                 
                 # Añadir o actualizar
                 if nombre_plan in df_luz['plan'].values:
@@ -288,8 +310,9 @@ def gestion_usuarios():
     usuarios_config = cargar_configuracion_usuarios()
     config_sistema = cargar_config_sistema()
     grupos = config_sistema.get("grupos_usuarios", {})
+    grupos_pvd = config_sistema.get("grupos_pvd", {})
     
-    tab1, tab2, tab3 = st.tabs(["👤 Usuarios", "👥 Grupos", "➕ Crear Usuario"])
+    tab1, tab2, tab3, tab4 = st.tabs(["👤 Usuarios", "👥 Grupos Usuarios", "⚙️ Grupos PVD", "➕ Crear Usuario"])
     
     with tab1:
         st.write("### 📊 Lista de Usuarios")
@@ -305,10 +328,12 @@ def gestion_usuarios():
                     nuevo_nombre = st.text_input("Nombre", value=config.get('nombre', ''), key=f"nombre_{username}")
                     
                     grupo_actual = config.get('grupo', '')
+                    # Obtener lista de grupos PVD disponibles
+                    grupos_pvd_lista = list(grupos_pvd.keys())
                     grupo_seleccionado = st.selectbox(
-                        "Grupo",
-                        [""] + list(grupos.keys()),
-                        index=0 if not grupo_actual else (list(grupos.keys()).index(grupo_actual) + 1),
+                        "Grupo PVD",
+                        [""] + grupos_pvd_lista,
+                        index=0 if not grupo_actual else (grupos_pvd_lista.index(grupo_actual) + 1 if grupo_actual in grupos_pvd_lista else 0),
                         key=f"grupo_{username}"
                     )
                     
@@ -323,11 +348,13 @@ def gestion_usuarios():
                         st.info("⚠️ La contraseña se cambiará al guardar")
                 
                 with col2:
-                    if grupo_seleccionado and grupo_seleccionado in grupos:
-                        permisos = grupos[grupo_seleccionado]
-                        st.write("**Permisos del grupo:**")
-                        st.write(f"📈 Luz: {', '.join(permisos.get('planes_luz', []))}")
-                        st.write(f"🔥 Gas: {', '.join(permisos.get('planes_gas', []))}")
+                    if grupo_seleccionado and grupo_seleccionado in grupos_pvd:
+                        config_grupo = grupos_pvd[grupo_seleccionado]
+                        st.write("**Configuración PVD del grupo:**")
+                        st.write(f"👥 Agentes: {config_grupo.get('agentes_por_grupo', 10)}")
+                        st.write(f"⏸️ Máx. simultáneo: {config_grupo.get('maximo_simultaneo', 2)}")
+                        st.write(f"⏱️ Pausa corta: {config_grupo.get('duracion_corta', 5)} min")
+                        st.write(f"⏱️ Pausa larga: {config_grupo.get('duracion_larga', 10)} min")
                     
                     st.write("**Información:**")
                     st.write(f"📧 Username: `{username}`")
@@ -354,7 +381,7 @@ def gestion_usuarios():
                             st.rerun()
     
     with tab2:
-        st.write("### 👥 Gestión de Grupos")
+        st.write("### 👥 Gestión de Grupos de Usuarios")
         
         for grupo_nombre, permisos in grupos.items():
             with st.expander(f"**Grupo: {grupo_nombre}**", expanded=True):
@@ -401,8 +428,8 @@ def gestion_usuarios():
                     st.success(f"✅ Grupo {grupo_nombre} actualizado")
                     st.rerun()
         
-        # Crear nuevo grupo
-        st.write("### ➕ Crear Nuevo Grupo")
+        # Crear nuevo grupo de usuarios
+        st.write("### ➕ Crear Nuevo Grupo de Usuarios")
         nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo")
         
         if st.button("Crear Grupo") and nuevo_grupo_nombre:
@@ -418,7 +445,241 @@ def gestion_usuarios():
             else:
                 st.error("❌ El grupo ya existe")
     
-    with tab3:
+    with tab3:  # NUEVA PESTAÑA: Grupos PVD
+        st.write("### ⚙️ Gestión de Grupos PVD")
+        st.info("Configura los grupos para el sistema de Pausas Visuales Dinámicas")
+        
+        # Estado para edición
+        if 'editing_grupo_pvd' not in st.session_state:
+            st.session_state.editing_grupo_pvd = None
+        
+        # Mostrar grupos PVD existentes
+        st.write("#### 📊 Grupos PVD Existentes")
+        
+        if not grupos_pvd:
+            st.info("📝 No hay grupos PVD configurados. ¡Crea el primero!")
+        else:
+            col_grupos1, col_grupos2, col_grupos3 = st.columns(3)
+            
+            with col_grupos1:
+                st.write("**✅ Grupos Activos**")
+                for grupo_id in grupos_pvd.keys():
+                    if grupo_id == 'basico':
+                        st.button(f"⚙️ {grupo_id} (sistema)", 
+                                key=f"edit_{grupo_id}",
+                                use_container_width=True,
+                                disabled=True,
+                                help="Grupo por defecto del sistema")
+                    else:
+                        if st.button(f"⚙️ {grupo_id}", 
+                                key=f"edit_{grupo_id}",
+                                use_container_width=True):
+                            st.session_state.editing_grupo_pvd = grupo_id
+                            st.rerun()
+            
+            with col_grupos2:
+                st.write("**📈 Estadísticas**")
+                # Contar usuarios por grupo
+                usuarios_por_grupo = {}
+                for username, config in usuarios_config.items():
+                    grupo = config.get('grupo', '')
+                    if grupo:
+                        if grupo not in usuarios_por_grupo:
+                            usuarios_por_grupo[grupo] = 0
+                        usuarios_por_grupo[grupo] += 1
+                
+                for grupo_id, config in grupos_pvd.items():
+                    usuarios = usuarios_por_grupo.get(grupo_id, 0)
+                    st.write(f"• **{grupo_id}:** {usuarios} usuarios")
+            
+            with col_grupos3:
+                st.write("**⚡ Acciones Rápidas**")
+                for grupo_id in grupos_pvd.keys():
+                    if grupo_id != 'basico':
+                        if st.button(f"🗑️ {grupo_id}", 
+                                key=f"del_btn_{grupo_id}",
+                                use_container_width=True,
+                                type="secondary"):
+                            st.session_state.grupo_a_borrar = grupo_id
+                            st.rerun()
+        
+        # Formulario para añadir/editar grupo PVD
+        st.write("#### ➕ Añadir/✏️ Editar Grupo PVD")
+        
+        if st.session_state.editing_grupo_pvd is not None:
+            grupo_actual = st.session_state.editing_grupo_pvd
+            config_actual = grupos_pvd[grupo_actual]
+            st.warning(f"✏️ Editando: **{grupo_actual}**")
+            if st.button("❌ Cancelar Edición"):
+                st.session_state.editing_grupo_pvd = None
+                st.rerun()
+        else:
+            config_actual = {
+                'agentes_por_grupo': 10,
+                'maximo_simultaneo': 2,
+                'duracion_corta': 5,
+                'duracion_larga': 10
+            }
+        
+        with st.form("form_grupo_pvd"):
+            if st.session_state.editing_grupo_pvd is not None:
+                nombre_grupo = st.text_input("Nombre del Grupo*", 
+                                        value=st.session_state.editing_grupo_pvd,
+                                        disabled=True)
+                st.info("⚠️ El nombre no se puede modificar al editar")
+            else:
+                nombre_grupo = st.text_input("Nombre del Grupo*", placeholder="Ej: premium, capta, etc.")
+            
+            col_conf1, col_conf2 = st.columns(2)
+            
+            with col_conf1:
+                agentes_por_grupo = st.number_input(
+                    "Agentes en grupo*",
+                    min_value=1,
+                    max_value=100,
+                    value=config_actual.get('agentes_por_grupo', 10),
+                    help="Número total de agentes en este grupo"
+                )
+                
+                maximo_simultaneo = st.number_input(
+                    "Máximo simultáneo*",
+                    min_value=1,
+                    max_value=20,
+                    value=config_actual.get('maximo_simultaneo', 2),
+                    help="Máximo número de pausas simultáneas en este grupo"
+                )
+            
+            with col_conf2:
+                duracion_corta = st.number_input(
+                    "Duración corta (min)*",
+                    min_value=1,
+                    max_value=30,
+                    value=config_actual.get('duracion_corta', 5),
+                    help="Duración de la pausa corta en minutos"
+                )
+                
+                duracion_larga = st.number_input(
+                    "Duración larga (min)*",
+                    min_value=1,
+                    max_value=60,
+                    value=config_actual.get('duracion_larga', 10),
+                    help="Duración de la pausa larga en minutos"
+                )
+            
+            submitted = st.form_submit_button(
+                "💾 Guardar Cambios" if st.session_state.editing_grupo_pvd else "➕ Crear Nuevo Grupo", 
+                type="primary"
+            )
+            
+            if submitted:
+                if not nombre_grupo:
+                    st.error("❌ El nombre del grupo es obligatorio")
+                else:
+                    nuevo_grupo_data = {
+                        'agentes_por_grupo': agentes_por_grupo,
+                        'maximo_simultaneo': maximo_simultaneo,
+                        'duracion_corta': duracion_corta,
+                        'duracion_larga': duracion_larga
+                    }
+                    
+                    # Añadir o actualizar
+                    grupos_pvd[nombre_grupo] = nuevo_grupo_data
+                    config_sistema['grupos_pvd'] = grupos_pvd
+                    guardar_config_sistema(config_sistema)
+                    
+                    if st.session_state.editing_grupo_pvd:
+                        st.success(f"✅ Grupo '{nombre_grupo}' actualizado correctamente")
+                    else:
+                        st.success(f"✅ Grupo '{nombre_grupo}' creado correctamente")
+                    
+                    st.session_state.editing_grupo_pvd = None
+                    st.rerun()
+        
+        # Sistema de borrado con confirmación
+        if 'grupo_a_borrar' in st.session_state and st.session_state.grupo_a_borrar:
+            grupo_a_borrar = st.session_state.grupo_a_borrar
+            
+            if grupo_a_borrar == 'basico':
+                st.error("❌ No puedes borrar el grupo 'basico' (grupo por defecto del sistema)")
+                st.session_state.grupo_a_borrar = None
+                st.rerun()
+            elif len(grupos_pvd) <= 1:
+                st.error("❌ No puedes borrar todos los grupos. Debe quedar al menos uno.")
+                st.session_state.grupo_a_borrar = None
+                st.rerun()
+            else:
+                st.warning(f"⚠️ **CONFIRMAR BORRADO DEL GRUPO: {grupo_a_borrar}**")
+                
+                # Contar usuarios en este grupo
+                usuarios_en_grupo = 0
+                usuarios_lista = []
+                for username, config in usuarios_config.items():
+                    if config.get('grupo') == grupo_a_borrar:
+                        usuarios_en_grupo += 1
+                        usuarios_lista.append(username)
+                
+                st.write(f"**📊 Este grupo tiene {usuarios_en_grupo} usuario(s):**")
+                if usuarios_lista:
+                    for i, usuario in enumerate(usuarios_lista[:5]):  # Mostrar solo los primeros 5
+                        st.write(f"• {usuario}")
+                    if len(usuarios_lista) > 5:
+                        st.write(f"• ... y {len(usuarios_lista) - 5} más")
+                
+                st.write("**⚠️ ADVERTENCIA:** Al borrar este grupo:")
+                st.write("1. Todos sus usuarios serán reasignados al grupo 'basico'")
+                st.write("2. Se perderá la configuración específica del grupo")
+                st.write("3. Esta acción NO se puede deshacer")
+                
+                col_conf1, col_conf2, col_conf3 = st.columns(3)
+                
+                with col_conf1:
+                    if st.button("✅ **SÍ, BORRAR GRUPO**", type="primary", use_container_width=True):
+                        # Borrar grupo
+                        del grupos_pvd[grupo_a_borrar]
+                        config_sistema['grupos_pvd'] = grupos_pvd
+                        guardar_config_sistema(config_sistema)
+                        
+                        # Reasignar usuarios al grupo 'basico'
+                        usuarios_modificados = 0
+                        for username, config in usuarios_config.items():
+                            if config.get('grupo') == grupo_a_borrar:
+                                usuarios_config[username]['grupo'] = 'basico'
+                                usuarios_modificados += 1
+                        
+                        if usuarios_modificados > 0:
+                            guardar_configuracion_usuarios(usuarios_config)
+                        
+                        st.success(f"✅ Grupo '{grupo_a_borrar}' borrado correctamente")
+                        st.success(f"✅ {usuarios_modificados} usuario(s) reasignados al grupo 'basico'")
+                        
+                        # Limpiar estado
+                        st.session_state.grupo_a_borrar = None
+                        st.session_state.editing_grupo_pvd = None
+                        st.rerun()
+                
+                with col_conf2:
+                    if st.button("❌ **NO, CANCELAR**", type="secondary", use_container_width=True):
+                        st.session_state.grupo_a_borrar = None
+                        st.info("❌ Borrado cancelado")
+                        st.rerun()
+                
+                with col_conf3:
+                    # Previsualización de cambios
+                    if usuarios_en_grupo > 0:
+                        st.metric("Usuarios a reasignar", usuarios_en_grupo)
+                    else:
+                        st.info("No hay usuarios en este grupo")
+        
+        # Información de ayuda
+        st.info("""
+        **📋 Notas sobre grupos PVD:**
+        - Cada grupo tiene su propia configuración de pausas
+        - Los usuarios se asignan a grupos en la pestaña "Usuarios"
+        - El grupo 'basico' es el grupo por defecto y no se puede borrar
+        - Al borrar un grupo, sus usuarios se reasignan automáticamente al grupo 'basico'
+        """)
+    
+    with tab4:
         st.write("### 👤 Crear Nuevo Usuario")
         
         with st.form("form_nuevo_usuario"):
@@ -427,7 +688,10 @@ def gestion_usuarios():
             with col1:
                 nuevo_username = st.text_input("Username*", help="Nombre de usuario para el acceso")
                 nuevo_nombre = st.text_input("Nombre completo*", help="Nombre real del usuario")
-                grupo_usuario = st.selectbox("Grupo", [""] + list(grupos.keys()), help="Asigna un grupo de permisos")
+                
+                # Seleccionar grupo PVD
+                grupos_pvd_lista = list(grupos_pvd.keys())
+                grupo_usuario = st.selectbox("Grupo PVD", [""] + grupos_pvd_lista, help="Asigna un grupo PVD")
             
             with col2:
                 password_usuario = st.text_input("Contraseña*", type="password", help="Contraseña para acceso manual")
@@ -557,134 +821,14 @@ def gestion_pvd_admin():
         st.success("✅ Configuración PVD guardada")
         st.rerun()
     
-    # Mostrar grupos si está activado
-    if st.session_state.get('mostrar_grupos_pvd', False):
-        st.write("### 👥 Configuración de Grupos PVD")
-        
-        for grupo_id, config_grupo in grupos_config.items():
-            estado = temporizador_pvd_mejorado.obtener_estado_grupo(grupo_id)
-            
-            with st.expander(f"**Grupo: {grupo_id}**", expanded=True):
-                col_g1, col_g2, col_g3, col_g4 = st.columns(4)
-                with col_g1:
-                    nuevos_agentes = st.number_input(
-                        "Agentes en grupo",
-                        min_value=1,
-                        max_value=100,
-                        value=config_grupo.get('agentes_por_grupo', 10),
-                        key=f"agentes_{grupo_id}"
-                    )
-                with col_g2:
-                    nuevo_max = st.number_input(
-                        "Máx. simultáneo",
-                        min_value=1,
-                        max_value=20,
-                        value=config_grupo.get('maximo_simultaneo', 2),
-                        key=f"max_{grupo_id}"
-                    )
-                with col_g3:
-                    nueva_corta = st.number_input(
-                        "Duración corta (min)",
-                        min_value=1,
-                        max_value=30,
-                        value=config_grupo.get('duracion_corta', 5),
-                        key=f"corta_{grupo_id}"
-                    )
-                with col_g4:
-                    nueva_larga = st.number_input(
-                        "Duración larga (min)",
-                        min_value=1,
-                        max_value=60,
-                        value=config_grupo.get('duracion_larga', 10),
-                        key=f"larga_{grupo_id}"
-                    )
-                
-                # Estadísticas del grupo
-                st.write(f"**📊 Estadísticas actuales:**")
-                col_stat1, col_stat2, col_stat3 = st.columns(3)
-                with col_stat1:
-                    st.metric("En pausa", f"{estado['en_pausa']}/{nuevo_max}")
-                with col_stat2:
-                    st.metric("En espera", estado['en_espera'])
-                with col_stat3:
-                    st.metric("Completadas hoy", estado.get('completados_hoy', 0))
-                
-                if st.button("💾 Actualizar Grupo", key=f"update_grupo_pvd_{grupo_id}"):
-                    grupos_config[grupo_id] = {
-                        'agentes_por_grupo': nuevos_agentes,
-                        'maximo_simultaneo': nuevo_max,
-                        'duracion_corta': nueva_corta,
-                        'duracion_larga': nueva_larga
-                    }
-                    
-                    config_sistema['grupos_pvd'] = grupos_config
-                    guardar_config_sistema(config_sistema)
-                    
-                    st.success(f"✅ Grupo {grupo_id} actualizado")
-                    st.rerun()
-        
-        # Crear nuevo grupo PVD
-        st.write("### ➕ Crear Nuevo Grupo PVD")
-        nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo PVD")
-        
-        if st.button("Crear Grupo PVD") and nuevo_grupo_nombre:
-            if nuevo_grupo_nombre not in grupos_config:
-                grupos_config[nuevo_grupo_nombre] = {
-                    'agentes_por_grupo': 10,
-                    'maximo_simultaneo': 2,
-                    'duracion_corta': 5,
-                    'duracion_larga': 10
-                }
-                
-                config_sistema['grupos_pvd'] = grupos_config
-                guardar_config_sistema(config_sistema)
-                
-                st.success(f"✅ Grupo PVD {nuevo_grupo_nombre} creado")
-                st.rerun()
-            else:
-                st.error("❌ El grupo PVD ya existe")
-
-        # Borrar grupo PVD existente
-        st.write("### 🗑️ Borrar Grupo PVD")
-        grupos_existentes = list(grupos_config.keys())
-        if grupos_existentes:
-            grupo_a_borrar = st.selectbox(
-                "Seleccionar grupo a borrar",
-                grupos_existentes,
-                key="borrar_grupo_pvd"
-            )
+    # Enlace a gestión de grupos PVD
+    st.write("### 👥 Gestión de Grupos PVD")
+    st.info("La gestión de grupos PVD se ha movido a la pestaña **👥 Usuarios** → **⚙️ Grupos PVD**")
     
-            if st.button("🗑️ Borrar Grupo", key="borrar_grupo_btn", type="secondary"):
-                if len(grupos_existentes) <= 1:
-                    st.error("❌ No puedes borrar todos los grupos. Debe quedar al menos uno.")
-                elif grupo_a_borrar == 'basico':
-                    st.error("❌ No puedes borrar el grupo 'basico' (grupo por defecto).")
-                else:
-                    # Confirmación
-                    confirmacion = st.text_input(f"Escribe 'BORRAR {grupo_a_borrar}' para confirmar")
-                    if confirmacion == f"BORRAR {grupo_a_borrar}":
-                        # Borrar grupo de la configuración
-                        del grupos_config[grupo_a_borrar]
-                        config_sistema['grupos_pvd'] = grupos_config
-                        guardar_config_sistema(config_sistema)
-                
-                        # Actualizar usuarios que tenían ese grupo
-                        usuarios_config = cargar_configuracion_usuarios()
-                        usuarios_modificados = 0
-                        for username, config in usuarios_config.items():
-                            if config.get('grupo') == grupo_a_borrar:
-                                usuarios_config[username]['grupo'] = 'basico'
-                                usuarios_modificados += 1
-                
-                        if usuarios_modificados > 0:
-                            guardar_configuracion_usuarios(usuarios_config)
-                
-                        st.success(f"✅ Grupo '{grupo_a_borrar}' borrado. {usuarios_modificados} usuarios asignados al grupo 'basico'.")
-                        st.rerun()
-                    elif confirmacion:
-                        st.error("❌ Texto de confirmación incorrecto.")
-        else:
-            st.info("No hay grupos para borrar")
+    if st.button("👥 Ir a Gestión de Grupos PVD", key="ir_grupos_pvd"):
+        # Para redirigir, podemos establecer un estado y recargar
+        st.session_state.active_admin_tab = "Usuarios"
+        st.rerun()
     
     # Estadísticas actuales
     st.markdown("---")
