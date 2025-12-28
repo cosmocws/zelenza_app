@@ -7,6 +7,7 @@ import shutil
 from datetime import datetime, timedelta
 import pytz
 from super_users_functions import gestion_super_users_admin
+from llamadas_analyzer import interfaz_analisis_llamadas
 
 from config import (
     COMUNIDADES_AUTONOMAS, PLANES_GAS_ESTRUCTURA, 
@@ -1281,236 +1282,6 @@ def gestion_config_sistema():
         st.success("✅ Configuración del sistema guardada")
         st.rerun()
 
-def sistema_pruebas_pvd():
-    """Sistema de pruebas para el PVD - Solo para administradores"""
-    st.subheader("🧪 Sistema de Pruebas PVD")
-    st.warning("⚠️ **SOLO PARA PRUEBAS** - Esto afecta a la cola real")
-    
-    config_pvd = cargar_config_pvd()
-    cola_pvd = cargar_cola_pvd()
-    
-    tab1, tab2, tab3 = st.tabs(["🚀 Simulación Rápida", "👥 Usuarios de Prueba", "⏱️ Prueba Notificaciones"])
-    
-    with tab1:
-        st.write("### 🚀 Simulación Rápida de Cola")
-        
-        col_sim1, col_sim2, col_sim3 = st.columns(3)
-        
-        with col_sim1:
-            if st.button("🧹 Limpiar TODA la cola", type="secondary", use_container_width=True):
-                backup_file = f"data_backup/cola_pvd_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
-                with open(backup_file, 'w', encoding='utf-8') as f:
-                    json.dump(cola_pvd, f, indent=4)
-                
-                cola_pvd = []
-                guardar_cola_pvd(cola_pvd)
-                st.success("✅ Cola limpiada. Backup guardado")
-                st.rerun()
-        
-        with col_sim2:
-            if st.button("⏭️ Avanzar tiempo 5 min", type="secondary", use_container_width=True):
-                for pausa in cola_pvd:
-                    if 'timestamp_solicitud' in pausa:
-                        tiempo_original = datetime.fromisoformat(pausa['timestamp_solicitud'])
-                        tiempo_nuevo = tiempo_original - timedelta(minutes=5)
-                        pausa['timestamp_solicitud'] = tiempo_nuevo.isoformat()
-                    
-                    if 'timestamp_inicio' in pausa and pausa['timestamp_inicio']:
-                        tiempo_original = datetime.fromisoformat(pausa['timestamp_inicio'])
-                        tiempo_nuevo = tiempo_original - timedelta(minutes=5)
-                        pausa['timestamp_inicio'] = tiempo_nuevo.isoformat()
-                
-                guardar_cola_pvd(cola_pvd)
-                st.success("⏰ Tiempo avanzado 5 minutos")
-                st.rerun()
-        
-        with col_sim3:
-            if st.button("✅ Finalizar todas activas", type="secondary", use_container_width=True):
-                for pausa in cola_pvd:
-                    if pausa['estado'] == 'EN_CURSO':
-                        pausa['estado'] = 'COMPLETADO'
-                        pausa['timestamp_fin'] = obtener_hora_madrid().isoformat()
-                
-                guardar_cola_pvd(cola_pvd)
-                st.success("✅ Todas las pausas activas finalizadas")
-                st.rerun()
-    
-    with tab2:
-        st.write("### 👥 Crear Usuarios de Prueba")
-        
-        usuarios_prueba = [
-            {"nombre": "Agente Prueba 1", "id": "test_agente1", "grupo": "basico"},
-            {"nombre": "Agente Prueba 2", "id": "test_agente2", "grupo": "premium"},
-            {"nombre": "Agente Prueba 3", "id": "test_agente3", "grupo": "empresa"},
-            {"nombre": "Agente Prueba 4", "id": "test_agente4", "grupo": "basico"},
-            {"nombre": "Agente Prueba 5", "id": "test_agente5", "grupo": "premium"}
-        ]
-        
-        col_users1, col_users2 = st.columns(2)
-        
-        with col_users1:
-            st.write("**Añadir a cola de espera:**")
-            for usuario in usuarios_prueba[:3]:
-                if st.button(f"➕ {usuario['nombre']} ({usuario['grupo']})", key=f"add_wait_{usuario['id']}", use_container_width=True):
-                    nueva_pausa = {
-                        'id': str(uuid.uuid4())[:8],
-                        'usuario_id': usuario['id'],
-                        'usuario_nombre': usuario['nombre'],
-                        'duracion_elegida': 'corta',
-                        'estado': 'ESPERANDO',
-                        'timestamp_solicitud': obtener_hora_madrid().isoformat(),
-                        'timestamp_inicio': None,
-                        'timestamp_fin': None,
-                        'grupo': usuario['grupo'],
-                        'notificado': False,
-                        'confirmado': False,
-                        'es_prueba': True
-                    }
-                    
-                    cola_pvd.append(nueva_pausa)
-                    guardar_cola_pvd(cola_pvd)
-                    st.success(f"✅ {usuario['nombre']} añadido a la cola del grupo {usuario['grupo']}")
-                    st.rerun()
-        
-        with col_users2:
-            st.write("**Añadir como pausa activa:**")
-            for usuario in usuarios_prueba[3:]:
-                if st.button(f"▶️ {usuario['nombre']} ({usuario['grupo']})", key=f"add_active_{usuario['id']}", use_container_width=True):
-                    nueva_pausa = {
-                        'id': str(uuid.uuid4())[:8],
-                        'usuario_id': usuario['id'],
-                        'usuario_nombre': usuario['nombre'],
-                        'duracion_elegida': 'larga',
-                        'estado': 'EN_CURSO',
-                        'timestamp_solicitud': (obtener_hora_madrid() - timedelta(minutes=2)).isoformat(),
-                        'timestamp_inicio': obtener_hora_madrid().isoformat(),
-                        'timestamp_fin': None,
-                        'grupo': usuario['grupo'],
-                        'notificado': True,
-                        'confirmado': True,
-                        'es_prueba': True
-                    }
-                    
-                    cola_pvd.append(nueva_pausa)
-                    guardar_cola_pvd(cola_pvd)
-                    st.success(f"✅ {usuario['nombre']} añadido como pausa activa en grupo {usuario['grupo']}")
-                    st.rerun()
-        
-        st.write("**Estado actual de pruebas:**")
-        pruebas_activas = [p for p in cola_pvd if p.get('es_prueba', False)]
-        if pruebas_activas:
-            for pausa in pruebas_activas:
-                estado_display = ESTADOS_PVD.get(pausa['estado'], pausa['estado'])
-                st.write(f"- **{pausa['usuario_nombre']}** ({pausa.get('grupo', 'N/A')}): {estado_display}")
-        else:
-            st.info("No hay pruebas activas")
-    
-    with tab3:
-        st.write("### ⏱️ Prueba de Notificaciones")
-        
-        st.info("""
-        **Prueba la notificación de confirmación directamente:**
-        
-        1. Haz clic en el botón "🔔 Probar Notificación"
-        2. Verás una ventana emergente EN LA PÁGINA (no alerta del navegador)
-        3. Haz clic en OK o Cancelar para probar
-        """)
-        
-        if st.button("🔔 Probar Notificación de Confirmación", type="primary", use_container_width=True):
-            st.markdown("""
-            <script>
-            const overlay = document.createElement('div');
-            overlay.id = 'overlay-prueba-notificacion';
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(0, 0, 0, 0.85);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                z-index: 9999;
-            `;
-            
-            overlay.innerHTML = `
-                <div style="
-                    background: linear-gradient(135deg, #667eea, #764ba2);
-                    color: white;
-                    padding: 30px;
-                    border-radius: 15px;
-                    text-align: center;
-                    max-width: 500px;
-                    width: 90%;
-                    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
-                    animation: pulse 1s infinite;
-                    border: 3px solid white;
-                ">
-                    <h2 style="margin: 0 0 20px 0; font-size: 28px;">🎉 [PRUEBA] ¡ES TU TURNO!</h2>
-                    <p style="font-size: 20px; margin: 15px 0; font-weight: bold;">Esta es una prueba de la notificación</p>
-                    <p style="opacity: 0.9; margin-bottom: 25px; font-size: 16px;">Haz clic en OK para simular confirmación o Cancelar para probar rechazo</p>
-                    
-                    <div style="display: flex; gap: 20px; justify-content: center;">
-                        <button id="btn-confirmar-prueba" style="
-                            background: white;
-                            color: #667eea;
-                            border: none;
-                            padding: 15px 40px;
-                            border-radius: 10px;
-                            font-size: 18px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            transition: transform 0.2s;
-                            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                        ">
-                            ✅ OK - Simular Confirmación
-                        </button>
-                        
-                        <button id="btn-cancelar-prueba" style="
-                            background: #f44336;
-                            color: white;
-                            border: none;
-                            padding: 15px 40px;
-                            border-radius: 10px;
-                            font-size: 18px;
-                            font-weight: bold;
-                            cursor: pointer;
-                            transition: transform 0.2s;
-                            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-                        ">
-                            ❌ Cancelar - Simular Rechazo
-                        </button>
-                    </div>
-                </div>
-            `;
-            
-            document.body.appendChild(overlay);
-            
-            const style = document.createElement('style');
-            style.innerHTML = `
-                @keyframes pulse {
-                    0% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                    100% { transform: scale(1); }
-                }
-            `;
-            document.head.appendChild(style);
-            
-            document.getElementById('btn-confirmar-prueba').addEventListener('click', function() {
-                document.body.removeChild(overlay);
-                alert('✅ [PRUEBA] Confirmación exitosa. La pausa comenzaría ahora.');
-            });
-            
-            document.getElementById('btn-cancelar-prueba').addEventListener('click', function() {
-                document.body.removeChild(overlay);
-                alert('⚠️ [PRUEBA] Confirmación cancelada. Seguirías en la cola.');
-            });
-            </script>
-            """, unsafe_allow_html=True)
-            
-            st.success("✅ Notificación de prueba activada. Mira en la página principal (no en una alerta).")
-
 def gestion_secciones_visibles():
     """Configuración de secciones visibles para usuarios"""
     st.subheader("👁️ Configuración de Secciones Visibles")
@@ -1549,10 +1320,10 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    # Añadir pestaña de super usuarios
+    # Cambiar a 10 pestañas (9 originales + 1 nueva)
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
         "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
-        "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", "🧪 Pruebas PVD"
+        "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", "📊 Analizador Llamadas"
     ])
     
     with tab1:
@@ -1561,7 +1332,7 @@ def mostrar_panel_administrador():
         gestion_gas()
     with tab3:
         gestion_usuarios()
-    with tab4:  # NUEVA PESTAÑA
+    with tab4:
         gestion_super_users_admin()
     with tab5:
         gestion_pvd_admin()
@@ -1573,5 +1344,5 @@ def mostrar_panel_administrador():
         gestion_config_sistema()
     with tab9:
         gestion_secciones_visibles()
-    with tab10:
-        sistema_pruebas_pvd()
+    with tab10:  # NUEVA PESTAÑA
+        interfaz_analisis_llamadas()
