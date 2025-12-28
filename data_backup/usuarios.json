@@ -6,12 +6,6 @@
         "planes_gas": "TODOS",
         "tipo": "admin"
     },
-    "0001": {
-        "nombre": "0001",
-        "grupo": "CAPTA",
-        "tipo": "manual",
-        "password": "0001"
-    },
     "0245": {
         "nombre": "0245",
         "password": "0245",
@@ -185,11 +179,12 @@
     "0731": {
         "nombre": "0731",
         "password": "0731",
-        "grupo": "CAPTA",
+        "grupo": "",
         "tipo": "manual",
         "planes_luz": [],
         "planes_gas": [],
         "fecha_creacion": "2025-12-23 10:30:52",
-        "creado_por": "admin"
+        "creado_por": "admin",
+        "grupo_permisos": "CAPTA"
     }
 }

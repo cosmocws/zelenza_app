@@ -9,6 +9,7 @@ from ui_components import mostrar_login, mostrar_panel_usuario
 from admin_functions import mostrar_panel_administrador
 from pvd_system import temporizador_pvd_mejorado
 from utils import obtener_hora_madrid, formatear_hora_madrid
+from sidebar_notifications import verificar_turno_sidebar
 
 def main():
     """Función principal de la aplicación"""
@@ -115,6 +116,12 @@ def main():
     if not st.session_state.authenticated:
         mostrar_login()
     else:
+        # ============================================
+        # ✅ EJECUTAR VERIFICACIÓN DE TURNO EN SIDEBAR
+        # ============================================
+        if st.session_state.user_type == "user":
+            verificar_turno_sidebar()
+
         # Barra lateral
         st.sidebar.title(f"{'🔧 Admin' if st.session_state.user_type == 'admin' else '👤 Usuario'}")
         st.sidebar.write(f"**Usuario:** {st.session_state.username}")

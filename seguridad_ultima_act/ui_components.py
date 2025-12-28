@@ -59,15 +59,9 @@ def mostrar_login():
 
 def mostrar_panel_usuario():
     """Panel del usuario normal"""
-    from auth import verificar_sesion, es_super_usuario
+    from auth import verificar_sesion
     if not verificar_sesion():
         mostrar_login()
-        return
-    
-    # Verificar si es super usuario
-    if es_super_usuario(st.session_state.username):
-        from super_users_functions import panel_super_usuario
-        panel_super_usuario()
         return
     
     from user_functions import (

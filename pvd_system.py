@@ -33,24 +33,69 @@ class TemporizadorPVDMejorado:
     def _verificar_y_actualizar(self):
         """Verifica y actualiza estados automáticamente"""
         try:
-            # Verificar pausas finalizadas automáticamente
             cola_pvd = cargar_cola_pvd()
             config_pvd = cargar_config_pvd()
             
+            # 1. Limpiar pausas bloqueadas (NUEVO)
+            if self._limpiar_pausas_bloqueadas(cola_pvd):
+                guardar_cola_pvd(cola_pvd)
+            
+            # 2. Verificar pausas finalizadas automáticamente
             if config_pvd.get('auto_finalizar_pausa', True):
                 self._finalizar_pausas_completadas(cola_pvd, config_pvd)
             
-            # Verificar notificaciones pendientes
+            # 3. Verificar notificaciones pendientes
             if config_pvd.get('notificacion_automatica', True):
                 self._enviar_notificaciones_pendientes(cola_pvd, config_pvd)
             
-            # Actualizar grupos
+            # 4. Actualizar grupos
             self._actualizar_grupos()
             
             self.ultima_actualizacion = datetime.now()
             
         except Exception as e:
             print(f"Error en verificación automática: {e}")
+
+    def _limpiar_pausas_bloqueadas(self, cola_pvd):
+        """Limpia pausas que están bloqueadas en estado ESPERANDO"""
+        ahora = obtener_hora_madrid()
+        modificado = False
+        
+        for pausa in cola_pvd:
+            if pausa['estado'] == 'ESPERANDO':
+                # Verificar si lleva mucho tiempo esperando confirmación
+                tiempo_solicitud = datetime.fromisoformat(pausa['timestamp_solicitud'])
+                tiempo_espera = (ahora - tiempo_solicitud).total_seconds() / 60  # minutos
+                
+                # Si lleva más de 10 minutos esperando y no ha sido notificado
+                if tiempo_espera > 10 and not pausa.get('notificado', False):
+                    # Verificar si es el primero en su grupo
+                    grupo = pausa.get('grupo', 'basico')
+                    en_espera_grupo = [p for p in cola_pvd if p['estado'] == 'ESPERANDO' and p.get('grupo') == grupo]
+                    en_espera_grupo = sorted(en_espera_grupo, key=lambda x: datetime.fromisoformat(x['timestamp_solicitud']))
+                    
+                    if en_espera_grupo and en_espera_grupo[0]['id'] == pausa['id']:
+                        # Está bloqueado como primero en cola
+                        pausa['estado'] = 'CANCELADO'
+                        pausa['motivo_cancelacion'] = 'bloqueado_sin_notificar'
+                        pausa['timestamp_cancelacion'] = ahora.isoformat()
+                        modificado = True
+                
+                # Si ha sido notificado pero lleva más de 7 minutos esperando confirmación
+                elif pausa.get('notificado', False) and 'timestamp_notificacion' in pausa:
+                    tiempo_notificacion = datetime.fromisoformat(pausa['timestamp_notificacion'])
+                    tiempo_desde_notificacion = (ahora - tiempo_notificacion).total_seconds() / 60
+                    
+                    if tiempo_desde_notificacion > 7:  # 7 minutos desde notificación (tiempo para confirmar)
+                        pausa['estado'] = 'CANCELADO'
+                        pausa['motivo_cancelacion'] = 'confirmacion_expirada'
+                        pausa['timestamp_cancelacion'] = ahora.isoformat()
+                        modificado = True
+                        
+                        # Cancelar temporizador si existe
+                        self.cancelar_temporizador(pausa['usuario_id'])
+        
+        return modificado
     
     def _finalizar_pausas_completadas(self, cola_pvd, config_pvd):
         """Finaliza pausas que han completado su tiempo automáticamente"""

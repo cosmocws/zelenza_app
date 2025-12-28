@@ -5,8 +5,7 @@ import pandas as pd
 from config import (
     PLANES_GAS_ESTRUCTURA, PMG_COSTE, PMG_IVA,
     USUARIOS_DEFAULT, PVD_CONFIG_DEFAULT,
-    SISTEMA_CONFIG_DEFAULT, GRUPOS_PVD_CONFIG,
-    SUPER_USER_CONFIG_DEFAULT
+    SISTEMA_CONFIG_DEFAULT, GRUPOS_PVD_CONFIG
 )
 from utils import inicializar_directorios
 
@@ -27,8 +26,6 @@ def inicializar_datos():
             "usuarios.json": json.dumps(USUARIOS_DEFAULT, indent=4),
             "config_pvd.json": json.dumps(PVD_CONFIG_DEFAULT, indent=4),
             "cola_pvd.json": json.dumps([], indent=4),
-            "super_users.json": json.dumps(SUPER_USER_CONFIG_DEFAULT, indent=4),
-            "registro_llamadas.json": json.dumps({}, indent=4),
             "config_sistema.json": json.dumps(SISTEMA_CONFIG_DEFAULT, indent=4)
         }
         
@@ -252,59 +249,4 @@ def guardar_cola_pvd(cola):
         return True
     except Exception as e:
         print(f"Error guardando cola PVD: {e}")
-        return False
-
-def cargar_super_users():
-    """Carga la configuración de super usuarios"""
-    try:
-        with open('data/super_users.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        from config import SUPER_USER_CONFIG_DEFAULT
-        config = SUPER_USER_CONFIG_DEFAULT.copy()
-        
-        os.makedirs('data', exist_ok=True)
-        with open('data/super_users.json', 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-        return config
-
-def guardar_super_users(config):
-    """Guarda la configuración de super usuarios"""
-    try:
-        os.makedirs('data', exist_ok=True)
-        with open('data/super_users.json', 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-        
-        os.makedirs('data_backup', exist_ok=True)
-        shutil.copy('data/super_users.json', 'data_backup/super_users.json')
-        return True
-    except Exception as e:
-        print(f"Error guardando super users: {e}")
-        return False
-
-def cargar_registro_llamadas():
-    """Carga el registro histórico de llamadas"""
-    try:
-        with open('data/registro_llamadas.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        # Estructura: {fecha: {agent_id: {llamadas: X, ventas: Y}}}
-        registro = {}
-        os.makedirs('data', exist_ok=True)
-        with open('data/registro_llamadas.json', 'w', encoding='utf-8') as f:
-            json.dump(registro, f, indent=4, ensure_ascii=False)
-        return registro
-
-def guardar_registro_llamadas(registro):
-    """Guarda el registro de llamadas"""
-    try:
-        os.makedirs('data', exist_ok=True)
-        with open('data/registro_llamadas.json', 'w', encoding='utf-8') as f:
-            json.dump(registro, f, indent=4, ensure_ascii=False)
-        
-        os.makedirs('data_backup', exist_ok=True)
-        shutil.copy('data/registro_llamadas.json', 'data_backup/registro_llamadas.json')
-        return True
-    except Exception as e:
-        print(f"Error guardando registro llamadas: {e}")
         return False

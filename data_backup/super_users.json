@@ -1,0 +1,134 @@
+{
+    "super_users": [
+        "admin",
+        "0731"
+    ],
+    "agentes": {
+        "0346": {
+            "nombre": "0346",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0245": {
+            "nombre": "0245",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0381": {
+            "nombre": "0381",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0613": {
+            "nombre": "0613",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0657": {
+            "nombre": "0657",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0694": {
+            "nombre": "0694",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0733": {
+            "nombre": "0733",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0782": {
+            "nombre": "0782",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0775": {
+            "nombre": "0775",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0791": {
+            "nombre": "0791",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0792": {
+            "nombre": "0792",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0820": {
+            "nombre": "0820",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0821": {
+            "nombre": "0821",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0387": {
+            "nombre": "0387",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0799": {
+            "nombre": "0799",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0811": {
+            "nombre": "0811",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        },
+        "0753": {
+            "nombre": "0753",
+            "grupo": "CAPTA",
+            "tipo": "manual",
+            "activo": true,
+            "fecha_registro": "2025-12-28"
+        }
+    },
+    "configuracion": {
+        "duracion_minima_llamada": 15,
+        "periodo_mensual": "calendario",
+        "target_llamadas": 50,
+        "target_ventas": 10,
+        "metrica_eficiencia": "ratio"
+    }
+}

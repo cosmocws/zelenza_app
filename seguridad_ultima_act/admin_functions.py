@@ -6,7 +6,6 @@ import uuid
 import shutil
 from datetime import datetime, timedelta
 import pytz
-from super_users_functions import gestion_super_users_admin
 
 from config import (
     COMUNIDADES_AUTONOMAS, PLANES_GAS_ESTRUCTURA, 
@@ -1549,9 +1548,9 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    # Añadir pestaña de super usuarios
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
-        "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
+    # Añadir pestaña de configuración de secciones
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+        "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👁️ PVD", 
         "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", "🧪 Pruebas PVD"
     ])
     
@@ -1561,17 +1560,15 @@ def mostrar_panel_administrador():
         gestion_gas()
     with tab3:
         gestion_usuarios()
-    with tab4:  # NUEVA PESTAÑA
-        gestion_super_users_admin()
-    with tab5:
+    with tab4:
         gestion_pvd_admin()
-    with tab6:
+    with tab5:
         gestion_modelos_factura()
-    with tab7:
+    with tab6:
         gestion_excedentes()
-    with tab8:
+    with tab7:
         gestion_config_sistema()
-    with tab9:
+    with tab8:  # NUEVA PESTAÑA
         gestion_secciones_visibles()
-    with tab10:
+    with tab9:
         sistema_pruebas_pvd()

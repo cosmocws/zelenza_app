@@ -197,16 +197,3 @@ IMPUESTO_ELECTRICO = 0.0511
 DESCUENTO_PRIMERA_FACTURA = 5.00
 IVA = 0.21
 DIAS_ANUAL = 365
-
-# Configuración de Super Usuarios
-SUPER_USER_CONFIG_DEFAULT = {
-    "super_users": ["admin"],  # Por defecto, admin es super usuario
-    "agentes": {},  # Diccionario de agentes: {agent_id: {nombre, grupo, activo}}
-    "configuracion": {
-        "duracion_minima_llamada": 15,  # minutos para considerar llamada válida
-        "periodo_mensual": "calendario",  # calendario o rolling 30 días
-        "target_llamadas": 50,  # target mensual de llamadas
-        "target_ventas": 10,  # target mensual de ventas
-        "metrica_eficiencia": "ratio"  # ratio, total, ponderado
-    }
-}

@@ -126,21 +126,6 @@ def verificar_sesion():
     
     return True
 
-def es_super_usuario(username):
-    """Verifica si el usuario es super usuario"""
-    try:
-        from database import cargar_super_users
-        super_users_config = cargar_super_users()
-        
-        # admin siempre es super usuario
-        if username == "admin":
-            return True
-            
-        return username in super_users_config.get("super_users", [])
-    except Exception as e:
-        print(f"Error verificando super usuario: {e}")
-        return False
-
 def mantener_sesion():
     """Función para mantener la sesión activa durante autorefresh"""
     # Esta función se llama durante cada refresh para mantener la sesión
