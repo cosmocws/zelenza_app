@@ -209,26 +209,70 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     # Obtener agentes del sistema
     agentes_sistema = super_users_config.get("agentes", {})
     
+    # Crear diccionario de agentes normalizados para búsqueda flexible
+    agentes_normalizados = {}
+    for agent_id, info in agentes_sistema.items():
+        # Crear múltiples variantes para búsqueda
+        agente_clean = str(agent_id).strip().upper()
+        agentes_normalizados[agente_clean] = agent_id  # Variante principal
+        
+        # También considerar nombre del agente
+        nombre = str(info.get('nombre', '')).strip().upper()
+        if nombre and nombre != agente_clean:
+            agentes_normalizados[nombre] = agent_id
+    
     # Contadores
     agentes_encontrados = []
     agentes_no_encontrados = []
     llamadas_importadas = 0
     ventas_importadas = 0
+    fecha_importada = None
     
     # Procesar cada fila del análisis
     for _, row in df_analizado.iterrows():
-        agente_id = str(row['agente']).strip()
+        agente_csv = str(row['agente']).strip()
+        agente_csv_upper = agente_csv.upper()
         fecha_str = row['fecha']
         
-        # Verificar si el agente existe en el sistema
-        if agente_id in agentes_sistema:
+        # Guardar la fecha importada (para mostrar)
+        if fecha_importada is None:
+            fecha_importada = fecha_str
+        
+        # Buscar agente en múltiples variantes
+        agente_encontrado = None
+        
+        # 1. Búsqueda exacta (case insensitive)
+        if agente_csv_upper in agentes_normalizados:
+            agente_encontrado = agentes_normalizados[agente_csv_upper]
+        
+        # 2. Búsqueda por similitud (sin prefijos/sufijos comunes)
+        if not agente_encontrado:
+            # Quitar posibles prefijos/sufijos
+            agente_limpio = agente_csv_upper
+            
+            # Intentar diferentes patrones
+            for agente_sistema, agent_id in agentes_normalizados.items():
+                # Si uno contiene al otro (ej: TZS0387 vs 0387)
+                if agente_sistema in agente_limpio or agente_limpio in agente_sistema:
+                    agente_encontrado = agent_id
+                    break
+        
+        # 3. Búsqueda por coincidencia parcial
+        if not agente_encontrado:
+            for agente_sistema, agent_id in agentes_normalizados.items():
+                # Coincidencia de los últimos dígitos
+                if agente_sistema.endswith(agente_limpio[-4:]) or agente_limpio.endswith(agente_sistema[-4:]):
+                    agente_encontrado = agent_id
+                    break
+        
+        if agente_encontrado:
             # Inicializar día si no existe
             if fecha_str not in registro_llamadas:
                 registro_llamadas[fecha_str] = {}
             
             # Inicializar agente para el día si no existe
-            if agente_id not in registro_llamadas[fecha_str]:
-                registro_llamadas[fecha_str][agente_id] = {
+            if agente_encontrado not in registro_llamadas[fecha_str]:
+                registro_llamadas[fecha_str][agente_encontrado] = {
                     'llamadas': 0,
                     'ventas': 0,
                     'fecha': fecha_str,
@@ -237,31 +281,38 @@ def importar_datos_a_registro(df_analizado, super_users_config):
             
             # Agregar llamada si es >15 min (900 segundos)
             if row['tiempo_conversacion'] > 900:
-                registro_llamadas[fecha_str][agente_id]['llamadas'] += 1
+                registro_llamadas[fecha_str][agente_encontrado]['llamadas'] += 1
                 llamadas_importadas += 1
             
             # Agregar ventas (pueden ser 0, 1 o 2 por línea)
             ventas_fila = int(row['ventas_totales'])
             if ventas_fila > 0:
-                registro_llamadas[fecha_str][agente_id]['ventas'] += ventas_fila
+                registro_llamadas[fecha_str][agente_encontrado]['ventas'] += ventas_fila
                 ventas_importadas += ventas_fila
             
-            if agente_id not in agentes_encontrados:
-                agentes_encontrados.append(agente_id)
+            if agente_csv not in agentes_encontrados:
+                agentes_encontrados.append(f"{agente_csv} → {agente_encontrado}")
         
         else:
-            if agente_id not in agentes_no_encontrados:
-                agentes_no_encontrados.append(agente_id)
+            if agente_csv not in agentes_no_encontrados:
+                agentes_no_encontrados.append(agente_csv)
     
     # Guardar cambios
     guardar_registro_llamadas(registro_llamadas)
     
     # Preparar mensaje de resumen
     mensaje = f"✅ **Importación completada:**\n"
-    mensaje += f"- 📅 Fechas procesadas: {df_analizado['fecha'].nunique()}\n"
+    mensaje += f"- 📅 Fecha procesada: {fecha_importada}\n"
     mensaje += f"- 👥 Agentes encontrados: {len(agentes_encontrados)}\n"
     mensaje += f"- 📞 Llamadas >15min importadas: {llamadas_importadas}\n"
     mensaje += f"- 💰 Ventas importadas: {ventas_importadas}\n"
+    
+    if agentes_encontrados:
+        mensaje += f"\n**Agentes importados:**\n"
+        for agente in agentes_encontrados[:10]:  # Mostrar primeros 10
+            mensaje += f"- {agente}\n"
+        if len(agentes_encontrados) > 10:
+            mensaje += f"- ... y {len(agentes_encontrados) - 10} más\n"
     
     if agentes_no_encontrados:
         mensaje += f"\n⚠️ **Agentes no encontrados en el sistema:**\n"
@@ -269,8 +320,94 @@ def importar_datos_a_registro(df_analizado, super_users_config):
             mensaje += f"- {agente}\n"
         if len(agentes_no_encontrados) > 10:
             mensaje += f"- ... y {len(agentes_no_encontrados) - 10} más\n"
+        
+        # Mostrar agentes disponibles en el sistema
+        mensaje += f"\n**Agentes disponibles en el sistema ({len(agentes_sistema)}):**\n"
+        for i, (agent_id, info) in enumerate(list(agentes_sistema.items())[:10]):
+            nombre = info.get('nombre', 'Sin nombre')
+            mensaje += f"- `{agent_id}`: {nombre}\n"
+        if len(agentes_sistema) > 10:
+            mensaje += f"- ... y {len(agentes_sistema) - 10} más\n"
     
     return True, mensaje
+
+def mostrar_depuracion_agentes(df_analizado, super_users_config):
+    """Muestra información de depuración para coincidencia de agentes"""
+    
+    st.subheader("🔍 Depuración: Coincidencia de Agentes")
+    
+    # Obtener agentes del CSV
+    agentes_csv = sorted(df_analizado['agente'].astype(str).str.strip().unique())
+    
+    # Obtener agentes del sistema
+    agentes_sistema = super_users_config.get("agentes", {})
+    
+    # Mostrar comparación
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.write("**📄 Agentes en el CSV:**")
+        for i, agente in enumerate(agentes_csv[:20]):
+            st.write(f"{i+1}. `{agente}`")
+        if len(agentes_csv) > 20:
+            st.info(f"... y {len(agentes_csv) - 20} más")
+    
+    with col2:
+        st.write("**📊 Agentes en el sistema:**")
+        for i, (agent_id, info) in enumerate(list(agentes_sistema.items())[:20]):
+            nombre = info.get('nombre', 'Sin nombre')
+            st.write(f"{i+1}. `{agent_id}`: {nombre}")
+        if len(agentes_sistema) > 20:
+            st.info(f"... y {len(agentes_sistema) - 20} más")
+    
+    # Coincidencias directas
+    st.write("### 🔍 Búsqueda de coincidencias")
+    
+    coincidencias_directas = []
+    coincidencias_parciales = []
+    sin_coincidencia = []
+    
+    for agente_csv in agentes_csv:
+        agente_csv_clean = str(agente_csv).upper()
+        encontrado = False
+        
+        # Búsqueda exacta
+        for agent_id in agentes_sistema.keys():
+            if str(agent_id).upper() == agente_csv_clean:
+                coincidencias_directas.append(f"`{agente_csv}` → `{agent_id}`")
+                encontrado = True
+                break
+        
+        if not encontrado:
+            # Búsqueda parcial
+            for agent_id in agentes_sistema.keys():
+                agent_id_clean = str(agent_id).upper()
+                # Buscar similitudes
+                if (agente_csv_clean in agent_id_clean or 
+                    agent_id_clean in agente_csv_clean or
+                    agente_csv_clean[-4:] == agent_id_clean[-4:]):  # Últimos 4 dígitos
+                    coincidencias_parciales.append(f"`{agente_csv}` → `{agent_id}`")
+                    encontrado = True
+                    break
+        
+        if not encontrado:
+            sin_coincidencia.append(agente_csv)
+    
+    # Mostrar resultados
+    if coincidencias_directas:
+        st.success(f"✅ **Coincidencias exactas ({len(coincidencias_directas)}):**")
+        for coincidencia in coincidencias_directas[:10]:
+            st.write(f"- {coincidencia}")
+    
+    if coincidencias_parciales:
+        st.warning(f"⚠️ **Coincidencias parciales ({len(coincidencias_parciales)}):**")
+        for coincidencia in coincidencias_parciales[:10]:
+            st.write(f"- {coincidencia}")
+    
+    if sin_coincidencia:
+        st.error(f"❌ **Sin coincidencia ({len(sin_coincidencia)}):**")
+        for agente in sin_coincidencia[:10]:
+            st.write(f"- `{agente}`")
 
 def interfaz_analisis_llamadas():
     """Interfaz principal del analizador"""
@@ -416,7 +553,7 @@ def interfaz_analisis_llamadas():
         if st.session_state.df_analizado_actual is not None and not st.session_state.df_analizado_actual.empty:
             st.subheader("3. 📥 Importar al Sistema de Agentes")
             
-            # Cargar configuración de super usuarios
+            # Cargar configuración de super usuarios (AGREGAR ESTA LÍNEA)
             from database import cargar_super_users
             super_users_config = cargar_super_users()
             
@@ -500,6 +637,10 @@ def interfaz_analisis_llamadas():
                             st.warning(f"⚠️ No encontrados: {len(no_coincidentes)}")
                             for i, agente in enumerate(no_coincidentes[:5]):
                                 st.write(f"- {agente}")
+            
+            # Botón para depuración (AGREGAR super_users_config COMO PARÁMETRO)
+            if st.button("🔍 Depurar coincidencia de agentes", type="secondary"):
+                mostrar_depuracion_agentes(st.session_state.df_analizado_actual, super_users_config)
         
         # Botones de control
         col_control1, col_control2 = st.columns(2)
