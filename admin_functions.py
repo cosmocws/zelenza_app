@@ -385,20 +385,20 @@ def gestion_usuarios():
     with tab2:
         st.write("### 👥 Gestión de Grupos de Usuarios")
         
-        # Estado para borrado
-        if 'grupo_a_borrar' not in st.session_state:
-            st.session_state.grupo_a_borrar = None
+        # Estado para borrado de GRUPOS DE USUARIOS
+        if 'grupo_usuarios_a_borrar' not in st.session_state:
+            st.session_state.grupo_usuarios_a_borrar = None
         
         # Mostrar primero el formulario de confirmación de borrado si hay uno pendiente
-        if st.session_state.grupo_a_borrar:
-            grupo_a_borrar = st.session_state.grupo_a_borrar
+        if st.session_state.grupo_usuarios_a_borrar:
+            grupo_a_borrar = st.session_state.grupo_usuarios_a_borrar
             
             # Verificar si es un grupo básico
             grupos_basicos = ["basico", "premium", "empresa"]
             
             if grupo_a_borrar in grupos_basicos:
                 st.error(f"❌ No puedes borrar el grupo '{grupo_a_borrar}' (grupo básico del sistema)")
-                st.session_state.grupo_a_borrar = None
+                st.session_state.grupo_usuarios_a_borrar = None
                 st.rerun()
             else:
                 st.warning(f"⚠️ **CONFIRMAR BORRADO DEL GRUPO DE USUARIOS: {grupo_a_borrar}**")
@@ -424,10 +424,22 @@ def gestion_usuarios():
                 col_conf1, col_conf2, col_conf3 = st.columns(3)
                 
                 with col_conf1:
-                    if st.button("✅ **SÍ, BORRAR GRUPO**", type="primary", use_container_width=True):
-                        # Borrar grupo
-                        del grupos[grupo_a_borrar]
-                        config_sistema['grupos_usuarios'] = grupos
+                    unique_key = f"confirm_delete_usuarios_{grupo_a_borrar}"
+                    if st.button("✅ **SÍ, BORRAR GRUPO**", 
+                                type="primary", 
+                                use_container_width=True,
+                                key=unique_key):
+                        # Borrar grupo de usuarios
+                        if grupo_a_borrar in grupos:
+                            del grupos[grupo_a_borrar]
+                            config_sistema['grupos_usuarios'] = grupos
+                        
+                        # Borrar también grupo PVD si existe
+                        if grupo_a_borrar in grupos_pvd:
+                            del grupos_pvd[grupo_a_borrar]
+                            config_sistema['grupos_pvd'] = grupos_pvd
+                            st.success(f"✅ Grupo PVD '{grupo_a_borrar}' también borrado")
+                        
                         guardar_config_sistema(config_sistema)
                         
                         # Quitar grupo de los usuarios
@@ -439,16 +451,20 @@ def gestion_usuarios():
                         if usuarios_modificados > 0:
                             guardar_configuracion_usuarios(usuarios_config)
                         
-                        st.success(f"✅ Grupo '{grupo_a_borrar}' borrado correctamente")
+                        st.success(f"✅ Grupo de usuarios '{grupo_a_borrar}' borrado correctamente")
                         st.success(f"✅ {usuarios_modificados} usuario(s) quedaron sin grupo asignado")
                         
                         # Limpiar estado
-                        st.session_state.grupo_a_borrar = None
+                        st.session_state.grupo_usuarios_a_borrar = None
                         st.rerun()
                 
                 with col_conf2:
-                    if st.button("❌ **NO, CANCELAR**", type="secondary", use_container_width=True):
-                        st.session_state.grupo_a_borrar = None
+                    cancel_key = f"cancel_delete_usuarios_{grupo_a_borrar}"
+                    if st.button("❌ **NO, CANCELAR**", 
+                                type="secondary", 
+                                use_container_width=True,
+                                key=cancel_key):
+                        st.session_state.grupo_usuarios_a_borrar = None
                         st.info("❌ Borrado cancelado")
                         st.rerun()
                 
@@ -523,8 +539,11 @@ def gestion_usuarios():
                     es_basico = grupo_nombre in grupos_basicos
                     
                     if not es_basico:
-                        if st.button("🗑️ Borrar Grupo", key=f"delete_grupo_{grupo_nombre}", type="secondary"):
-                            st.session_state.grupo_a_borrar = grupo_nombre
+                        delete_key = f"delete_grupo_usuarios_{grupo_nombre}"
+                        if st.button("🗑️ Borrar Grupo", 
+                                   key=delete_key, 
+                                   type="secondary"):
+                            st.session_state.grupo_usuarios_a_borrar = grupo_nombre
                             st.rerun()
                     else:
                         st.caption("⚠️ Grupo básico del sistema")
@@ -532,6 +551,41 @@ def gestion_usuarios():
         # Crear nuevo grupo de usuarios
         st.write("### ➕ Crear Nuevo Grupo de Usuarios")
         nuevo_grupo_nombre = st.text_input("Nombre del nuevo grupo", key="nuevo_grupo_usuarios")
+        
+        # Configuración PVD para el nuevo grupo
+        st.write("#### ⚙️ Configuración PVD para el Nuevo Grupo")
+        
+        col_conf_pvd1, col_conf_pvd2 = st.columns(2)
+        with col_conf_pvd1:
+            agentes_por_grupo = st.number_input(
+                "Agentes en grupo",
+                min_value=1,
+                max_value=100,
+                value=10,
+                key="agentes_nuevo_grupo"
+            )
+            maximo_simultaneo = st.number_input(
+                "Máximo simultáneo",
+                min_value=1,
+                max_value=20,
+                value=2,
+                key="max_simultaneo_nuevo_grupo"
+            )
+        with col_conf_pvd2:
+            duracion_corta = st.number_input(
+                "Duración corta (min)",
+                min_value=1,
+                max_value=30,
+                value=5,
+                key="corta_nuevo_grupo"
+            )
+            duracion_larga = st.number_input(
+                "Duración larga (min)",
+                min_value=1,
+                max_value=60,
+                value=10,
+                key="larga_nuevo_grupo"
+            )
         
         col_nuevo1, col_nuevo2 = st.columns(2)
         with col_nuevo1:
@@ -541,13 +595,25 @@ def gestion_usuarios():
                 elif nuevo_grupo_nombre in grupos:
                     st.error("❌ El grupo ya existe")
                 else:
+                    # Crear grupo de usuarios
                     grupos[nuevo_grupo_nombre] = {
                         "planes_luz": [],
                         "planes_gas": []
                     }
                     config_sistema['grupos_usuarios'] = grupos
+                    
+                    # Crear grupo PVD automáticamente
+                    grupos_pvd[nuevo_grupo_nombre] = {
+                        'agentes_por_grupo': agentes_por_grupo,
+                        'maximo_simultaneo': maximo_simultaneo,
+                        'duracion_corta': duracion_corta,
+                        'duracion_larga': duracion_larga
+                    }
+                    config_sistema['grupos_pvd'] = grupos_pvd
+                    
                     guardar_config_sistema(config_sistema)
                     st.success(f"✅ Grupo {nuevo_grupo_nombre} creado (vacío)")
+                    st.success(f"✅ Grupo PVD '{nuevo_grupo_nombre}' creado automáticamente")
                     st.rerun()
         
         with col_nuevo2:
@@ -557,13 +623,25 @@ def gestion_usuarios():
                 elif nuevo_grupo_nombre in grupos:
                     st.error("❌ El grupo ya existe")
                 else:
+                    # Crear grupo de usuarios con todos los permisos
                     grupos[nuevo_grupo_nombre] = {
                         "planes_luz": "TODOS",
                         "planes_gas": ["RL1", "RL2", "RL3"]
                     }
                     config_sistema['grupos_usuarios'] = grupos
+                    
+                    # Crear grupo PVD automáticamente
+                    grupos_pvd[nuevo_grupo_nombre] = {
+                        'agentes_por_grupo': agentes_por_grupo,
+                        'maximo_simultaneo': maximo_simultaneo,
+                        'duracion_corta': duracion_corta,
+                        'duracion_larga': duracion_larga
+                    }
+                    config_sistema['grupos_pvd'] = grupos_pvd
+                    
                     guardar_config_sistema(config_sistema)
                     st.success(f"✅ Grupo {nuevo_grupo_nombre} creado con todos los permisos")
+                    st.success(f"✅ Grupo PVD '{nuevo_grupo_nombre}' creado automáticamente")
                     st.rerun()
         
         # Información de ayuda
@@ -584,6 +662,10 @@ def gestion_usuarios():
         # Estado para edición
         if 'editing_grupo_pvd' not in st.session_state:
             st.session_state.editing_grupo_pvd = None
+        
+        # Estado para borrado de GRUPOS PVD (SEPARADO)
+        if 'grupo_pvd_a_borrar' not in st.session_state:
+            st.session_state.grupo_pvd_a_borrar = None
         
         # Mostrar grupos PVD existentes
         st.write("#### 📊 Grupos PVD Existentes")
@@ -629,10 +711,10 @@ def gestion_usuarios():
                 for grupo_id in grupos_pvd.keys():
                     if grupo_id != 'basico':
                         if st.button(f"🗑️ {grupo_id}", 
-                                key=f"del_btn_{grupo_id}",
+                                key=f"del_btn_pvd_{grupo_id}",  # CLAVE ÚNICA
                                 use_container_width=True,
                                 type="secondary"):
-                            st.session_state.grupo_a_borrar = grupo_id
+                            st.session_state.grupo_pvd_a_borrar = grupo_id
                             st.rerun()
         
         # Formulario para añadir/editar grupo PVD
@@ -727,20 +809,20 @@ def gestion_usuarios():
                     st.session_state.editing_grupo_pvd = None
                     st.rerun()
         
-        # Sistema de borrado con confirmación
-        if 'grupo_a_borrar' in st.session_state and st.session_state.grupo_a_borrar:
-            grupo_a_borrar = st.session_state.grupo_a_borrar
+        # Sistema de borrado con confirmación PARA GRUPOS PVD (SEPARADO)
+        if 'grupo_pvd_a_borrar' in st.session_state and st.session_state.grupo_pvd_a_borrar:
+            grupo_a_borrar = st.session_state.grupo_pvd_a_borrar
             
             if grupo_a_borrar == 'basico':
                 st.error("❌ No puedes borrar el grupo 'basico' (grupo por defecto del sistema)")
-                st.session_state.grupo_a_borrar = None
+                st.session_state.grupo_pvd_a_borrar = None
                 st.rerun()
             elif len(grupos_pvd) <= 1:
                 st.error("❌ No puedes borrar todos los grupos. Debe quedar al menos uno.")
-                st.session_state.grupo_a_borrar = None
+                st.session_state.grupo_pvd_a_borrar = None
                 st.rerun()
             else:
-                st.warning(f"⚠️ **CONFIRMAR BORRADO DEL GRUPO: {grupo_a_borrar}**")
+                st.warning(f"⚠️ **CONFIRMAR BORRADO DEL GRUPO PVD: {grupo_a_borrar}**")
                 
                 # Contar usuarios en este grupo
                 usuarios_en_grupo = 0
@@ -757,7 +839,7 @@ def gestion_usuarios():
                     if len(usuarios_lista) > 5:
                         st.write(f"• ... y {len(usuarios_lista) - 5} más")
                 
-                st.write("**⚠️ ADVERTENCIA:** Al borrar este grupo:")
+                st.write("**⚠️ ADVERTENCIA:** Al borrar este grupo PVD:")
                 st.write("1. Todos sus usuarios serán reasignados al grupo 'basico'")
                 st.write("2. Se perderá la configuración específica del grupo")
                 st.write("3. Esta acción NO se puede deshacer")
@@ -765,10 +847,22 @@ def gestion_usuarios():
                 col_conf1, col_conf2, col_conf3 = st.columns(3)
                 
                 with col_conf1:
-                    if st.button("✅ **SÍ, BORRAR GRUPO**", type="primary", use_container_width=True):
-                        # Borrar grupo
-                        del grupos_pvd[grupo_a_borrar]
-                        config_sistema['grupos_pvd'] = grupos_pvd
+                    unique_key = f"confirm_delete_pvd_{grupo_a_borrar}"
+                    if st.button("✅ **SÍ, BORRAR GRUPO**", 
+                                type="primary", 
+                                use_container_width=True,
+                                key=unique_key):
+                        # Borrar grupo PVD
+                        if grupo_a_borrar in grupos_pvd:
+                            del grupos_pvd[grupo_a_borrar]
+                            config_sistema['grupos_pvd'] = grupos_pvd
+                        
+                        # También borrar grupo de usuarios si existe
+                        if grupo_a_borrar in grupos:
+                            del grupos[grupo_a_borrar]
+                            config_sistema['grupos_usuarios'] = grupos
+                            st.success(f"✅ Grupo de usuarios '{grupo_a_borrar}' también borrado")
+                        
                         guardar_config_sistema(config_sistema)
                         
                         # Reasignar usuarios al grupo 'basico'
@@ -781,17 +875,21 @@ def gestion_usuarios():
                         if usuarios_modificados > 0:
                             guardar_configuracion_usuarios(usuarios_config)
                         
-                        st.success(f"✅ Grupo '{grupo_a_borrar}' borrado correctamente")
+                        st.success(f"✅ Grupo PVD '{grupo_a_borrar}' borrado correctamente")
                         st.success(f"✅ {usuarios_modificados} usuario(s) reasignados al grupo 'basico'")
                         
                         # Limpiar estado
-                        st.session_state.grupo_a_borrar = None
+                        st.session_state.grupo_pvd_a_borrar = None
                         st.session_state.editing_grupo_pvd = None
                         st.rerun()
                 
                 with col_conf2:
-                    if st.button("❌ **NO, CANCELAR**", type="secondary", use_container_width=True):
-                        st.session_state.grupo_a_borrar = None
+                    cancel_key = f"cancel_delete_pvd_{grupo_a_borrar}"
+                    if st.button("❌ **NO, CANCELAR**", 
+                                type="secondary", 
+                                use_container_width=True,
+                                key=cancel_key):
+                        st.session_state.grupo_pvd_a_borrar = None
                         st.info("❌ Borrado cancelado")
                         st.rerun()
                 

@@ -23,7 +23,21 @@
                 "RL3"
             ]
         },
-        "CAPTA": {
+        "CAPTA EQUIPO LUIS": {
+            "planes_luz": [
+                "IMPULSA 24h",
+                "ESTABLE",
+                "HOGAR",
+                "AHORRO AUTOMÁTICO",
+                "ESPECIAL PLUS"
+            ],
+            "planes_gas": [
+                "RL1",
+                "RL2",
+                "RL3"
+            ]
+        },
+        "CAPTA EQUIPO EVA": {
             "planes_luz": [
                 "IMPULSA 24h",
                 "ESTABLE",
@@ -65,7 +79,13 @@
             "duracion_corta": 5,
             "duracion_larga": 10
         },
-        "CAPTA": {
+        "CAPTA EQUIPO LUIS": {
+            "agentes_por_grupo": 20,
+            "maximo_simultaneo": 2,
+            "duracion_corta": 5,
+            "duracion_larga": 10
+        },
+        "CAPTA EQUIPO EVA": {
             "agentes_por_grupo": 20,
             "maximo_simultaneo": 2,
             "duracion_corta": 5,

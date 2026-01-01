@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timedelta
 import tempfile
 import io
+from database import cargar_registro_llamadas, guardar_registro_llamadas
 
 def analizar_csv_llamadas(uploaded_file):
     """
@@ -58,6 +59,12 @@ def analizar_csv_llamadas(uploaded_file):
         # Limpiar datos de campaña
         df['campanya'] = df['campanya'].astype(str).str.strip()
         
+        # Convertir fecha a formato estándar
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce').dt.strftime('%Y-%m-%d')
+        
+        # Filtrar filas con fecha inválida
+        df = df.dropna(subset=['fecha'])
+        
         # Mostrar campañas encontradas
         campanyas_unicas = df['campanya'].unique()
         st.success(f"✅ **Campañas detectadas ({len(campanyas_unicas)}):**")
@@ -84,24 +91,44 @@ def analizar_csv_llamadas(uploaded_file):
         except:
             pass
 
+def contar_ventas_resultado(resultado_str):
+    """Cuenta ventas en un resultado (puede haber LUZ y GAS en la misma línea)"""
+    if pd.isna(resultado_str):
+        return 0
+    
+    resultado = str(resultado_str).upper()
+    
+    # Si es UTIL POSITIVO, cuenta 1 venta
+    if 'UTIL POSITIVO' in resultado:
+        # Verificar si hay indicadores de doble venta
+        if ('LUZ' in resultado and 'GAS' in resultado) or ('DÚO' in resultado or 'DUO' in resultado):
+            # Si menciona ambos o dice DÚO, son 2 ventas
+            return 2
+        else:
+            # Solo una venta (podría ser luz o gas)
+            return 1
+    else:
+        return 0
+
 def realizar_analisis(df_filtrado, nombre_analisis):
     """Realiza el análisis sobre datos filtrados"""
     
     if df_filtrado.empty:
         st.warning(f"⚠️ No hay datos para {nombre_analisis}")
-        return
+        return None
     
     # Limpiar datos
     df_filtrado['tiempo_conversacion'] = pd.to_numeric(df_filtrado['tiempo_conversacion'], errors='coerce')
-    df_filtrado['resultado_elec'] = df_filtrado['resultado_elec'].astype(str).str.strip().str.upper()
-    df_filtrado['resultado_gas'] = df_filtrado['resultado_gas'].astype(str).str.strip().str.upper()
+    df_filtrado['resultado_elec'] = df_filtrado['resultado_elec'].astype(str).str.strip()
+    df_filtrado['resultado_gas'] = df_filtrado['resultado_gas'].astype(str).str.strip()
     
-    # Detectar ventas
-    df_filtrado['venta'] = df_filtrado.apply(
-        lambda x: 'SI' if ('UTIL POSITIVO' in str(x['resultado_elec']) or 
-                          'UTIL POSITIVO' in str(x['resultado_gas'])) else 'NO', 
-        axis=1
-    )
+    # Calcular ventas por llamada (pueden ser 0, 1 o 2 ventas por línea)
+    df_filtrado['ventas_elec'] = df_filtrado['resultado_elec'].apply(contar_ventas_resultado)
+    df_filtrado['ventas_gas'] = df_filtrado['resultado_gas'].apply(contar_ventas_resultado)
+    df_filtrado['ventas_totales'] = df_filtrado['ventas_elec'] + df_filtrado['ventas_gas']
+    
+    # Llamadas con venta (al menos 1 venta)
+    df_filtrado['tiene_venta'] = df_filtrado['ventas_totales'] > 0
     
     df_filtrado['duracion_minutos'] = df_filtrado['tiempo_conversacion'] / 60
     
@@ -117,52 +144,133 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     with col2:
         st.metric("⏱️ Llamadas >15 min", len(df_llamadas_largas))
     with col3:
-        ventas_totales = len(df_filtrado[df_filtrado['venta'] == 'SI'])
-        st.metric("💰 Ventas totales", ventas_totales)
+        # Total de ventas (sumando ventas individuales)
+        ventas_totales = df_filtrado['ventas_totales'].sum()
+        st.metric("💰 Ventas totales", int(ventas_totales))
     with col4:
         duracion_promedio = df_filtrado['duracion_minutos'].mean() if not df_filtrado['duracion_minutos'].isnull().all() else 0
         st.metric("⏱️ Duración promedio", f"{duracion_promedio:.1f} min")
     
-    if df_llamadas_largas.empty:
-        st.warning("⚠️ No hay llamadas de más de 15 minutos")
-        return
-    
     # Análisis por agente
-    st.subheader("👥 Agentes con Llamadas Largas (>15 min)")
+    st.subheader("👥 Resumen por Agente")
     
     agentes_analisis = []
-    for agente in df_llamadas_largas['agente'].unique():
-        llamadas_agente = df_llamadas_largas[df_llamadas_largas['agente'] == agente]
-        ventas_agente = len(llamadas_agente[llamadas_agente['venta'] == 'SI'])
+    for agente in df_filtrado['agente'].unique():
+        df_agente = df_filtrado[df_filtrado['agente'] == agente]
+        df_agente_largas = df_agente[df_agente['tiempo_conversacion'] > 900]
+        
+        llamadas_totales = len(df_agente)
+        llamadas_largas = len(df_agente_largas)
+        ventas_agente = df_agente['ventas_totales'].sum()
+        ventas_largas = df_agente_largas['ventas_totales'].sum() if not df_agente_largas.empty else 0
         
         agentes_analisis.append({
             'Agente': agente,
-            'Llamadas >15 min': len(llamadas_agente),
-            'Ventas >15 min': ventas_agente,
-            'Tasa Conversión': f"{(ventas_agente/len(llamadas_agente)*100):.1f}%" if len(llamadas_agente) > 0 else "0%",
-            'Duración Promedio (min)': f"{llamadas_agente['duracion_minutos'].mean():.1f}",
-            'Duración Máxima (min)': f"{llamadas_agente['duracion_minutos'].max():.1f}"
+            'Llamadas Totales': llamadas_totales,
+            'Llamadas >15 min': llamadas_largas,
+            'Ventas Totales': int(ventas_agente),
+            'Ventas >15 min': int(ventas_largas),
+            'Tasa Conversión Total': f"{(ventas_agente/llamadas_totales*100):.1f}%" if llamadas_totales > 0 else "0%",
+            'Tasa Conversión Largas': f"{(ventas_largas/llamadas_largas*100):.1f}%" if llamadas_largas > 0 else "0%"
         })
     
     if agentes_analisis:
         df_resultados = pd.DataFrame(agentes_analisis)
-        df_resultados = df_resultados.sort_values('Llamadas >15 min', ascending=False)
+        df_resultados = df_resultados.sort_values('Ventas Totales', ascending=False)
         st.dataframe(df_resultados, use_container_width=True)
     
     # Ventas desde llamadas largas
-    df_ventas_largas = df_llamadas_largas[df_llamadas_largas['venta'] == 'SI']
+    df_ventas_largas = df_llamadas_largas[df_llamadas_largas['tiene_venta'] == True]
     
     if not df_ventas_largas.empty:
-        st.subheader(f"✅ Ventas desde Llamadas Largas: {len(df_ventas_largas)}")
+        st.subheader(f"✅ Ventas desde Llamadas Largas: {int(df_ventas_largas['ventas_totales'].sum())}")
         
         # Mostrar detalles
-        columnas_mostrar = ['agente', 'duracion_minutos', 'resultado_elec', 'resultado_gas', 'fecha', 'hora']
+        columnas_mostrar = ['agente', 'duracion_minutos', 'resultado_elec', 'resultado_gas', 'ventas_totales', 'fecha', 'hora']
         df_detalle = df_ventas_largas[columnas_mostrar].copy()
         df_detalle['duracion_minutos'] = df_detalle['duracion_minutos'].round(1)
         df_detalle = df_detalle.sort_values('duracion_minutos', ascending=False)
-        df_detalle.columns = ['Agente', 'Duración (min)', 'Resultado Elec', 'Resultado Gas', 'Fecha', 'Hora']
+        df_detalle.columns = ['Agente', 'Duración (min)', 'Resultado Elec', 'Resultado Gas', 'Ventas', 'Fecha', 'Hora']
         
         st.dataframe(df_detalle.head(10), use_container_width=True)
+    
+    return df_filtrado
+
+def importar_datos_a_registro(df_analizado, super_users_config):
+    """
+    Importa los datos analizados al registro diario de super usuarios
+    """
+    if df_analizado.empty:
+        return False, "No hay datos para importar"
+    
+    # Cargar registro actual
+    registro_llamadas = cargar_registro_llamadas()
+    
+    # Obtener agentes del sistema
+    agentes_sistema = super_users_config.get("agentes", {})
+    
+    # Contadores
+    agentes_encontrados = []
+    agentes_no_encontrados = []
+    llamadas_importadas = 0
+    ventas_importadas = 0
+    
+    # Procesar cada fila del análisis
+    for _, row in df_analizado.iterrows():
+        agente_id = str(row['agente']).strip()
+        fecha_str = row['fecha']
+        
+        # Verificar si el agente existe en el sistema
+        if agente_id in agentes_sistema:
+            # Inicializar día si no existe
+            if fecha_str not in registro_llamadas:
+                registro_llamadas[fecha_str] = {}
+            
+            # Inicializar agente para el día si no existe
+            if agente_id not in registro_llamadas[fecha_str]:
+                registro_llamadas[fecha_str][agente_id] = {
+                    'llamadas': 0,
+                    'ventas': 0,
+                    'fecha': fecha_str,
+                    'timestamp': datetime.now().isoformat()
+                }
+            
+            # Agregar llamada si es >15 min (900 segundos)
+            if row['tiempo_conversacion'] > 900:
+                registro_llamadas[fecha_str][agente_id]['llamadas'] += 1
+                llamadas_importadas += 1
+            
+            # Agregar ventas (pueden ser 0, 1 o 2 por línea)
+            ventas_fila = int(row['ventas_totales'])
+            if ventas_fila > 0:
+                registro_llamadas[fecha_str][agente_id]['ventas'] += ventas_fila
+                ventas_importadas += ventas_fila
+            
+            if agente_id not in agentes_encontrados:
+                agentes_encontrados.append(agente_id)
+        
+        else:
+            if agente_id not in agentes_no_encontrados:
+                agentes_no_encontrados.append(agente_id)
+    
+    # Guardar cambios
+    guardar_registro_llamadas(registro_llamadas)
+    
+    # Preparar mensaje de resumen
+    mensaje = f"✅ **Importación completada:**\n"
+    mensaje += f"- 📅 Fechas procesadas: {df_analizado['fecha'].nunique()}\n"
+    mensaje += f"- 👥 Agentes encontrados: {len(agentes_encontrados)}\n"
+    mensaje += f"- 📞 Llamadas >15min importadas: {llamadas_importadas}\n"
+    mensaje += f"- 💰 Ventas importadas: {ventas_importadas}\n"
+    
+    if agentes_no_encontrados:
+        mensaje += f"\n⚠️ **Agentes no encontrados en el sistema:**\n"
+        for i, agente in enumerate(agentes_no_encontrados[:10]):
+            mensaje += f"- {agente}\n"
+        if len(agentes_no_encontrados) > 10:
+            mensaje += f"- ... y {len(agentes_no_encontrados) - 10} más\n"
+    
+    return True, mensaje
 
 def interfaz_analisis_llamadas():
     """Interfaz principal del analizador"""
@@ -174,6 +282,8 @@ def interfaz_analisis_llamadas():
         st.session_state.analisis_realizado = False
     if 'df_cargado' not in st.session_state:
         st.session_state.df_cargado = None
+    if 'df_analizado_actual' not in st.session_state:
+        st.session_state.df_analizado_actual = None
     
     # Paso 1: Subir archivo
     uploaded_file = st.file_uploader(
@@ -243,7 +353,8 @@ def interfaz_analisis_llamadas():
             with st.spinner("Analizando datos..."):
                 
                 if "TODAS" in seleccion:
-                    realizar_analisis(df, "TODAS las campañas")
+                    df_analizado = realizar_analisis(df, "TODAS las campañas")
+                    st.session_state.df_analizado_actual = df_analizado
                 
                 elif "COMPARAR" in seleccion and len(campanyas) >= 2:
                     st.subheader("🔄 Comparativa entre Campañas")
@@ -262,24 +373,26 @@ def interfaz_analisis_llamadas():
                             st.write(f"**{camp1[:30]}...**" if len(camp1) > 30 else f"**{camp1}**")
                             if not df_camp1.empty:
                                 llamadas1 = len(df_camp1)
-                                ventas1 = len(df_camp1[
-                                    df_camp1['resultado_elec'].str.contains('UTIL POSITIVO', na=False) |
-                                    df_camp1['resultado_gas'].str.contains('UTIL POSITIVO', na=False)
-                                ])
+                                ventas1 = df_camp1.apply(
+                                    lambda row: contar_ventas_resultado(row['resultado_elec']) + 
+                                              contar_ventas_resultado(row['resultado_gas']), 
+                                    axis=1
+                                ).sum()
                                 st.metric("Llamadas", llamadas1)
-                                st.metric("Ventas", ventas1)
+                                st.metric("Ventas", int(ventas1))
                                 st.metric("Tasa", f"{(ventas1/llamadas1*100):.1f}%" if llamadas1 > 0 else "0%")
                         
                         with col2:
                             st.write(f"**{camp2[:30]}...**" if len(camp2) > 30 else f"**{camp2}**")
                             if not df_camp2.empty:
                                 llamadas2 = len(df_camp2)
-                                ventas2 = len(df_camp2[
-                                    df_camp2['resultado_elec'].str.contains('UTIL POSITIVO', na=False) |
-                                    df_camp2['resultado_gas'].str.contains('UTIL POSITIVO', na=False)
-                                ])
+                                ventas2 = df_camp2.apply(
+                                    lambda row: contar_ventas_resultado(row['resultado_elec']) + 
+                                              contar_ventas_resultado(row['resultado_gas']), 
+                                    axis=1
+                                ).sum()
                                 st.metric("Llamadas", llamadas2)
-                                st.metric("Ventas", ventas2)
+                                st.metric("Ventas", int(ventas2))
                                 st.metric("Tasa", f"{(ventas2/llamadas2*100):.1f}%" if llamadas2 > 0 else "0%")
                 
                 else:
@@ -294,32 +407,137 @@ def interfaz_analisis_llamadas():
                             break
                     
                     if df_filtrado is not None and not df_filtrado.empty:
-                        realizar_analisis(df_filtrado, campanya_seleccionada)
+                        df_analizado = realizar_analisis(df_filtrado, campanya_seleccionada)
+                        st.session_state.df_analizado_actual = df_analizado
                     else:
                         st.error(f"No se encontró la campaña: {campanya_seleccionada}")
         
-        # Botón para resetear
-        if st.button("🔄 Cargar nuevo archivo", type="secondary"):
-            st.session_state.analisis_realizado = False
-            st.session_state.df_cargado = None
-            if 'uploaded_file_data' in st.session_state:
-                del st.session_state.uploaded_file_data
-            st.rerun()
+        # Importar datos al sistema de super usuarios
+        if st.session_state.df_analizado_actual is not None and not st.session_state.df_analizado_actual.empty:
+            st.subheader("3. 📥 Importar al Sistema de Agentes")
+            
+            # Cargar configuración de super usuarios
+            from database import cargar_super_users
+            super_users_config = cargar_super_users()
+            
+            # Mostrar vista previa de lo que se importará
+            with st.expander("📋 Vista previa de datos a importar", expanded=True):
+                df_preview = st.session_state.df_analizado_actual[['agente', 'fecha', 'tiempo_conversacion', 'ventas_totales']].copy()
+                df_preview['Llamada >15min'] = df_preview['tiempo_conversacion'] > 900
+                df_preview['Agente'] = df_preview['agente']
+                df_preview['Fecha'] = df_preview['fecha']
+                df_preview['Ventas'] = df_preview['ventas_totales']
+                df_preview = df_preview[['Agente', 'Fecha', 'Llamada >15min', 'Ventas']]
+                st.dataframe(df_preview.head(20), use_container_width=True)
+                
+                # Estadísticas rápidas
+                llamadas_largas = len(st.session_state.df_analizado_actual[st.session_state.df_analizado_actual['tiempo_conversacion'] > 900])
+                ventas_totales = st.session_state.df_analizado_actual['ventas_totales'].sum()
+                agentes_unicos = st.session_state.df_analizado_actual['agente'].nunique()
+                fechas_unicas = st.session_state.df_analizado_actual['fecha'].nunique()
+                
+                col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+                with col_stats1:
+                    st.metric("👥 Agentes", agentes_unicos)
+                with col_stats2:
+                    st.metric("📅 Fechas", fechas_unicas)
+                with col_stats3:
+                    st.metric("📞 Llamadas >15min", llamadas_largas)
+                with col_stats4:
+                    st.metric("💰 Ventas", int(ventas_totales))
+            
+            # Confirmación de importación
+            st.info("💡 **Importará:** Llamadas >15min y ventas al registro diario de agentes")
+            st.warning("⚠️ **Advertencia:** Los datos existentes para las mismas fechas y agentes serán sumados, no reemplazados.")
+            
+            col_import1, col_import2 = st.columns(2)
+            with col_import1:
+                if st.button("📥 Importar Datos", type="primary", use_container_width=True):
+                    with st.spinner("Importando datos al sistema..."):
+                        exito, mensaje = importar_datos_a_registro(
+                            st.session_state.df_analizado_actual, 
+                            super_users_config
+                        )
+                        
+                        if exito:
+                            st.success("✅ Datos importados exitosamente")
+                            # Mostrar mensaje detallado
+                            for linea in mensaje.split('\n'):
+                                if linea.strip():
+                                    st.write(linea)
+                        else:
+                            st.error(f"❌ Error al importar: {mensaje}")
+            
+            with col_import2:
+                if st.button("🧹 Limpiar y Probar", type="secondary", use_container_width=True):
+                    # Probar importación sin guardar
+                    from database import cargar_registro_llamadas
+                    registro_actual = cargar_registro_llamadas()
+                    
+                    # Simular importación
+                    agentes_sistema = super_users_config.get("agentes", {})
+                    agentes_csv = st.session_state.df_analizado_actual['agente'].unique()
+                    
+                    st.info("🔍 **Prueba de coincidencia de agentes:**")
+                    
+                    coincidentes = []
+                    no_coincidentes = []
+                    
+                    for agente in agentes_csv:
+                        if str(agente).strip() in agentes_sistema:
+                            coincidentes.append(agente)
+                        else:
+                            no_coincidentes.append(agente)
+                    
+                    col_test1, col_test2 = st.columns(2)
+                    with col_test1:
+                        st.success(f"✅ Coincidentes: {len(coincidentes)}")
+                        for i, agente in enumerate(coincidentes[:5]):
+                            st.write(f"- {agente}")
+                    
+                    with col_test2:
+                        if no_coincidentes:
+                            st.warning(f"⚠️ No encontrados: {len(no_coincidentes)}")
+                            for i, agente in enumerate(no_coincidentes[:5]):
+                                st.write(f"- {agente}")
+        
+        # Botones de control
+        col_control1, col_control2 = st.columns(2)
+        with col_control1:
+            if st.button("🔄 Cargar nuevo archivo", type="secondary"):
+                st.session_state.analisis_realizado = False
+                st.session_state.df_cargado = None
+                st.session_state.df_analizado_actual = None
+                if 'uploaded_file_data' in st.session_state:
+                    del st.session_state.uploaded_file_data
+                st.rerun()
+        
+        with col_control2:
+            if st.button("📊 Ir a Panel Super Users", type="secondary"):
+                st.session_state.mostrar_panel_super_usuario = True
+                st.rerun()
     
     # Información de ayuda
-    with st.expander("📋 ¿Cómo usar el analizador?"):
+    with st.expander("📋 ¿Cómo usar el analizador e importar datos?"):
         st.write("""
-        **Pasos:**
+        **📊 Análisis:**
         1. 📤 **Sube tu archivo CSV/TXT** (separado por tabulaciones)
-        2. 🎯 **Elige una opción** de análisis en el selector
-        3. 🔍 **Haz clic en 'Aplicar análisis'** para ver los resultados
+        2. 🎯 **Elige una opción** de análisis
+        3. 🔍 **Haz clic en 'Aplicar análisis'** para ver resultados
         
-        **Campañas comunes:**
-        - 📞 **CAPTACION DUAL ZELEN**: Captación de nuevos clientes
-        - 🎯 **QUALITY DIF ZELENZA**: Calidad y diferenciación
+        **📥 Importación al sistema:**
+        1. **Los agentes del CSV deben coincidir** con los IDs del sistema de super users
+        2. **Se importarán automáticamente:**
+           - Llamadas de más de 15 minutos (900 segundos)
+           - Ventas detectadas (cada UTIL POSITIVO cuenta)
+           - Se suman a los datos existentes (no reemplazan)
         
-        **Métricas clave:**
-        - ⏱️ **Llamadas >15 min**: Llamadas de más de 900 segundos
-        - 💰 **Ventas**: Llamadas con resultado "UTIL POSITIVO"
-        - 🎯 **Tasa conversión**: % de llamadas largas que terminan en venta
+        **📈 Conteo de ventas mejorado:**
+        - Cada "UTIL POSITIVO" = 1 venta
+        - Si hay LUZ y GAS en la misma línea = 2 ventas
+        - Se detectan "DÚO" o "DUO" = 2 ventas
+        
+        **📅 Compatibilidad:**
+        - Las fechas del CSV deben estar en formato reconocible
+        - Los nombres de agentes deben coincidir exactamente
         """)

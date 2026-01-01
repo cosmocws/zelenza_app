@@ -113,6 +113,7 @@ def gestion_super_users_admin():
         
         # Cargar agentes actuales
         agentes = super_users_config.get("agentes", {})
+        super_users_list = super_users_config.get("super_users", [])
         
         col_agentes1, col_agentes2 = st.columns(2)
         
@@ -122,7 +123,9 @@ def gestion_super_users_admin():
                 for agent_id, info in agentes.items():
                     estado = "✅ Activo" if info.get('activo', True) else "❌ Inactivo"
                     grupo = info.get('grupo', 'Sin grupo')
-                    st.write(f"• **{agent_id}** - {info.get('nombre', 'Sin nombre')} ({estado}) - {grupo}")
+                    supervisor = info.get('supervisor', 'Sin asignar')
+                    st.write(f"• **{agent_id}** - {info.get('nombre', 'Sin nombre')} ({estado})")
+                    st.write(f"  Grupo: {grupo} | Supervisor: {supervisor}")
             else:
                 st.info("No hay agentes registrados")
         
@@ -177,6 +180,14 @@ def gestion_super_users_admin():
                 # Contar seleccionados
                 seleccionados = edited_df[edited_df['Seleccionar']]
                 
+                # Seleccionar supervisor para los nuevos agentes
+                opciones_supervisor = ['Sin asignar'] + super_users_list
+                supervisor_asignado = st.selectbox(
+                    "Asignar supervisor a los nuevos agentes:",
+                    opciones_supervisor,
+                    help="Selecciona el super usuario que supervisará estos agentes"
+                )
+                
                 col_add1, col_add2 = st.columns(2)
                 with col_add1:
                     if st.button(f"✅ Añadir {len(seleccionados)} Agente(s)", type="primary", use_container_width=True):
@@ -187,6 +198,7 @@ def gestion_super_users_admin():
                                     'grupo': row['grupo'],
                                     'tipo': row['tipo'],
                                     'activo': True,
+                                    'supervisor': supervisor_asignado if supervisor_asignado != 'Sin asignar' else '',
                                     'fecha_registro': datetime.now().strftime("%Y-%m-%d")
                                 }
                             
@@ -203,6 +215,173 @@ def gestion_super_users_admin():
                     if st.button("❌ Cancelar", type="secondary", use_container_width=True):
                         st.session_state.añadiendo_agentes = False
                         st.rerun()
+        
+        # Sección para editar/borrar agentes
+        if agentes:
+            st.write("---")
+            st.write("### 🔧 Editar/Borrar Agentes")
+            
+            # Seleccionar agente a editar
+            agentes_options = [f"{agent_id} - {info.get('nombre', 'Sin nombre')}" 
+                             for agent_id, info in agentes.items()]
+            
+            agente_seleccionado = st.selectbox(
+                "Seleccionar agente a editar/borrar:",
+                agentes_options,
+                key="select_agente_editar"
+            )
+            
+            if agente_seleccionado:
+                agent_id = agente_seleccionado.split(" - ")[0]
+                info_agente = agentes[agent_id]
+                
+                with st.expander(f"✏️ Editar Agente: {info_agente.get('nombre', agent_id)}", expanded=True):
+                    col_edit1, col_edit2 = st.columns(2)
+                    
+                    with col_edit1:
+                        # Información básica editable
+                        nombre_editado = st.text_input(
+                            "Nombre:",
+                            value=info_agente.get('nombre', ''),
+                            key=f"edit_nombre_{agent_id}"
+                        )
+                        
+                        grupo_editado = st.text_input(
+                            "Grupo:",
+                            value=info_agente.get('grupo', ''),
+                            key=f"edit_grupo_{agent_id}"
+                        )
+                        
+                        tipos_permitidos = ["user", "agent", "supervisor", "admin", "manual"]
+                        tipo_actual = info_agente.get('tipo', 'user')
+                        # Verificar si el tipo actual está en la lista
+                        if tipo_actual not in tipos_permitidos:
+                            tipo_actual = 'user'  # Valor por defecto si no está en la lista
+
+                        tipo_editado = st.selectbox(
+                            "Tipo:",
+                            tipos_permitidos,
+                            index=tipos_permitidos.index(tipo_actual),
+                            key=f"edit_tipo_{agent_id}"
+                        )
+                    
+                    with col_edit2:
+                        # Estado y supervisor
+                        activo_editado = st.checkbox(
+                            "Activo",
+                            value=info_agente.get('activo', True),
+                            key=f"edit_activo_{agent_id}"
+                        )
+                        
+                        # Asignar supervisor
+                        opciones_supervisor = ['Sin asignar'] + super_users_list
+                        supervisor_actual = info_agente.get('supervisor', '')
+                        
+                        # Encontrar índice actual
+                        if supervisor_actual in opciones_supervisor:
+                            index_supervisor = opciones_supervisor.index(supervisor_actual)
+                        else:
+                            index_supervisor = 0
+                        
+                        supervisor_editado = st.selectbox(
+                            "Supervisor asignado:",
+                            opciones_supervisor,
+                            index=index_supervisor,
+                            key=f"edit_supervisor_{agent_id}"
+                        )
+                        
+                        # Mostrar información de registro
+                        if 'fecha_registro' in info_agente:
+                            st.info(f"📅 Registrado: {info_agente['fecha_registro']}")
+                    
+                    # Botones de acción
+                    col_btn_edit1, col_btn_edit2, col_btn_edit3 = st.columns(3)
+                    
+                    with col_btn_edit1:
+                        if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                            # Actualizar información del agente
+                            agentes[agent_id] = {
+                                'nombre': nombre_editado,
+                                'grupo': grupo_editado,
+                                'tipo': tipo_editado,
+                                'activo': activo_editado,
+                                'supervisor': supervisor_editado if supervisor_editado != 'Sin asignar' else '',
+                                'fecha_registro': info_agente.get('fecha_registro', datetime.now().strftime("%Y-%m-%d")),
+                                'fecha_actualizacion': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                            }
+                            
+                            super_users_config["agentes"] = agentes
+                            guardar_super_users(super_users_config)
+                            st.success(f"✅ Agente {nombre_editado} actualizado correctamente")
+                            st.rerun()
+                    
+                    with col_btn_edit2:
+                        # Ver historial del agente
+                        if st.button("📊 Ver Historial", type="secondary", use_container_width=True):
+                            st.session_state.ver_historial_agente = agent_id
+                            st.rerun()
+                    
+                    with col_btn_edit3:
+                        # Botón para borrar agente
+                        if st.button("🗑️ Borrar Agente", type="secondary", use_container_width=True):
+                            st.session_state.agente_a_borrar = agent_id
+                            st.rerun()
+        
+        # Confirmación de borrado de agente
+        if st.session_state.get('agente_a_borrar'):
+            agent_id = st.session_state.agente_a_borrar
+            info_agente = agentes.get(agent_id, {})
+            nombre_agente = info_agente.get('nombre', agent_id)
+            
+            st.warning(f"⚠️ **CONFIRMAR BORRADO DEL AGENTE: {nombre_agente}**")
+            
+            # Cargar registro de llamadas para verificar datos históricos
+            registro_llamadas = cargar_registro_llamadas()
+            
+            # Contar registros históricos del agente
+            registros_historicos = 0
+            for fecha_str, datos_dia in registro_llamadas.items():
+                if agent_id in datos_dia:
+                    registros_historicos += 1
+            
+            st.write(f"**📊 Este agente tiene:**")
+            st.write(f"• {registros_historicos} día(s) de registro histórico")
+            st.write(f"• Grupo: {info_agente.get('grupo', 'Sin grupo')}")
+            st.write(f"• Supervisor: {info_agente.get('supervisor', 'Sin asignar')}")
+            
+            st.write("**⚠️ ADVERTENCIA:** Al borrar este agente:")
+            st.write("1. Se eliminará permanentemente de la lista de agentes")
+            st.write("2. Se perderán TODOS sus datos históricos de llamadas y ventas")
+            st.write("3. Esta acción NO se puede deshacer")
+            
+            col_conf1, col_conf2 = st.columns(2)
+            
+            with col_conf1:
+                if st.button("✅ **SÍ, BORRAR DEFINITIVAMENTE**", type="primary", use_container_width=True):
+                    # Eliminar agente
+                    del agentes[agent_id]
+                    super_users_config["agentes"] = agentes
+                    guardar_super_users(super_users_config)
+                    
+                    # Eliminar datos históricos del agente
+                    for fecha_str, datos_dia in registro_llamadas.items():
+                        if agent_id in datos_dia:
+                            del registro_llamadas[fecha_str][agent_id]
+                    
+                    guardar_registro_llamadas(registro_llamadas)
+                    
+                    st.success(f"✅ Agente {nombre_agente} borrado correctamente")
+                    st.success(f"✅ {registros_historicos} registros históricos eliminados")
+                    
+                    # Limpiar estado
+                    st.session_state.agente_a_borrar = None
+                    st.rerun()
+            
+            with col_conf2:
+                if st.button("❌ **NO, CANCELAR**", type="secondary", use_container_width=True):
+                    st.session_state.agente_a_borrar = None
+                    st.info("❌ Borrado cancelado")
+                    st.rerun()
     
     with tab3:
         st.write("### ⚙️ Configuración de Métricas")
@@ -248,13 +427,21 @@ def gestion_super_users_admin():
             help="Ratio: ventas/llamadas | Total: sumatoria | Ponderado: (ventas*2 + llamadas*1)"
         )
         
+        # Nueva opción: modo de visualización para super usuarios
+        mostrar_solo_mis_agentes = st.checkbox(
+            "Super usuarios ven solo sus agentes asignados",
+            value=config_actual.get("mostrar_solo_mis_agentes", False),
+            help="Si está activado, cada super usuario solo verá los agentes que tiene asignados"
+        )
+        
         if st.button("💾 Guardar Configuración", type="primary"):
             nueva_config = {
                 "duracion_minima_llamada": duracion_minima,
                 "periodo_mensual": periodo,
                 "target_llamadas": target_llamadas,
                 "target_ventas": target_ventas,
-                "metrica_eficiencia": metrica
+                "metrica_eficiencia": metrica,
+                "mostrar_solo_mis_agentes": mostrar_solo_mis_agentes
             }
             
             super_users_config["configuracion"] = nueva_config
@@ -268,15 +455,49 @@ def panel_super_usuario():
     
     # Cargar datos
     super_users_config = cargar_super_users()
-    agentes = super_users_config.get("agentes", {})
     configuracion = super_users_config.get("configuracion", {})
+    username = st.session_state.get('username', '')
+    
+    # Filtrar agentes según configuración y supervisor actual
+    agentes_completos = super_users_config.get("agentes", {})
+    
+    if configuracion.get("mostrar_solo_mis_agentes", False) and username:
+        # Filtrar solo agentes asignados a este super usuario
+        agentes = {k: v for k, v in agentes_completos.items() 
+                  if v.get('supervisor', '') == username}
+    else:
+        # Mostrar todos los agentes (modo administrador)
+        agentes = agentes_completos
+    
     registro_llamadas = cargar_registro_llamadas()
     
     if not agentes:
-        st.warning("⚠️ No hay agentes configurados. Contacta al administrador.")
-        return
+        st.warning("⚠️ No hay agentes asignados a tu supervisión.")
+        
+        # Si está en modo filtrado pero no hay agentes, mostrar opción para ver todos
+        if configuracion.get("mostrar_solo_mis_agentes", False) and username:
+            if st.button("👁️ Ver todos los agentes"):
+                # Cambiar temporalmente la configuración para ver todos
+                st.session_state.modo_temporal_todos = True
+                st.rerun()
+        
+        # Modo temporal para ver todos los agentes
+        if st.session_state.get('modo_temporal_todos', False):
+            agentes = agentes_completos
+            if not agentes:
+                st.warning("⚠️ No hay agentes configurados en el sistema. Contacta al administrador.")
+                return
+            else:
+                st.info("👁️ **Modo temporal:** Viendo todos los agentes del sistema")
+    else:
+        # Si hay agentes, asegurarse de que no estamos en modo temporal
+        st.session_state.modo_temporal_todos = False
     
-    tab1, tab2, tab3, tab4 = st.tabs(["📅 Registro Diario", "📊 Métricas Mensuales", "📈 Dashboard", "👥 Gestión Agentes"])
+    # CREAR PESTAÑAS (AGREGAR PESTAÑA DE IMPORTACIÓN)
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "📅 Registro Diario", "📊 Métricas Mensuales", "📈 Dashboard", 
+        "👥 Mis Agentes", "🔧 Editar Agentes", "📥 Importar CSV"
+    ])
     
     with tab1:
         gestion_registro_diario(agentes, registro_llamadas, configuracion)
@@ -289,6 +510,92 @@ def panel_super_usuario():
     
     with tab4:
         gestion_agentes_super_usuario(agentes, super_users_config)
+    
+    with tab5:
+        if username:  # Solo si hay un usuario identificado
+            gestion_agentes_super_usuario_edicion(agentes, super_users_config, username)
+        else:
+            st.warning("⚠️ Debes iniciar sesión como super usuario para acceder a esta sección")
+    
+    with tab6:
+        # Importar funcionalidad del analizador
+        from llamadas_analyzer import interfaz_analisis_llamadas
+        
+        # Mostrar versión simplificada para super usuarios
+        st.subheader("📥 Importar CSV de Llamadas")
+        
+        st.info("""
+        **Importa datos de llamadas automáticamente al registro diario:**
+        - 📞 Llamadas de más de 15 minutos se cuentan como "llamadas"
+        - 💰 Cada "UTIL POSITIVO" cuenta como venta (pueden ser 2 si es DÚO)
+        - 📅 Los datos se suman a los registros existentes
+        """)
+        
+        # Opción para usar el analizador completo
+        if st.button("🚀 Abrir Analizador Completo", type="primary"):
+            st.session_state.mostrar_analizador_completo = True
+        
+        if st.session_state.get('mostrar_analizador_completo', False):
+            # Mostrar interfaz completa del analizador
+            interfaz_analisis_llamadas()
+        else:
+            # Mostrar versión simplificada
+            uploaded_file = st.file_uploader(
+                "📤 Sube archivo CSV/TXT de llamadas",
+                type=['csv', 'txt'],
+                help="Archivo con columnas: agente, tiempo_conversacion, resultado_elec, resultado_gas, fecha, campanya"
+            )
+            
+            if uploaded_file is not None:
+                # Analizar y importar directamente
+                from llamadas_analyzer import analizar_csv_llamadas, importar_datos_a_registro
+                
+                with st.spinner("Analizando archivo..."):
+                    df = analizar_csv_llamadas(uploaded_file)
+                    
+                    if df is not None:
+                        # Mostrar vista previa
+                        st.success("✅ Archivo cargado correctamente")
+                        
+                        # Estadísticas rápidas
+                        llamadas_largas = len(df[df['tiempo_conversacion'] > 900])
+                        agentes_unicos = df['agente'].nunique()
+                        fechas_unicas = df['fecha'].nunique()
+                        
+                        # Contar ventas
+                        def contar_ventas_fila(row):
+                            ventas = 0
+                            if 'UTIL POSITIVO' in str(row.get('resultado_elec', '')).upper():
+                                ventas += 1
+                            if 'UTIL POSITIVO' in str(row.get('resultado_gas', '')).upper():
+                                ventas += 1
+                            return ventas
+                        
+                        df['ventas_totales'] = df.apply(contar_ventas_fila, axis=1)
+                        ventas_totales = df['ventas_totales'].sum()
+                        
+                        col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+                        with col_stats1:
+                            st.metric("👥 Agentes", agentes_unicos)
+                        with col_stats2:
+                            st.metric("📅 Fechas", fechas_unicas)
+                        with col_stats3:
+                            st.metric("📞 Llamadas >15min", llamadas_largas)
+                        with col_stats4:
+                            st.metric("💰 Ventas", int(ventas_totales))
+                        
+                        # Botón para importar
+                        if st.button("📥 Importar Datos al Sistema", type="primary"):
+                            with st.spinner("Importando datos..."):
+                                exito, mensaje = importar_datos_a_registro(df, super_users_config)
+                                
+                                if exito:
+                                    st.success("✅ Datos importados exitosamente")
+                                    for linea in mensaje.split('\n'):
+                                        if linea.strip():
+                                            st.write(linea)
+                                else:
+                                    st.error(f"❌ Error: {mensaje}")
 
 def gestion_registro_diario(agentes, registro_llamadas, configuracion):
     """Registro diario de llamadas y ventas"""
@@ -309,47 +616,107 @@ def gestion_registro_diario(agentes, registro_llamadas, configuracion):
     
     st.write(f"### 📝 Registro para {fecha_seleccionada.strftime('%d/%m/%Y')}")
     
+    # Opciones de ordenación
+    col_orden1, col_orden2 = st.columns([1, 3])
+    with col_orden1:
+        orden_por = st.selectbox(
+            "Ordenar por:",
+            ["Username (ID)", "Nombre", "Grupo"],
+            index=0,  # Por defecto ordenar por username
+            key="orden_registro"
+        )
+    with col_orden2:
+        st.caption("💡 Orden alfabético por username facilita encontrar agentes por su número (ej: 0001, 0002, etc.)")
+    
+    # Preparar lista de agentes ordenada
+    agentes_lista = []
+    for agent_id, info in agentes.items():
+        if info.get('activo', True):  # Solo agentes activos
+            agentes_lista.append({
+                'id': agent_id,
+                'nombre': info.get('nombre', agent_id),
+                'grupo': info.get('grupo', 'Sin grupo')
+            })
+    
+    # Ordenar según la opción seleccionada
+    if orden_por == "Username (ID)":
+        agentes_lista.sort(key=lambda x: x['id'])
+    elif orden_por == "Nombre":
+        agentes_lista.sort(key=lambda x: x['nombre'])
+    elif orden_por == "Grupo":
+        agentes_lista.sort(key=lambda x: (x['grupo'], x['id']))
+    
+    # Contador para estadísticas
+    total_agentes = len(agentes_lista)
+    agentes_con_datos = 0
+    
     # Crear formulario para cada agente
     with st.form("form_registro_diario"):
         registros = []
         
-        for agent_id, info in agentes.items():
-            if info.get('activo', True):  # Solo agentes activos
-                nombre = info.get('nombre', agent_id)
-                grupo = info.get('grupo', 'Sin grupo')
+        for i, agente in enumerate(agentes_lista, 1):
+            agent_id = agente['id']
+            nombre = agente['nombre']
+            grupo = agente['grupo']
+            
+            # Obtener valores actuales
+            datos_agente = datos_dia.get(agent_id, {"llamadas": 0, "ventas": 0})
+            
+            # Verificar si tiene datos previos
+            tiene_datos_previos = datos_agente.get("llamadas", 0) > 0 or datos_agente.get("ventas", 0) > 0
+            if tiene_datos_previos:
+                agentes_con_datos += 1
+            
+            # Mostrar con número de orden
+            col_agent1, col_agent2, col_agent3 = st.columns([4, 2, 2])
+            
+            with col_agent1:
+                # Mostrar número de orden y username en pequeñito
+                st.write(f"**#{i:03d} - {nombre}**")
+                st.caption(f"🆔 {agent_id} | 👥 {grupo}")
                 
-                # Obtener valores actuales
-                datos_agente = datos_dia.get(agent_id, {"llamadas": 0, "ventas": 0})
-                
-                col_agent1, col_agent2, col_agent3 = st.columns([3, 2, 2])
-                
-                with col_agent1:
-                    st.write(f"**{nombre}**")
-                    st.caption(f"Grupo: {grupo}")
-                
-                with col_agent2:
-                    llamadas = st.number_input(
-                        f"Llamadas >{configuracion.get('duracion_minima_llamada', 15)}min",
-                        min_value=0,
-                        max_value=100,
-                        value=datos_agente.get("llamadas", 0),
-                        key=f"llamadas_{agent_id}_{fecha_str}"
-                    )
-                
-                with col_agent3:
-                    ventas = st.number_input(
-                        "Ventas",
-                        min_value=0,
-                        max_value=50,
-                        value=datos_agente.get("ventas", 0),
-                        key=f"ventas_{agent_id}_{fecha_str}"
-                    )
-                
-                registros.append({
-                    'agent_id': agent_id,
-                    'llamadas': llamadas,
-                    'ventas': ventas
-                })
+                # Indicador visual si tiene datos previos
+                if tiene_datos_previos:
+                    st.caption("📝 Tiene datos previos")
+            
+            with col_agent2:
+                llamadas = st.number_input(
+                    f"Llamadas >{configuracion.get('duracion_minima_llamada', 15)}min",
+                    min_value=0,
+                    max_value=100,
+                    value=datos_agente.get("llamadas", 0),
+                    key=f"llamadas_{agent_id}_{fecha_str}",
+                    help=f"Llamadas para {nombre} ({agent_id})"
+                )
+            
+            with col_agent3:
+                ventas = st.number_input(
+                    "Ventas",
+                    min_value=0,
+                    max_value=50,
+                    value=datos_agente.get("ventas", 0),
+                    key=f"ventas_{agent_id}_{fecha_str}",
+                    help=f"Ventas para {nombre} ({agent_id})"
+                )
+            
+            # Línea separadora entre agentes (excepto el último)
+            if i < total_agentes:
+                st.markdown("---")
+            
+            registros.append({
+                'agent_id': agent_id,
+                'llamadas': llamadas,
+                'ventas': ventas
+            })
+        
+        # Estadísticas antes del botón de guardar
+        col_stats1, col_stats2, col_stats3 = st.columns(3)
+        with col_stats1:
+            st.metric("Total Agentes", total_agentes)
+        with col_stats2:
+            st.metric("Con Datos", agentes_con_datos)
+        with col_stats3:
+            st.metric("Sin Datos", total_agentes - agentes_con_datos)
         
         submitted = st.form_submit_button("💾 Guardar Registro Diario", type="primary")
         
@@ -438,6 +805,7 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
         if info.get('activo', True):
             nombre = info.get('nombre', agent_id)
             grupo = info.get('grupo', 'Sin grupo')
+            supervisor = info.get('supervisor', 'Sin asignar')
             
             # Calcular totales del periodo
             total_llamadas = 0
@@ -471,6 +839,7 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
             metricas_agentes.append({
                 'Agente': nombre,
                 'Grupo': grupo,
+                'Supervisor': supervisor,
                 'Llamadas': total_llamadas,
                 'Ventas': total_ventas,
                 'Ratio (%)': f"{(total_ventas/total_llamadas*100):.1f}" if total_llamadas > 0 else "0.0",
@@ -518,6 +887,10 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
     """Dashboard interactivo de métricas"""
     st.subheader("📈 Dashboard de Desempeño")
     
+    # Mostrar información de contexto
+    username = st.session_state.get('username', '')
+    st.info(f"👑 **Supervisor:** {username} | 👥 **Agentes supervisados:** {len(agentes)}")
+    
     # Métricas generales
     st.write("### 📊 Métricas Globales")
     
@@ -532,9 +905,10 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
     for fecha_str, datos_dia in registro_llamadas.items():
         fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
         if fecha_inicio <= fecha <= fecha_fin:
-            for datos_agente in datos_dia.values():
-                total_llamadas += datos_agente.get("llamadas", 0)
-                total_ventas += datos_agente.get("ventas", 0)
+            for agent_id, datos_agente in datos_dia.items():
+                if agent_id in agentes:  # Solo contar agentes supervisados
+                    total_llamadas += datos_agente.get("llamadas", 0)
+                    total_ventas += datos_agente.get("ventas", 0)
     
     # Mostrar KPIs
     col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
@@ -560,15 +934,20 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
     llamadas_diarias = []
     ventas_diarias = []
     
-    for fecha_str in sorted(registro_llamadas.keys())[-30:]:  # Últimos 30 días
+    # Obtener últimos 30 días
+    fecha_hoy = datetime.now().date()
+    fecha_30_dias_atras = fecha_hoy - timedelta(days=30)
+    
+    for fecha_str in sorted(registro_llamadas.keys()):
         fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-        if fecha_inicio <= fecha <= fecha_fin:
+        if fecha_30_dias_atras <= fecha <= fecha_hoy:
             total_dia_llamadas = 0
             total_dia_ventas = 0
             
-            for datos_agente in registro_llamadas[fecha_str].values():
-                total_dia_llamadas += datos_agente.get("llamadas", 0)
-                total_dia_ventas += datos_agente.get("ventas", 0)
+            for agent_id, datos_agente in registro_llamadas[fecha_str].items():
+                if agent_id in agentes:  # Solo contar agentes supervisados
+                    total_dia_llamadas += datos_agente.get("llamadas", 0)
+                    total_dia_ventas += datos_agente.get("ventas", 0)
             
             fechas.append(fecha.strftime("%d/%m"))
             llamadas_diarias.append(total_dia_llamadas)
@@ -584,6 +963,8 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         
         # Mostrar gráfico usando st.line_chart
         st.line_chart(df_tendencia.set_index('Fecha'))
+    else:
+        st.info("No hay datos de tendencia para los últimos 30 días")
     
     # Ranking de agentes
     st.write("### 🏆 Ranking de Agentes (Este Mes)")
@@ -622,24 +1003,44 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         
         # Mostrar top 10
         st.dataframe(df_ranking.head(10), use_container_width=True)
+    else:
+        st.info("No hay datos de ranking para este mes")
 
 def gestion_agentes_super_usuario(agentes, super_users_config):
     """Gestión de agentes desde el panel de super usuario"""
     st.subheader("👥 Gestión de Agentes")
     
+    username = st.session_state.get('username', '')
+    
+    # Mostrar información del super usuario actual
+    if username:
+        st.info(f"👑 **Supervisor actual:** {username}")
+    
+    # Contadores
+    agentes_activos = sum(1 for a in agentes.values() if a.get('activo', True))
+    agentes_inactivos = len(agentes) - agentes_activos
+    
+    col_stats1, col_stats2 = st.columns(2)
+    with col_stats1:
+        st.metric("✅ Agentes Activos", agentes_activos)
+    with col_stats2:
+        st.metric("❌ Agentes Inactivos", agentes_inactivos)
+    
     # Mostrar lista de agentes con opciones
     for agent_id, info in agentes.items():
         nombre = info.get('nombre', agent_id)
         grupo = info.get('grupo', 'Sin grupo')
+        supervisor = info.get('supervisor', 'Sin asignar')
         activo = info.get('activo', True)
         
-        with st.expander(f"{'✅' if activo else '❌'} {nombre} ({grupo})", expanded=False):
+        with st.expander(f"{'✅' if activo else '❌'} {nombre} ({grupo}) - Supervisor: {supervisor}", expanded=False):
             col_agent1, col_agent2 = st.columns(2)
             
             with col_agent1:
                 st.write("**Información:**")
                 st.write(f"• ID: {agent_id}")
                 st.write(f"• Grupo: {grupo}")
+                st.write(f"• Supervisor: {supervisor}")
                 st.write(f"• Estado: {'Activo' if activo else 'Inactivo'}")
                 st.write(f"• Tipo: {info.get('tipo', 'user')}")
                 
@@ -712,6 +1113,107 @@ def gestion_agentes_super_usuario(agentes, super_users_config):
         if st.button("← Volver a lista"):
             st.session_state.ver_historial_agente = None
             st.rerun()
+
+def gestion_agentes_super_usuario_edicion(agentes, super_users_config, super_user_actual):
+    """Gestión de agentes para super usuarios (edición limitada)"""
+    st.subheader("🔧 Edición de Mis Agentes")
+    
+    # Filtrar agentes asignados a este super usuario
+    agentes_asignados = {k: v for k, v in agentes.items() 
+                        if v.get('supervisor', '') == super_user_actual}
+    
+    if not agentes_asignados:
+        st.info(f"ℹ️ No tienes agentes asignados como supervisor. Los agentes asignados a ti aparecerán aquí.")
+        return
+    
+    st.info(f"👑 **Supervisor:** {super_user_actual} | 👥 **Agentes asignados:** {len(agentes_asignados)}")
+    
+    # Seleccionar agente a editar
+    agentes_options = [f"{agent_id} - {info.get('nombre', 'Sin nombre')}" 
+                      for agent_id, info in agentes_asignados.items()]
+    
+    agente_seleccionado = st.selectbox(
+        "Seleccionar agente a editar:",
+        agentes_options,
+        key="select_agente_super_editar"
+    )
+    
+    if agente_seleccionado:
+        agent_id = agente_seleccionado.split(" - ")[0]
+        info_agente = agentes[agent_id]
+        
+        st.write(f"### ✏️ Editar agente: {info_agente.get('nombre', agent_id)}")
+        
+        col_edit1, col_edit2 = st.columns(2)
+        
+        with col_edit1:
+            # Super usuario solo puede editar información básica
+            nombre_editado = st.text_input(
+                "Nombre:",
+                value=info_agente.get('nombre', ''),
+                key=f"super_nombre_{agent_id}"
+            )
+            
+            grupo_editado = st.text_input(
+                "Grupo:",
+                value=info_agente.get('grupo', ''),
+                key=f"super_grupo_{agent_id}"
+            )
+        
+        with col_edit2:
+            # Solo puede cambiar estado activo/inactivo
+            activo_editado = st.checkbox(
+                "Activo",
+                value=info_agente.get('activo', True),
+                key=f"super_activo_{agent_id}"
+            )
+            
+            # Mostrar información de solo lectura
+            st.info(f"🆔 **Usuario ID:** {agent_id}")
+            st.info(f"👤 **Tipo:** {info_agente.get('tipo', 'user')}")
+            st.info(f"👑 **Supervisor:** {info_agente.get('supervisor', 'Sin asignar')}")
+            
+            if 'fecha_registro' in info_agente:
+                st.caption(f"📅 Registrado: {info_agente['fecha_registro']}")
+        
+        # Botones de acción
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
+        
+        with col_btn1:
+            if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
+                # Actualizar solo campos permitidos
+                agentes[agent_id]['nombre'] = nombre_editado
+                agentes[agent_id]['grupo'] = grupo_editado
+                agentes[agent_id]['activo'] = activo_editado
+                agentes[agent_id]['fecha_actualizacion'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                # Actualizar en la configuración completa
+                super_users_config_completo = cargar_super_users()
+                super_users_config_completo["agentes"] = agentes
+                guardar_super_users(super_users_config_completo)
+                
+                st.success(f"✅ Agente {nombre_editado} actualizado correctamente")
+                st.rerun()
+        
+        with col_btn2:
+            if st.button("📊 Ver Historial Completo", type="secondary", use_container_width=True):
+                st.session_state.ver_historial_agente = agent_id
+                st.rerun()
+        
+        with col_btn3:
+            if st.button("🔄 Reiniciar Métricas", type="secondary", use_container_width=True):
+                st.warning("⚠️ Esta acción reiniciará las métricas del mes actual para este agente")
+                
+                # Confirmación
+                col_conf1, col_conf2 = st.columns(2)
+                with col_conf1:
+                    if st.button("✅ Sí, reiniciar"):
+                        # Aquí podrías agregar lógica para reiniciar métricas
+                        st.success(f"✅ Métricas de {info_agente.get('nombre', agent_id)} reiniciadas")
+                        st.rerun()
+                with col_conf2:
+                    if st.button("❌ No, cancelar"):
+                        st.rerun()
 
 def mostrar_graficos_metricas(df_metricas):
     """Muestra gráficos de métricas"""
