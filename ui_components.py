@@ -84,6 +84,13 @@ def mostrar_panel_usuario():
     else:
         st.header("👤 Portal del Cliente")
     
+    # PRIMERO: Mostrar la monitorización del agente (si existe)
+    try:
+        from monitorizacion_utils import mostrar_monitorizacion_agente
+        mostrar_monitorizacion_agente(st.session_state.username)
+    except Exception as e:
+        st.warning(f"No se pudo cargar la monitorización: {e}")
+
     # Cargar configuración de secciones
     from database import cargar_config_sistema
     config_sistema = cargar_config_sistema()

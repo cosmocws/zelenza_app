@@ -494,9 +494,9 @@ def panel_super_usuario():
         st.session_state.modo_temporal_todos = False
     
     # CREAR PESTAÑAS (AGREGAR PESTAÑA DE IMPORTACIÓN)
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📅 Registro Diario", "📊 Métricas Mensuales", "📈 Dashboard", 
-        "👥 Mis Agentes", "🔧 Editar Agentes", "📥 Importar CSV"
+        "👥 Mis Agentes", "🔧 Editar Agentes", "📥 Importar CSV", "📊 Monitorizaciones"
     ])
     
     with tab1:
@@ -596,6 +596,9 @@ def panel_super_usuario():
                                             st.write(linea)
                                 else:
                                     st.error(f"❌ Error: {mensaje}")
+
+    with tab7:
+        panel_monitorizaciones_super_usuario()
 
 def gestion_registro_diario(agentes, registro_llamadas, configuracion):
     """Registro diario de llamadas y ventas"""
@@ -1240,3 +1243,456 @@ def mostrar_graficos_metricas(df_metricas):
     df_ratio = df_metricas[['Agente', 'Ratio (%)']].copy()
     df_ratio['Ratio (%)'] = df_ratio['Ratio (%)'].str.replace('%', '').astype(float)
     st.line_chart(df_ratio.set_index('Agente'))
+
+# super_users_functions.py (AGREGAR ESTAS FUNCIONES AL FINAL)
+
+def panel_monitorizaciones_super_usuario():
+    """Panel de monitorizaciones integrado en super users"""
+    
+    st.subheader("📊 Sistema de Monitorizaciones")
+    
+    # Cargar agentes del supervisor
+    super_users_config = cargar_super_users()
+    username = st.session_state.get('username', '')
+    
+    # Filtrar agentes asignados a este supervisor
+    agentes_completos = super_users_config.get("agentes", {})
+    configuracion = super_users_config.get("configuracion", {})
+    
+    if configuracion.get("mostrar_solo_mis_agentes", False) and username:
+        agentes = {k: v for k, v in agentes_completos.items() 
+                  if v.get('supervisor', '') == username}
+    else:
+        agentes = agentes_completos
+    
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📝 Nueva Monitorización", 
+        "🔔 Agentes Pendientes", 
+        "📋 Historial",
+        "👤 Monitorización Agente"
+    ])
+    
+    with tab1:
+        mostrar_formulario_monitorizacion(agentes)
+    
+    with tab2:
+        mostrar_agentes_pendientes_monitorizar(agentes)
+    
+    with tab3:
+        mostrar_historial_monitorizaciones(agentes)
+    
+    with tab4:
+        mostrar_monitorizacion_agente_especifico()
+
+def mostrar_formulario_monitorizacion(agentes):
+    """Formulario para crear nuevas monitorizaciones"""
+    
+    st.write("### 📝 Registrar Nueva Monitorización")
+    
+    if not agentes:
+        st.warning("No tienes agentes asignados para monitorizar")
+        return
+    
+    # Opción 1: Cargar PDF
+    st.write("#### 📄 Opción 1: Cargar PDF de Monitorización")
+    
+    uploaded_file = st.file_uploader(
+        "Sube el PDF de monitorización",
+        type=['pdf'],
+        help="Sube el PDF generado después de una monitorización"
+    )
+    
+    if uploaded_file is not None:
+        # Simular análisis del PDF
+        from monitorizacion_utils import analizar_pdf_monitorizacion
+        datos_pdf = analizar_pdf_monitorizacion(uploaded_file)
+        
+        with st.expander("Ver datos extraídos del PDF", expanded=True):
+            st.json(datos_pdf)
+        
+        # Pre-llenar formulario con datos del PDF
+        for key, value in datos_pdf.items():
+            if key not in st.session_state:
+                st.session_state[f"mon_{key}"] = value
+    
+    st.write("#### ✍️ Opción 2: Ingreso Manual")
+    
+    with st.form("form_monitorizacion"):
+        # Seleccionar agente
+        agentes_opciones = []
+        for agent_id, info in agentes.items():
+            if info.get('activo', True):
+                nombre = info.get('nombre', agent_id)
+                grupo = info.get('grupo', 'Sin grupo')
+                agentes_opciones.append(f"{agent_id} - {nombre} ({grupo})")
+        
+        if not agentes_opciones:
+            st.warning("No hay agentes activos disponibles")
+            return
+        
+        agente_seleccionado = st.selectbox(
+            "Seleccionar Agente:",
+            agentes_opciones
+        )
+        
+        # Extraer ID del agente
+        agent_id = agente_seleccionado.split(" - ")[0]
+        
+        col_fecha1, col_fecha2 = st.columns(2)
+        
+        with col_fecha1:
+            fecha_monitorizacion = st.date_input(
+                "Fecha de Monitorización:",
+                value=datetime.now().date()
+            )
+        
+        with col_fecha2:
+            # Fecha próxima (14 días por defecto)
+            fecha_proxima = st.date_input(
+                "Fecha próxima monitorización:",
+                value=datetime.now().date() + timedelta(days=14)
+            )
+        
+        # Notas principales
+        col_nota1, col_nota2 = st.columns(2)
+        
+        with col_nota1:
+            nota_global = st.number_input(
+                "Nota Global (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_nota_global', 0.0)),
+                step=0.5
+            )
+        
+        with col_nota2:
+            objetivo = st.number_input(
+                "Objetivo (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_objetivo', 85.0)),
+                step=0.5
+            )
+        
+        st.write("##### 📊 Puntuaciones por Área")
+        
+        col_areas1, col_areas2 = st.columns(2)
+        
+        with col_areas1:
+            experiencia = st.number_input(
+                "Experiencia (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_experiencia', 0.0)),
+                step=0.5
+            )
+            
+            comunicacion = st.number_input(
+                "Comunicación (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_comunicacion', 0.0)),
+                step=0.5
+            )
+            
+            deteccion = st.number_input(
+                "Detección (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_deteccion', 0.0)),
+                step=0.5
+            )
+        
+        with col_areas2:
+            habilidades_venta = st.number_input(
+                "Habilidades de Venta (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_habilidades_venta', 0.0)),
+                step=0.5
+            )
+            
+            resolucion_objeciones = st.number_input(
+                "Resolución Objeciones (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_resolucion_objeciones', 0.0)),
+                step=0.5
+            )
+            
+            cierre_contacto = st.number_input(
+                "Cierre Contacto (%):",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(st.session_state.get('mon_cierre_contacto', 0.0)),
+                step=0.5
+            )
+        
+        # Feedback y plan
+        st.write("##### 💬 Feedback y Plan de Acción")
+        
+        feedback = st.text_area(
+            "Feedback para el agente:",
+            value=st.session_state.get('mon_feedback', ''),
+            height=100
+        )
+        
+        plan_accion = st.text_area(
+            "Plan de acción específico:",
+            value=st.session_state.get('mon_plan_accion', ''),
+            height=100
+        )
+        
+        # Puntos clave
+        puntos_clave = st.multiselect(
+            "Puntos clave identificados:",
+            ["LOPD", "Comunicación", "Cierre de venta", "Argumentación", 
+             "Resolución objeciones", "Proceso venta", "Escucha activa", "Otros"],
+            default=st.session_state.get('mon_puntos_clave', [])
+        )
+        
+        submitted = st.form_submit_button("💾 Guardar Monitorización", type="primary")
+        
+        if submitted:
+            monitorizacion_data = {
+                'id_empleado': agent_id,
+                'fecha_monitorizacion': fecha_monitorizacion.strftime('%Y-%m-%d'),
+                'nota_global': nota_global,
+                'objetivo': objetivo,
+                'experiencia': experiencia,
+                'comunicacion': comunicacion,
+                'deteccion': deteccion,
+                'habilidades_venta': habilidades_venta,
+                'resolucion_objeciones': resolucion_objeciones,
+                'cierre_contacto': cierre_contacto,
+                'feedback': feedback,
+                'plan_accion': plan_accion,
+                'puntos_clave': puntos_clave,
+                'fecha_proxima_monitorizacion': fecha_proxima.strftime('%Y-%m-%d')
+            }
+            
+            from monitorizacion_utils import guardar_monitorizacion_completa
+            
+            if guardar_monitorizacion_completa(monitorizacion_data, st.session_state.username):
+                st.success("✅ Monitorización guardada exitosamente")
+                
+                # Limpiar estado
+                for key in ['mon_nota_global', 'mon_objetivo', 'mon_experiencia', 
+                          'mon_comunicacion', 'mon_deteccion', 'mon_habilidades_venta',
+                          'mon_resolucion_objeciones', 'mon_cierre_contacto',
+                          'mon_feedback', 'mon_plan_accion', 'mon_puntos_clave']:
+                    if key in st.session_state:
+                        del st.session_state[key]
+                
+                st.rerun()
+
+def mostrar_agentes_pendientes_monitorizar(agentes):
+    """Muestra agentes que necesitan ser monitorizados"""
+    
+    st.write("### 🔔 Agentes Pendientes de Monitorización")
+    
+    from database import obtener_agentes_pendientes_monitorizar
+    
+    agentes_pendientes = obtener_agentes_pendientes_monitorizar()
+    
+    if not agentes_pendientes:
+        st.success("🎉 Todos los agentes están al día")
+        return
+    
+    # Filtrar solo agentes de este supervisor
+    agentes_supervisor = {a['id'] for a in agentes_pendientes if a['id'] in agentes}
+    agentes_pendientes = [a for a in agentes_pendientes if a['id'] in agentes_supervisor]
+    
+    if not agentes_pendientes:
+        st.info("Tus agentes están todos al día")
+        return
+    
+    # Estadísticas
+    total = len(agentes_pendientes)
+    nunca_monitorizados = sum(1 for a in agentes_pendientes if a['ultima_fecha'] is None)
+    
+    col_stats1, col_stats2 = st.columns(2)
+    
+    with col_stats1:
+        st.metric("Total Pendientes", total)
+    
+    with col_stats2:
+        st.metric("Nunca Monitorizados", nunca_monitorizados)
+    
+    # Tabla de agentes
+    st.write("##### 📋 Lista de Agentes Pendientes")
+    
+    datos_tabla = []
+    for agente in agentes_pendientes:
+        datos_tabla.append({
+            'ID': agente['id'],
+            'Nombre': agente['nombre'],
+            'Grupo': agente['grupo'],
+            'Última Monitorización': agente['ultima_fecha'] or "NUNCA",
+            'Días sin': agente['dias_sin'] if agente['dias_sin'] != float('inf') else "∞",
+            'Estado': agente['estado']
+        })
+    
+    df = pd.DataFrame(datos_tabla)
+    st.dataframe(df, use_container_width=True)
+    
+    # Botón para crear monitorización rápida
+    if st.button("📝 Crear Monitorización Rápida", type="primary"):
+        st.session_state.crear_monitorizacion_rapida = True
+        st.rerun()
+
+def mostrar_historial_monitorizaciones(agentes):
+    """Muestra historial de monitorizaciones"""
+    
+    st.write("### 📋 Historial de Monitorizaciones")
+    
+    # Seleccionar agente
+    agentes_opciones = []
+    for agent_id, info in agentes.items():
+        nombre = info.get('nombre', agent_id)
+        grupo = info.get('grupo', 'Sin grupo')
+        agentes_opciones.append(f"{agent_id} - {nombre} ({grupo})")
+    
+    if not agentes_opciones:
+        st.warning("No hay agentes disponibles")
+        return
+    
+    agente_seleccionado = st.selectbox(
+        "Seleccionar Agente:",
+        agentes_opciones,
+        key="historial_agente"
+    )
+    
+    if agente_seleccionado:
+        agent_id = agente_seleccionado.split(" - ")[0]
+        
+        from database import obtener_monitorizaciones_por_empleado
+        monitorizaciones = obtener_monitorizaciones_por_empleado(agent_id)
+        
+        if not monitorizaciones:
+            st.info("No hay monitorizaciones para este agente")
+            return
+        
+        # Estadísticas
+        total = len(monitorizaciones)
+        promedio = sum(m.get('nota_global', 0) for m in monitorizaciones) / total
+        mejor = max(m.get('nota_global', 0) for m in monitorizaciones)
+        
+        col_stat1, col_stat2, col_stat3 = st.columns(3)
+        
+        with col_stat1:
+            st.metric("Total Monitorizaciones", total)
+        
+        with col_stat2:
+            st.metric("Promedio Nota", f"{promedio:.1f}%")
+        
+        with col_stat3:
+            st.metric("Mejor Nota", f"{mejor}%")
+        
+        # Tabla de historial
+        datos_tabla = []
+        for mon in monitorizaciones:
+            datos_tabla.append({
+                'Fecha': mon.get('fecha_monitorizacion', ''),
+                'Nota Global': f"{mon.get('nota_global', 0)}%",
+                'Objetivo': f"{mon.get('objetivo', 85)}%",
+                'Próxima': mon.get('fecha_proxima_monitorizacion', 'No programada'),
+                'Feedback': '✅' if mon.get('feedback') else '❌',
+                'Plan': '✅' if mon.get('plan_accion') else '❌'
+            })
+        
+        df = pd.DataFrame(datos_tabla)
+        st.dataframe(df, use_container_width=True)
+
+def mostrar_monitorizacion_agente_especifico():
+    """Muestra la monitorización de un agente específico"""
+    
+    st.write("### 👤 Ver Monitorización de Agente")
+    
+    from database import cargar_super_users, obtener_ultima_monitorizacion_empleado
+    
+    super_users_config = cargar_super_users()
+    agentes = super_users_config.get("agentes", {})
+    
+    # Seleccionar agente
+    agentes_opciones = []
+    for agent_id, info in agentes.items():
+        nombre = info.get('nombre', agent_id)
+        grupo = info.get('grupo', 'Sin grupo')
+        agentes_opciones.append(f"{agent_id} - {nombre} ({grupo})")
+    
+    if not agentes_opciones:
+        st.warning("No hay agentes disponibles")
+        return
+    
+    agente_seleccionado = st.selectbox(
+        "Seleccionar Agente para ver su monitorización:",
+        agentes_opciones,
+        key="ver_monitorizacion_agente"
+    )
+    
+    if agente_seleccionado:
+        agent_id = agente_seleccionado.split(" - ")[0]
+        
+        ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+        
+        if not ultima_mon:
+            st.info("Este agente no tiene monitorizaciones registradas")
+            return
+        
+        # Mostrar información
+        st.write(f"#### 📊 Monitorización de {agente_seleccionado.split(' - ')[1]}")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            nota = ultima_mon.get('nota_global', 0)
+            objetivo = ultima_mon.get('objetivo', 85)
+            st.metric("Nota Global", f"{nota}%", 
+                     delta=f"{nota - objetivo:.1f}%" if objetivo else None)
+        
+        with col2:
+            fecha = ultima_mon.get('fecha_monitorizacion', '')
+            st.metric("Fecha", fecha)
+        
+        with col3:
+            fecha_prox = ultima_mon.get('fecha_proxima_monitorizacion', '')
+            if fecha_prox:
+                fecha_prox_dt = datetime.strptime(fecha_prox, '%Y-%m-%d')
+                hoy = datetime.now().date()
+                dias_restantes = (fecha_prox_dt.date() - hoy).days
+                st.metric("Próxima", fecha_prox, delta=f"{dias_restantes} días")
+        
+        # Puntuaciones
+        st.write("##### 📈 Puntuaciones por Área")
+        
+        areas = [
+            ("Experiencia", ultima_mon.get('experiencia')),
+            ("Comunicación", ultima_mon.get('comunicacion')),
+            ("Detección", ultima_mon.get('deteccion')),
+            ("Habilidades de Venta", ultima_mon.get('habilidades_venta')),
+            ("Resolución Objeciones", ultima_mon.get('resolucion_objeciones')),
+            ("Cierre Contacto", ultima_mon.get('cierre_contacto'))
+        ]
+        
+        cols = st.columns(3)
+        for idx, (area, puntaje) in enumerate(areas):
+            if puntaje is not None:
+                with cols[idx % 3]:
+                    progress = puntaje / 100
+                    st.progress(progress)
+                    st.caption(f"{area}: {puntaje}%")
+        
+        # Feedback y plan
+        if ultima_mon.get('feedback'):
+            st.write("##### 💬 Feedback")
+            st.write(ultima_mon.get('feedback'))
+        
+        if ultima_mon.get('plan_accion'):
+            st.write("##### 🎯 Plan de Acción")
+            st.write(ultima_mon.get('plan_accion'))
+        
+        if ultima_mon.get('puntos_clave'):
+            st.write("##### 🔑 Puntos Clave")
+            for punto in ultima_mon.get('puntos_clave'):
+                st.write(f"- {punto}")
