@@ -138,9 +138,15 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     # Estadísticas
     st.subheader(f"📊 Análisis: {nombre_analisis}")
     
-    col1, col2, col3, col4 = st.columns(4)
+    # CALCULAR NUEVO KPI: Media de llamadas por agente
+    total_llamadas = len(df_filtrado)
+    total_agentes = df_filtrado['agente'].nunique()
+    media_llamadas_por_agente = total_llamadas / total_agentes if total_agentes > 0 else 0
+    
+    # ACTUALIZAR LAS COLUMNAS: Añadir una quinta columna para el nuevo KPI
+    col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
-        st.metric("📞 Llamadas totales", len(df_filtrado))
+        st.metric("📞 Llamadas totales", total_llamadas)
     with col2:
         st.metric("⏱️ Llamadas >15 min", len(df_llamadas_largas))
     with col3:
@@ -150,6 +156,9 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     with col4:
         duracion_promedio = df_filtrado['duracion_minutos'].mean() if not df_filtrado['duracion_minutos'].isnull().all() else 0
         st.metric("⏱️ Duración promedio", f"{duracion_promedio:.1f} min")
+    with col5:
+        # NUEVO KPI: Media de llamadas por agente
+        st.metric("👥 Media llamadas/agente", f"{media_llamadas_por_agente:.1f}")
     
     # Análisis por agente
     st.subheader("👥 Resumen por Agente")
