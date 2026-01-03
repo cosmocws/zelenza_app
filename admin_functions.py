@@ -1799,11 +1799,11 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    # 11 pestañas con la nueva de GitHub Sync
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
+    # 12 pestañas (añadiendo Sync Data)
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
         "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
         "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", 
-        "📊 Analizador Llamadas", "🔄 GitHub Sync"  # <-- NUEVA PESTAÑA SIMPLE
+        "📊 Analizador Llamadas", "🔄 GitHub Sync", "💾 Sync Data"  # <-- NUEVA
     ])
     
     with tab1:
@@ -1826,5 +1826,8 @@ def mostrar_panel_administrador():
         gestion_secciones_visibles()
     with tab10:
         interfaz_analisis_llamadas()
-    with tab11:  # NUEVA PESTAÑA SIMPLE
+    with tab11:
         gestion_sincronizacion_github()
+    with tab12:  # NUEVA PESTAÑA
+        from sync_ui import show_sync_panel
+        show_sync_panel()
