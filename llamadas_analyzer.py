@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import tempfile
 import io
 from database import cargar_registro_llamadas, guardar_registro_llamadas
+import json
 
 def analizar_csv_llamadas(uploaded_file):
     """
@@ -209,6 +210,14 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     """
     Importa los datos analizados al registro diario de super usuarios
     """
+    # ============================================
+    # AÑADE ESTOS IMPORTS AL INICIO DE LA FUNCIÓN
+    # ============================================
+    import os
+    import json
+    import streamlit as st
+    from datetime import datetime
+    
     if df_analizado.empty:
         return False, "No hay datos para importar"
     
@@ -306,7 +315,7 @@ def importar_datos_a_registro(df_analizado, super_users_config):
             if agente_csv not in agentes_no_encontrados:
                 agentes_no_encontrados.append(agente_csv)
     
-    # Guardar cambios
+    # Guardar cambios LOCALES (en la sesión temporal)
     guardar_registro_llamadas(registro_llamadas)
     
     # Preparar mensaje de resumen
@@ -318,7 +327,7 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     
     if agentes_encontrados:
         mensaje += f"\n**Agentes importados:**\n"
-        for agente in agentes_encontrados[:10]:  # Mostrar primeros 10
+        for agente in agentes_encontrados[:10]:
             mensaje += f"- {agente}\n"
         if len(agentes_encontrados) > 10:
             mensaje += f"- ... y {len(agentes_encontrados) - 10} más\n"
@@ -338,46 +347,72 @@ def importar_datos_a_registro(df_analizado, super_users_config):
         if len(agentes_sistema) > 10:
             mensaje += f"- ... y {len(agentes_sistema) - 10} más\n"
     
-    # 🔄 SINCRONIZAR CON GITHUB INMEDIATAMENTE
-    try:
-        # Verificar si tenemos credenciales
-        import streamlit as st
+    # ============================================
+    # 🔄 SINCRONIZACIÓN CON GITHUB - CORREGIDA
+    # ============================================
+    
+    # PRIMERO: Averiguar qué archivo se modificó
+    archivos_posibles = [
+        "database.json",                    # Opción 1
+        "data/registro_llamadas.json",      # Opción 2
+        "data/database.json",               # Opción 3
+        "registro_llamadas.json",           # Opción 4
+    ]
+    
+    archivo_encontrado = None
+    for archivo in archivos_posibles:
+        if os.path.exists(archivo):
+            archivo_encontrado = archivo
+            break
+    
+    if archivo_encontrado:
+        # Verificar credenciales de GitHub
         if all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]):
-            
-            # Importar nuestro sincronizador
-            from github_sync_completo import GitHubSyncCompleto
-            
-            # Crear instancia
-            sync = GitHubSyncCompleto()
-            
-            # Sincronizar SOLO database.json (donde están los datos)
-            if os.path.exists("database.json"):
-                success, message = sync.upload_file(
-                    "database.json",
-                    f"Auto-sync después de importar CSV: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            try:
+                # Importar sincronizador
+                from github_sync_completo import GitHubSyncCompleto
+                sync = GitHubSyncCompleto()
+                
+                # Sincronizar el archivo encontrado
+                success, sync_message = sync.upload_file(
+                    archivo_encontrado,
+                    f"📊 CSV Importado: {len(agentes_encontrados)} agentes, {llamadas_importadas} llamadas"
                 )
                 
                 if success:
-                    mensaje += "\n\n✅ **Datos guardados en GitHub automáticamente**"
-                    mensaje += f"\n📁 Archivo: `database.json`"
-                    mensaje += f"\n⏰ Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                    mensaje += f"\n\n🎉 **¡SINCRONIZADO CON GITHUB!**\n"
+                    mensaje += f"✅ Archivo guardado: `{archivo_encontrado}`\n"
+                    mensaje += f"📊 {len(agentes_encontrados)} agentes, {llamadas_importadas} llamadas\n"
+                    mensaje += f"⏰ {datetime.now().strftime('%H:%M')}\n"
+                    
+                    # Añadir botón para ver en GitHub
+                    repo_url = f"https://github.com/{st.secrets['GITHUB_REPO_OWNER']}/{st.secrets['GITHUB_REPO_NAME']}/blob/main/{archivo_encontrado}"
+                    mensaje += f"\n🔍 [Ver archivo en GitHub]({repo_url})"
+                    
                 else:
-                    mensaje += "\n\n⚠️ **Datos guardados localmente pero NO en GitHub**"
-                    mensaje += f"\n❌ Error: {message}"
-                    mensaje += "\n🔧 Usa la pestaña '🔄 GitHub Sync' para sincronizar manualmente"
-            else:
-                mensaje += "\n\n⚠️ **Error: database.json no existe después de guardar**"
-        
+                    mensaje += f"\n\n⚠️ **Datos guardados localmente**\n"
+                    mensaje += f"❌ Error GitHub: {sync_message}\n"
+                    mensaje += f"📁 Archivo local: `{archivo_encontrado}`\n"
+                    mensaje += f"🔧 Usa '🔄 GitHub Sync' para guardar manualmente"
+                    
+            except Exception as e:
+                mensaje += f"\n\n⚠️ **Error en sincronización**\n"
+                mensaje += f"📁 Datos en: `{archivo_encontrado}`\n"
+                mensaje += f"🔧 Error: {str(e)[:100]}\n"
+                mensaje += f"💾 Sincroniza manualmente desde '🔄 GitHub Sync'"
         else:
-            mensaje += "\n\n⚠️ **No se pudo sincronizar: faltan credenciales de GitHub**"
-            mensaje += "\n🔧 Configura GITHUB_TOKEN, GITHUB_REPO_OWNER y GITHUB_REPO_NAME en secrets.toml"
-            
-    except Exception as e:
-        mensaje += f"\n\n⚠️ **Error en sincronización automática:** {str(e)}"
-        mensaje += "\n🔧 Los datos se guardaron localmente. Sincroniza manualmente."
+            mensaje += f"\n\n⚠️ **No se pudo sincronizar**\n"
+            mensaje += f"📁 Datos guardados en: `{archivo_encontrado}`\n"
+            mensaje += f"🔧 Faltan credenciales en secrets.toml\n"
+            mensaje += f"💾 Los datos están SOLO en esta sesión temporal"
+    else:
+        mensaje += f"\n\n❌ **ERROR: No se encontró el archivo de datos**\n"
+        mensaje += f"🔍 Buscado en: {', '.join(archivos_posibles)}\n"
+        mensaje += f"⚠️ Los datos pueden haberse perdido\n"
+        mensaje += f"💾 Revisa el código de guardar_registro_llamadas()"
     
     # ============================================
-    # FIN DE LA MODIFICACIÓN
+    # FIN DE LA SINCRONIZACIÓN
     # ============================================
     
     return True, mensaje
