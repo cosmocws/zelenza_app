@@ -1415,320 +1415,195 @@ def gestion_secciones_visibles():
         st.rerun()
 
 def gestion_sincronizacion_github():
-    """Gestión de sincronización con GitHub"""
-    st.subheader("🔄 Sincronización con GitHub")
+    """Gestión de sincronización con GitHub usando API"""
+    st.subheader("🔄 Sincronización con GitHub (API)")
     
-    st.info("""
-    **¿Por qué sincronizar con GitHub?**
-    - 📥 **Guarda automáticamente** todos los cambios hechos desde la web
-    - 🔄 **Sincroniza bidireccionalmente** con el repositorio remoto
-    - 💾 **No pierdes datos** cuando Streamlit se reinicia
-    - 📊 **Historial completo** de todos los cambios
-    """)
+    # Verificar si las credenciales están configuradas
+    token = st.secrets.get("GITHUB_TOKEN")
+    owner = st.secrets.get("GITHUB_REPO_OWNER")
+    repo = st.secrets.get("GITHUB_REPO_NAME")
     
-    # Mostrar estado actual
-    st.write("### 📊 Estado Actual")
+    if not all([token, owner, repo]):
+        st.error("❌ **Credenciales de GitHub no configuradas**")
+        st.info("""
+        Para usar la sincronización automática, configura estos secretos en Streamlit Cloud:
+        
+        1. Ve a **Settings** → **Secrets**
+        2. Añade estas variables:
+        
+        ```toml
+        GITHUB_TOKEN = "tu_token_de_github"
+        GITHUB_REPO_OWNER = "tu_usuario"
+        GITHUB_REPO_NAME = "nombre_repo"
+        ```
+        
+        3. Crea un token en GitHub con permisos `repo`
+        4. Recarga la aplicación
+        """)
+        
+        # Botón para probar con credenciales manuales
+        with st.expander("🔧 Probar con credenciales manuales"):
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                manual_token = st.text_input("Token GitHub", type="password")
+            with col2:
+                manual_owner = st.text_input("Propietario")
+            with col3:
+                manual_repo = st.text_input("Repositorio")
+            
+            if st.button("🔗 Probar conexión"):
+                try:
+                    from github_api_sync import test_github_connection
+                    
+                    # Configurar variables de entorno temporales
+                    import os
+                    os.environ["GITHUB_TOKEN"] = manual_token
+                    os.environ["GITHUB_REPO_OWNER"] = manual_owner
+                    os.environ["GITHUB_REPO_NAME"] = manual_repo
+                    
+                    success, message = test_github_connection()
+                    if success:
+                        st.success(message)
+                        # Guardar en secrets de sesión
+                        st.session_state.github_config = {
+                            "token": manual_token,
+                            "owner": manual_owner,
+                            "repo": manual_repo
+                        }
+                    else:
+                        st.error(message)
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+        
+        return
+    
+    # Mostrar estado de conexión
+    try:
+        from github_api_sync import test_github_connection
+        success, message = test_github_connection()
+        
+        if success:
+            st.success(message)
+            
+            # Mostrar información del repositorio
+            st.info(f"""
+            **📊 Repositorio configurado:**
+            - 👤 Propietario: `{owner}`
+            - 📁 Repositorio: `{repo}`
+            - 🔐 Token: `{'*' * 10}{token[-4:]}` (últimos 4 dígitos)
+            """)
+        else:
+            st.error(message)
+            return
+    except Exception as e:
+        st.error(f"❌ Error al conectar: {str(e)}")
+        return
+    
+    # Botones de sincronización
+    st.write("### ⚡ Sincronización")
     
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        # Verificar si es un repositorio git
-        import subprocess
-        try:
-            resultado = subprocess.run(["git", "status"], capture_output=True, text=True, cwd=".")
-            if resultado.returncode == 0:
-                st.success("✅ Repositorio Git válido")
-                # Obtener rama actual
-                resultado_branch = subprocess.run(["git", "branch", "--show-current"], 
-                                                capture_output=True, text=True, cwd=".")
-                branch = resultado_branch.stdout.strip()
-                st.write(f"**Rama:** {branch}")
-            else:
-                st.error("❌ No es un repositorio Git")
-        except Exception as e:
-            st.error(f"❌ Git no disponible: {e}")
+        if st.button("📤 Subir a GitHub", type="primary", use_container_width=True):
+            with st.spinner("Subiendo cambios a GitHub..."):
+                try:
+                    from github_api_sync import GitHubSync
+                    sync = GitHubSync(token, owner, repo)
+                    results = sync.sync_to_github(f"Sync manual desde app: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+                    
+                    st.success(f"✅ Subida completada: {results['success']}/{results['total']} archivos")
+                    
+                    # Mostrar resumen
+                    with st.expander("📝 Ver detalles"):
+                        for detail in results['details'][:20]:  # Mostrar primeros 20
+                            st.write(detail)
+                        
+                        if results['failed'] > 0:
+                            st.error(f"{results['failed']} archivos fallaron")
+                    
+                    # Mostrar log reciente
+                    log_file = "logs/github_sync.log"
+                    if os.path.exists(log_file):
+                        with open(log_file, "r", encoding="utf-8") as f:
+                            lines = f.readlines()[-10:]  # Últimas 10 líneas
+                            st.write("**📄 Último log:**")
+                            for line in lines:
+                                st.code(line.strip())
+                    
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
     
     with col2:
-        # Verificar conexión a GitHub
-        try:
-            resultado = subprocess.run(["git", "remote", "-v"], capture_output=True, text=True, cwd=".")
-            if "origin" in resultado.stdout:
-                st.success("✅ Conexión GitHub activa")
-                # Extraer URL
-                for linea in resultado.stdout.split('\n'):
-                    if "origin" in linea and "push" in linea:
-                        url = linea.split()[1]
-                        st.write(f"**URL:** {url[:30]}...")
-                        break
-            else:
-                st.warning("⚠️ Sin conexión GitHub")
-        except:
-            st.error("❌ Error verificando conexión")
+        if st.button("📥 Descargar desde GitHub", type="secondary", use_container_width=True):
+            with st.spinner("Descargando cambios desde GitHub..."):
+                try:
+                    from github_api_sync import GitHubSync
+                    sync = GitHubSync(token, owner, repo)
+                    results = sync.sync_from_github()
+                    
+                    if results.get("success") is False:
+                        st.error(f"❌ Error: {results.get('error', 'Desconocido')}")
+                    else:
+                        st.success(f"✅ Descarga completada: {results['success']}/{results['total']} archivos")
+                        
+                        # Mostrar detalles si hay
+                        if results['details']:
+                            with st.expander("📝 Ver detalles de descarga"):
+                                for detail in results['details'][:20]:
+                                    st.write(detail)
+                    
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
     
     with col3:
-        # Última sincronización
-        import os
-        log_file = "logs/github_sync.log"
-        ultima_sinc = "Nunca"
-        if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                lineas = f.readlines()
-                if lineas:
-                    ultima_linea = lineas[-1]
-                    if " - " in ultima_linea:
-                        ultima_sinc = ultima_linea.split(" - ")[0]
-        
-        st.write(f"**Última sincronización:**")
-        st.write(f"{ultima_sinc}")
-    
-    st.markdown("---")
-    
-    # Opciones de sincronización
-    st.write("### ⚙️ Opciones de Sincronización")
-    
-    tab_sync1, tab_sync2, tab_sync3 = st.tabs(["🔄 Sincronizar Ahora", "⚡ Configuración", "📊 Historial"])
-    
-    with tab_sync1:
-        st.write("#### 📤 Sincronización Manual")
-        st.warning("""
-        **⚠️ Antes de sincronizar:**
-        1. Asegúrate de que todos los usuarios hayan guardado sus cambios
-        2. Verifica que no haya conflictos importantes
-        3. La sincronización puede tardar unos segundos
-        """)
-        
-        col_sync1, col_sync2 = st.columns(2)
-        
-        with col_sync1:
-            if st.button("🔄 Sincronizar Ahora (Pull + Commit + Push)", 
-                        type="primary", 
-                        use_container_width=True,
-                        key="sync_now_full"):
-                with st.spinner("Sincronizando con GitHub..."):
-                    try:
-                        # Importar la función de sincronización
-                        from github_sync import sincronizar_con_github
-                        
-                        exito = sincronizar_con_github()
-                        
-                        if exito:
-                            st.success("✅ Sincronización completada con éxito!")
-                            st.balloons()
-                        else:
-                            st.error("❌ Error en la sincronización")
-                        
-                        # Mostrar detalles del log
-                        log_file = "logs/github_sync.log"
-                        if os.path.exists(log_file):
-                            with open(log_file, 'r', encoding='utf-8') as f:
-                                ultimas_lineas = f.readlines()[-10:]  # Últimas 10 líneas
-                                st.write("**📝 Último log:**")
-                                for linea in ultimas_lineas:
-                                    st.code(linea.strip())
-                        
-                    except Exception as e:
-                        st.error(f"💥 Error crítico: {str(e)}")
-        
-        with col_sync2:
-            if st.button("⬇️ Solo Traer Cambios (Pull)", 
-                        type="secondary", 
-                        use_container_width=True,
-                        key="sync_pull"):
-                with st.spinner("Trayendo cambios de GitHub..."):
-                    try:
-                        import subprocess
-                        resultado = subprocess.run(["git", "pull"], 
-                                                capture_output=True, text=True, cwd=".")
-                        
-                        if resultado.returncode == 0:
-                            st.success("✅ Pull completado")
-                            st.code(resultado.stdout)
-                        else:
-                            st.error("❌ Error en pull")
-                            st.code(resultado.stderr)
-                    except Exception as e:
-                        st.error(f"💥 Error: {str(e)}")
-            
-            if st.button("📊 Ver Estado", 
-                        type="secondary", 
-                        use_container_width=True,
-                        key="sync_status"):
-                with st.spinner("Consultando estado..."):
-                    try:
-                        import subprocess
-                        
-                        # Estado git
-                        resultado_status = subprocess.run(["git", "status", "--short"], 
-                                                        capture_output=True, text=True, cwd=".")
-                        resultado_log = subprocess.run(["git", "log", "--oneline", "-5"], 
-                                                      capture_output=True, text=True, cwd=".")
-                        
-                        st.write("**📝 Cambios pendientes:**")
-                        if resultado_status.stdout.strip():
-                            st.code(resultado_status.stdout)
-                        else:
-                            st.info("✅ No hay cambios pendientes")
-                        
-                        st.write("**📊 Últimos 5 commits:**")
-                        st.code(resultado_log.stdout if resultado_log.stdout else "Sin commits")
-                        
-                    except Exception as e:
-                        st.error(f"💥 Error: {str(e)}")
-    
-    with tab_sync2:
-        st.write("#### ⚡ Configuración Automática")
-        
-        # Crear carpeta logs si no existe
-        import os
-        os.makedirs("logs", exist_ok=True)
-        
-        st.info("Configura la sincronización automática cada 4 horas")
-        
-        col_conf1, col_conf2 = st.columns(2)
-        
-        with col_conf1:
-            if st.button("🔄 Configurar Auto-Sync (Linux/Mac)", 
-                        use_container_width=True,
-                        key="setup_cron"):
+        if st.button("🔄 Sincronización completa", type="primary", use_container_width=True):
+            with st.spinner("Sincronizando bidireccionalmente..."):
                 try:
-                    # Crear script de configuración de cron
-                    script_cron = """#!/bin/bash
-# Script para configurar la sincronización automática cada 4 horas
-
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CRON_LOG="$PROJECT_DIR/logs/cron.log"
-
-mkdir -p "$PROJECT_DIR/logs"
-
-(crontab -l 2>/dev/null; echo "0 */4 * * * cd $PROJECT_DIR && /usr/bin/python3 $PROJECT_DIR/github_sync.py >> $CRON_LOG 2>&1") | crontab -
-
-echo "✅ Cron job configurado para ejecutarse cada 4 horas"
-echo "📁 Logs en: $CRON_LOG"
-"""
+                    from github_api_sync import GitHubSync
+                    sync = GitHubSync(token, owner, repo)
                     
-                    with open("setup_cron.sh", "w") as f:
-                        f.write(script_cron)
+                    # Primero descargar
+                    st.info("⬇️  Descargando cambios desde GitHub...")
+                    pull_results = sync.sync_from_github()
                     
-                    import subprocess
-                    subprocess.run(["chmod", "+x", "setup_cron.sh"])
+                    # Luego subir
+                    st.info("📤 Subiendo cambios a GitHub...")
+                    push_results = sync.sync_to_github(f"Sync completa: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
                     
-                    resultado = subprocess.run(["bash", "setup_cron.sh"], 
-                                             capture_output=True, text=True)
+                    # Mostrar resultados combinados
+                    st.success(f"""
+                    ✅ **Sincronización completa finalizada:**
                     
-                    st.success("✅ Configuración de cron creada")
-                    st.code(resultado.stdout)
+                    **📥 Descargados:** {pull_results.get('success', 0)}/{pull_results.get('total', 0)}
+                    **📤 Subidos:** {push_results['success']}/{push_results['total']}
+                    """)
                     
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
-        
-        with col_conf2:
-            if st.button("📥 Descargar Script Windows", 
-                        use_container_width=True,
-                        key="download_windows"):
-                try:
-                    # Crear script para Windows Task Scheduler
-                    script_windows = """@echo off
-echo Creando tarea programada para GitHub Sync...
-echo.
-
-REM Crear tarea programada cada 4 horas
-schtasks /create /tn "ZelenzaGitHubSync" /tr "python github_sync.py" /sc hourly /mo 4 /ru SYSTEM /f
-
-echo ✅ Tarea programada creada: ZelenzaGitHubSync
-echo 🔄 Se ejecutará cada 4 horas automáticamente
-pause
-"""
-                    
-                    with open("configurar_windows.bat", "w") as f:
-                        f.write(script_windows)
-                    
-                    st.success("✅ Script para Windows creado")
-                    st.info("Ejecuta `configurar_windows.bat` como administrador")
-                    st.code(script_windows[:500] + "...")
-                    
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-        
-        # Información de configuración manual
-        st.write("#### 📋 Configuración Manual")
-        st.code("""
-# Para sincronización manual periódica:
-# 1. Añade esta línea a tu crontab (Linux/Mac):
-0 */4 * * * cd /ruta/a/tu/app && python3 github_sync.py >> logs/cron.log 2>&1
-
-# 2. O crea una tarea programada en Windows:
-#    - Abre "Programador de tareas"
-#    - Crear tarea básica
-#    - Programar cada 4 horas
-#    - Acción: Iniciar programa
-#    - Programa: python.exe
-#    - Argumentos: github_sync.py
-#    - Iniciar en: /ruta/a/tu/app
-        """)
     
-    with tab_sync3:
-        st.write("#### 📊 Historial de Sincronizaciones")
+    # Historial de sincronizaciones
+    st.write("### 📊 Historial")
+    
+    log_file = "logs/github_sync.log"
+    if os.path.exists(log_file):
+        with open(log_file, "r", encoding="utf-8") as f:
+            lines = f.readlines()
         
-        log_file = "logs/github_sync.log"
-        
-        if os.path.exists(log_file):
-            with open(log_file, 'r', encoding='utf-8') as f:
-                lineas = f.readlines()
+        if lines:
+            st.write(f"**Total de sincronizaciones:** {len(lines)}")
             
-            if lineas:
-                st.write(f"**Total de sincronizaciones:** {len(lineas)}")
-                
-                # Filtrar por éxito/error
-                exitos = [l for l in lineas if "ÉXITO" in l]
-                fallos = [l for l in lineas if "FALLO" in l]
-                
-                col_hist1, col_hist2, col_hist3 = st.columns(3)
-                with col_hist1:
-                    st.metric("✅ Éxitos", len(exitos))
-                with col_hist2:
-                    st.metric("❌ Fallos", len(fallos))
-                with col_hist3:
-                    tasa_exito = (len(exitos) / len(lineas)) * 100 if lineas else 0
-                    st.metric("📈 Tasa éxito", f"{tasa_exito:.1f}%")
-                
-                # Mostrar últimas 20 sincronizaciones
-                st.write("**Últimas 20 sincronizaciones:**")
-                for linea in reversed(lineas[-20:]):
-                    if "ÉXITO" in linea:
-                        st.success(linea.strip())
-                    else:
-                        st.error(linea.strip())
-            else:
-                st.info("📭 No hay historial de sincronizaciones")
-        else:
-            st.warning("📂 El archivo de log no existe todavía")
-        
-        # Botón para limpiar historial
-        if st.button("🧹 Limpiar Historial Antiguo", type="secondary"):
-            if os.path.exists(log_file):
-                # Mantener solo las últimas 100 líneas
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    lineas = f.readlines()
-                
-                if len(lineas) > 100:
-                    with open(log_file, 'w', encoding='utf-8') as f:
-                        f.writelines(lineas[-100:])
-                    st.success(f"✅ Historial limpiado. Mantenidas últimas {min(100, len(lineas))} líneas")
+            # Mostrar últimas 10
+            st.write("**Últimas 10 sincronizaciones:**")
+            for line in reversed(lines[-10:]):
+                if "SUCCESS" in line:
+                    st.success(line.strip())
+                elif "ERROR" in line:
+                    st.error(line.strip())
                 else:
-                    st.info("ℹ️ El historial ya tiene menos de 100 líneas")
-            else:
-                st.info("📂 No hay historial para limpiar")
-    
-    # Información importante
-    st.markdown("---")
-    st.warning("""
-    **⚠️ IMPORTANTE:**
-    - La primera vez necesitarás configurar tus credenciales de Git
-    - Asegúrate de tener permisos de escritura en el repositorio
-    - Los archivos modificados: `data/`, `modelos_facturas/`, configuraciones, etc.
-    - En caso de conflictos, se intentará resolver automáticamente
-    - Siempre mantiene un backup en `data_backup/`
-    """)
+                    st.info(line.strip())
+    else:
+        st.info("📭 No hay historial de sincronizaciones")
 
 # Luego, en la función mostrar_panel_administrador, añadir la nueva pestaña:
 def mostrar_panel_administrador():
