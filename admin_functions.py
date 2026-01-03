@@ -1415,174 +1415,119 @@ def gestion_secciones_visibles():
         st.rerun()
 
 def gestion_sincronizacion_github():
-    """Gestión de sincronización con GitHub usando API"""
-    st.subheader("🔄 Sincronización con GitHub (API)")
+    """Gestión simple de sincronización con GitHub"""
+    st.subheader("🔄 Sincronización con GitHub")
     
-    # Verificar si las credenciales están configuradas
-    token = st.secrets.get("GITHUB_TOKEN")
-    owner = st.secrets.get("GITHUB_REPO_OWNER")
-    repo = st.secrets.get("GITHUB_REPO_NAME")
+    # Verificar configuración
+    config_ok = True
+    missing = []
     
-    if not all([token, owner, repo]):
-        st.error("❌ **Credenciales de GitHub no configuradas**")
-        st.info("""
-        Para usar la sincronización automática, configura estos secretos en Streamlit Cloud:
+    if "GITHUB_TOKEN" not in st.secrets:
+        config_ok = False
+        missing.append("GITHUB_TOKEN")
+    if "GITHUB_REPO_OWNER" not in st.secrets:
+        config_ok = False
+        missing.append("GITHUB_REPO_OWNER")
+    if "GITHUB_REPO_NAME" not in st.secrets:
+        config_ok = False
+        missing.append("GITHUB_REPO_NAME")
+    
+    if not config_ok:
+        st.error(f"❌ Faltan credenciales en secrets.toml: {', '.join(missing)}")
         
-        1. Ve a **Settings** → **Secrets**
-        2. Añade estas variables:
+        st.info("""
+        **Configura en Streamlit Cloud → Settings → Secrets:**
         
         ```toml
         GITHUB_TOKEN = "tu_token_de_github"
         GITHUB_REPO_OWNER = "tu_usuario"
-        GITHUB_REPO_NAME = "nombre_repo"
+        GITHUB_REPO_NAME = "nombre_repositorio"
         ```
         
-        3. Crea un token en GitHub con permisos `repo`
-        4. Recarga la aplicación
+        **Cómo crear el token:**
+        1. Ve a GitHub Settings → Developer settings → Personal access tokens
+        2. Crea token CLASSIC con permiso `repo` solamente
+        3. Copia el token y pégalo en secrets
         """)
-        
-        # Botón para probar con credenciales manuales
-        with st.expander("🔧 Probar con credenciales manuales"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                manual_token = st.text_input("Token GitHub", type="password")
-            with col2:
-                manual_owner = st.text_input("Propietario")
-            with col3:
-                manual_repo = st.text_input("Repositorio")
+        return
+    
+    # Mostrar configuración actual (ocultando token)
+    token_preview = st.secrets["GITHUB_TOKEN"][:4] + "..." + st.secrets["GITHUB_TOKEN"][-4:]
+    
+    col_info1, col_info2, col_info3 = st.columns(3)
+    with col_info1:
+        st.write("**🔐 Token:**")
+        st.code(token_preview)
+    with col_info2:
+        st.write("**👤 Propietario:**")
+        st.code(st.secrets["GITHUB_REPO_OWNER"])
+    with col_info3:
+        st.write("**📁 Repositorio:**")
+        st.code(st.secrets["GITHUB_REPO_NAME"])
+    
+    # Probar conexión
+    st.write("### 🔗 Probar Conexión")
+    
+    if st.button("🔍 Probar conexión a GitHub", type="secondary"):
+        try:
+            from github_sync_simple import test_github_config
+            success, message = test_github_config()
             
-            if st.button("🔗 Probar conexión"):
+            if success:
+                st.success(message)
+                st.balloons()
+            else:
+                st.error(message)
+                
+        except Exception as e:
+            st.error(f"❌ Error: {str(e)}")
+    
+    # Sincronización
+    st.write("### ⚡ Sincronizar Datos")
+    
+    col_sync1, col_sync2 = st.columns(2)
+    
+    with col_sync1:
+        if st.button("📤 Subir Datos a GitHub", type="primary", use_container_width=True):
+            with st.spinner("Subiendo datos a GitHub..."):
                 try:
-                    from github_api_sync import test_github_connection
+                    from github_sync_simple import GitHubSyncSimple
+                    sync = GitHubSyncSimple()
                     
-                    # Configurar variables de entorno temporales
-                    import os
-                    os.environ["GITHUB_TOKEN"] = manual_token
-                    os.environ["GITHUB_REPO_OWNER"] = manual_owner
-                    os.environ["GITHUB_REPO_NAME"] = manual_repo
+                    success_count, total_files, results = sync.sync_data_files()
                     
-                    success, message = test_github_connection()
-                    if success:
-                        st.success(message)
-                        # Guardar en secrets de sesión
-                        st.session_state.github_config = {
-                            "token": manual_token,
-                            "owner": manual_owner,
-                            "repo": manual_repo
-                        }
+                    if success_count > 0:
+                        st.success(f"✅ {success_count}/{total_files} archivos subidos exitosamente")
                     else:
-                        st.error(message)
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-        
-        return
-    
-    # Mostrar estado de conexión
-    try:
-        from github_api_sync import test_github_connection
-        success, message = test_github_connection()
-        
-        if success:
-            st.success(message)
-            
-            # Mostrar información del repositorio
-            st.info(f"""
-            **📊 Repositorio configurado:**
-            - 👤 Propietario: `{owner}`
-            - 📁 Repositorio: `{repo}`
-            - 🔐 Token: `{'*' * 10}{token[-4:]}` (últimos 4 dígitos)
-            """)
-        else:
-            st.error(message)
-            return
-    except Exception as e:
-        st.error(f"❌ Error al conectar: {str(e)}")
-        return
-    
-    # Botones de sincronización
-    st.write("### ⚡ Sincronización")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        if st.button("📤 Subir a GitHub", type="primary", use_container_width=True):
-            with st.spinner("Subiendo cambios a GitHub..."):
-                try:
-                    from github_api_sync import GitHubSync
-                    sync = GitHubSync(token, owner, repo)
-                    results = sync.sync_to_github(f"Sync manual desde app: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+                        st.warning("⚠️ No se pudo subir ningún archivo")
                     
-                    st.success(f"✅ Subida completada: {results['success']}/{results['total']} archivos")
-                    
-                    # Mostrar resumen
+                    # Mostrar resultados detallados
                     with st.expander("📝 Ver detalles"):
-                        for detail in results['details'][:20]:  # Mostrar primeros 20
-                            st.write(detail)
-                        
-                        if results['failed'] > 0:
-                            st.error(f"{results['failed']} archivos fallaron")
+                        for result in results:
+                            st.write(result)
                     
-                    # Mostrar log reciente
+                    # Guardar log
+                    os.makedirs("logs", exist_ok=True)
                     log_file = "logs/github_sync.log"
-                    if os.path.exists(log_file):
-                        with open(log_file, "r", encoding="utf-8") as f:
-                            lines = f.readlines()[-10:]  # Últimas 10 líneas
-                            st.write("**📄 Último log:**")
-                            for line in lines:
-                                st.code(line.strip())
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        f.write(f"{timestamp} - Subidos {success_count}/{total_files} archivos\n")
+                        for result in results:
+                            f.write(f"  {result}\n")
                     
                 except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                    st.error(f"❌ Error durante la sincronización: {str(e)}")
     
-    with col2:
-        if st.button("📥 Descargar desde GitHub", type="secondary", use_container_width=True):
-            with st.spinner("Descargando cambios desde GitHub..."):
-                try:
-                    from github_api_sync import GitHubSync
-                    sync = GitHubSync(token, owner, repo)
-                    results = sync.sync_from_github()
-                    
-                    if results.get("success") is False:
-                        st.error(f"❌ Error: {results.get('error', 'Desconocido')}")
-                    else:
-                        st.success(f"✅ Descarga completada: {results['success']}/{results['total']} archivos")
-                        
-                        # Mostrar detalles si hay
-                        if results['details']:
-                            with st.expander("📝 Ver detalles de descarga"):
-                                for detail in results['details'][:20]:
-                                    st.write(detail)
-                    
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+    with col_sync2:
+        st.info("""
+        **📋 Archivos que se sincronizan:**
+        - `data/precios_luz.csv` - Planes de electricidad
+        - `data/config_excedentes.csv` - Precio excedentes
+        - `data/planes_gas.json` - Planes de gas
+        - `database.json` - Configuración del sistema
+        """)
     
-    with col3:
-        if st.button("🔄 Sincronización completa", type="primary", use_container_width=True):
-            with st.spinner("Sincronizando bidireccionalmente..."):
-                try:
-                    from github_api_sync import GitHubSync
-                    sync = GitHubSync(token, owner, repo)
-                    
-                    # Primero descargar
-                    st.info("⬇️  Descargando cambios desde GitHub...")
-                    pull_results = sync.sync_from_github()
-                    
-                    # Luego subir
-                    st.info("📤 Subiendo cambios a GitHub...")
-                    push_results = sync.sync_to_github(f"Sync completa: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-                    
-                    # Mostrar resultados combinados
-                    st.success(f"""
-                    ✅ **Sincronización completa finalizada:**
-                    
-                    **📥 Descargados:** {pull_results.get('success', 0)}/{pull_results.get('total', 0)}
-                    **📤 Subidos:** {push_results['success']}/{push_results['total']}
-                    """)
-                    
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
-    
-    # Historial de sincronizaciones
+    # Logs de sincronizaciones anteriores
     st.write("### 📊 Historial")
     
     log_file = "logs/github_sync.log"
@@ -1593,28 +1538,35 @@ def gestion_sincronizacion_github():
         if lines:
             st.write(f"**Total de sincronizaciones:** {len(lines)}")
             
-            # Mostrar últimas 10
-            st.write("**Últimas 10 sincronizaciones:**")
-            for line in reversed(lines[-10:]):
-                if "SUCCESS" in line:
-                    st.success(line.strip())
-                elif "ERROR" in line:
-                    st.error(line.strip())
-                else:
-                    st.info(line.strip())
+            # Mostrar últimas 5
+            st.write("**Últimas 5 sincronizaciones:**")
+            for line in reversed(lines[-5:]):
+                st.info(line.strip())
+        else:
+            st.info("📭 No hay historial aún")
     else:
-        st.info("📭 No hay historial de sincronizaciones")
+        st.info("📂 El archivo de log se creará con la primera sincronización")
+    
+    # Información importante
+    st.write("---")
+    st.warning("""
+    **⚠️ Notas importantes:**
+    - Los archivos se suben directamente a la rama `main`
+    - Se mantiene el historial de versiones en GitHub
+    - Si hay conflictos, se sobrescribe el archivo remoto
+    - Los tokens deben tener permiso `repo` en GitHub
+    - El token solo se usa desde Streamlit Cloud (seguro)
+    """)
 
-# Luego, en la función mostrar_panel_administrador, añadir la nueva pestaña:
 def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    # Cambiar a 11 pestañas (añadiendo GitHub Sync)
+    # 11 pestañas con la nueva de GitHub Sync
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
         "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
         "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", 
-        "📊 Analizador Llamadas", "🔄 GitHub Sync"  # <-- NUEVA PESTAÑA
+        "📊 Analizador Llamadas", "🔄 GitHub Sync"  # <-- NUEVA PESTAÑA SIMPLE
     ])
     
     with tab1:
@@ -1637,5 +1589,5 @@ def mostrar_panel_administrador():
         gestion_secciones_visibles()
     with tab10:
         interfaz_analisis_llamadas()
-    with tab11:  # NUEVA PESTAÑA DE SINCRONIZACIÓN
-        gestion_sincronizacion_github()
+    with tab11:  # NUEVA PESTAÑA SIMPLE
+        gestion_sincronizacion_github()  # <-- FUNCIÓN SIMPLIFICADA
