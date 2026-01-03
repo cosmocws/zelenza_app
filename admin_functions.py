@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import pytz
 from super_users_functions import gestion_super_users_admin
 from llamadas_analyzer import interfaz_analisis_llamadas
+from pathlib import Path
 
 from config import (
     COMUNIDADES_AUTONOMAS, PLANES_GAS_ESTRUCTURA, 
@@ -1415,22 +1416,19 @@ def gestion_secciones_visibles():
         st.rerun()
 
 def gestion_sincronizacion_github():
-    """Gestión simple de sincronización con GitHub"""
-    st.subheader("🔄 Sincronización con GitHub")
+    """Gestión completa de sincronización con GitHub"""
+    st.subheader("🔄 Sincronización Completa con GitHub")
     
     # Verificar configuración
     config_ok = True
     missing = []
     
-    if "GITHUB_TOKEN" not in st.secrets:
-        config_ok = False
-        missing.append("GITHUB_TOKEN")
-    if "GITHUB_REPO_OWNER" not in st.secrets:
-        config_ok = False
-        missing.append("GITHUB_REPO_OWNER")
-    if "GITHUB_REPO_NAME" not in st.secrets:
-        config_ok = False
-        missing.append("GITHUB_REPO_NAME")
+    required_secrets = ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]
+    
+    for secret in required_secrets:
+        if secret not in st.secrets:
+            config_ok = False
+            missing.append(secret)
     
     if not config_ok:
         st.error(f"❌ Faltan credenciales en secrets.toml: {', '.join(missing)}")
@@ -1439,124 +1437,363 @@ def gestion_sincronizacion_github():
         **Configura en Streamlit Cloud → Settings → Secrets:**
         
         ```toml
-        GITHUB_TOKEN = "tu_token_de_github"
-        GITHUB_REPO_OWNER = "tu_usuario"
+        GITHUB_TOKEN = "ghp_tu_token_aqui"
+        GITHUB_REPO_OWNER = "tu_usuario_github"
         GITHUB_REPO_NAME = "nombre_repositorio"
         ```
         
         **Cómo crear el token:**
-        1. Ve a GitHub Settings → Developer settings → Personal access tokens
-        2. Crea token CLASSIC con permiso `repo` solamente
-        3. Copia el token y pégalo en secrets
+        1. GitHub Settings → Developer settings → Personal access tokens
+        2. Crear token CLASSIC con permiso `repo` solamente
+        3. Copiar token y pegarlo en secrets
         """)
         return
     
-    # Mostrar configuración actual (ocultando token)
+    # Mostrar configuración actual
     token_preview = st.secrets["GITHUB_TOKEN"][:4] + "..." + st.secrets["GITHUB_TOKEN"][-4:]
     
     col_info1, col_info2, col_info3 = st.columns(3)
     with col_info1:
-        st.write("**🔐 Token:**")
-        st.code(token_preview)
+        st.metric("🔐 Token", token_preview)
     with col_info2:
-        st.write("**👤 Propietario:**")
-        st.code(st.secrets["GITHUB_REPO_OWNER"])
+        st.metric("👤 Propietario", st.secrets["GITHUB_REPO_OWNER"])
     with col_info3:
-        st.write("**📁 Repositorio:**")
-        st.code(st.secrets["GITHUB_REPO_NAME"])
+        st.metric("📁 Repositorio", st.secrets["GITHUB_REPO_NAME"])
+    
+    # Mostrar estadísticas de carpetas
+    st.write("### 📊 Archivos a Sincronizar")
+    
+    try:
+        from github_sync_completo import get_folder_stats
+        stats = get_folder_stats()
+        
+        col_stat1, col_stat2 = st.columns(2)
+        
+        with col_stat1:
+            st.write("**📁 Carpeta `data/`**")
+            st.metric("Archivos", stats["data/"]["files"])
+            st.metric("Tamaño", f"{stats['data/']['size_mb']} MB")
+            
+            # Mostrar algunos archivos
+            if stats["data/"]["files"] > 0:
+                with st.expander("📝 Ver archivos en data/"):
+                    data_files = []
+                    for file_path in Path("data/").rglob("*"):
+                        if file_path.is_file():
+                            data_files.append(str(file_path.relative_to("data/")))
+                    
+                    for file in sorted(data_files)[:20]:  # Mostrar primeros 20
+                        st.write(f"• {file}")
+                    if len(data_files) > 20:
+                        st.write(f"• ... y {len(data_files) - 20} más")
+        
+        with col_stat2:
+            st.write("**📄 Carpeta `modelos_facturas/`**")
+            st.metric("Archivos", stats["modelos_facturas/"]["files"])
+            st.metric("Tamaño", f"{stats['modelos_facturas/']['size_mb']} MB")
+            
+            # Mostrar algunas empresas
+            if stats["modelos_facturas/"]["files"] > 0:
+                with st.expander("🏢 Ver empresas en modelos_facturas/"):
+                    empresas = []
+                    modelos_dir = Path("modelos_facturas/")
+                    if modelos_dir.exists():
+                        for empresa_dir in modelos_dir.iterdir():
+                            if empresa_dir.is_dir():
+                                empresas.append(empresa_dir.name)
+                    
+                    for empresa in sorted(empresas)[:10]:
+                        st.write(f"• {empresa}")
+                    if len(empresas) > 10:
+                        st.write(f"• ... y {len(empresas) - 10} más")
+    
+    except Exception as e:
+        st.warning(f"No se pudieron cargar estadísticas: {e}")
     
     # Probar conexión
     st.write("### 🔗 Probar Conexión")
     
-    if st.button("🔍 Probar conexión a GitHub", type="secondary"):
-        try:
-            from github_sync_simple import test_github_config
-            success, message = test_github_config()
-            
-            if success:
-                st.success(message)
-                st.balloons()
-            else:
-                st.error(message)
+    col_test1, col_test2 = st.columns(2)
+    
+    with col_test1:
+        if st.button("🔍 Probar Conexión", type="secondary", use_container_width=True):
+            try:
+                from github_sync_completo import test_github_config
+                success, message = test_github_config()
                 
-        except Exception as e:
-            st.error(f"❌ Error: {str(e)}")
+                if success:
+                    st.success(message)
+                    st.balloons()
+                else:
+                    st.error(message)
+                    
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+    
+    with col_test2:
+        if st.button("📊 Actualizar Estadísticas", type="secondary", use_container_width=True):
+            st.rerun()
     
     # Sincronización
-    st.write("### ⚡ Sincronizar Datos")
+    st.write("### ⚡ Operaciones de Sincronización")
     
-    col_sync1, col_sync2 = st.columns(2)
+    tab_sync1, tab_sync2, tab_sync3 = st.tabs(["📤 Subir Todo", "📥 Descargar Todo", "🔄 Sincronización Completa"])
     
-    with col_sync1:
-        if st.button("📤 Subir Datos a GitHub", type="primary", use_container_width=True):
-            with st.spinner("Subiendo datos a GitHub..."):
-                try:
-                    from github_sync_simple import GitHubSyncSimple
-                    sync = GitHubSyncSimple()
+    with tab_sync1:
+        st.write("#### 📤 Subir TODOS los archivos a GitHub")
+        st.info("Subirá todos los archivos de `data/` y `modelos_facturas/`")
+        
+        if st.button("🚀 Subir Todo a GitHub", type="primary", use_container_width=True):
+            try:
+                from github_sync_completo import GitHubSyncCompleto
+                sync = GitHubSyncCompleto()
+                
+                # Obtener lista de archivos
+                all_files = sync.get_all_files_to_sync()
+                
+                if not all_files:
+                    st.warning("⚠️ No hay archivos para sincronizar")
+                    return
+                
+                st.write(f"**📋 Encontrados {len(all_files)} archivos para subir:**")
+                
+                # Mostrar vista previa
+                with st.expander("📝 Ver lista de archivos"):
+                    for i, file_path in enumerate(all_files[:30]):  # Mostrar primeros 30
+                        st.write(f"{i+1}. {file_path}")
+                    if len(all_files) > 30:
+                        st.write(f"... y {len(all_files) - 30} más")
+                
+                # Subir archivos
+                with st.spinner(f"Subiendo {len(all_files)} archivos a GitHub..."):
+                    success_count, total_files, results = sync.sync_all_data()
                     
-                    success_count, total_files, results = sync.sync_data_files()
+                    # Mostrar resultados
+                    st.success(f"✅ **Subida completada:** {success_count}/{total_files} archivos")
                     
-                    if success_count > 0:
-                        st.success(f"✅ {success_count}/{total_files} archivos subidos exitosamente")
-                    else:
-                        st.warning("⚠️ No se pudo subir ningún archivo")
+                    # Resumen rápido
+                    col_res1, col_res2 = st.columns(2)
+                    with col_res1:
+                        st.metric("✅ Exitosos", success_count)
+                    with col_res2:
+                        st.metric("❌ Fallidos", total_files - success_count)
                     
-                    # Mostrar resultados detallados
-                    with st.expander("📝 Ver detalles"):
+                    # Mostrar detalles
+                    with st.expander("📊 Ver detalles completos"):
                         for result in results:
-                            st.write(result)
+                            if "✅" in result:
+                                st.success(result)
+                            elif "❌" in result:
+                                st.error(result)
+                            else:
+                                st.info(result)
                     
                     # Guardar log
                     os.makedirs("logs", exist_ok=True)
                     log_file = "logs/github_sync.log"
                     with open(log_file, "a", encoding="utf-8") as f:
                         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                        f.write(f"{timestamp} - Subidos {success_count}/{total_files} archivos\n")
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"{timestamp} - SUBIDA COMPLETA\n")
+                        f.write(f"Archivos: {success_count}/{total_files}\n")
                         for result in results:
                             f.write(f"  {result}\n")
                     
+                    # Refrescar estadísticas
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"❌ Error durante la subida: {str(e)}")
+    
+    with tab_sync2:
+        st.write("#### 📥 Descargar TODO desde GitHub")
+        st.warning("⚠️ **ADVERTENCIA:** Esto sobrescribirá archivos locales con la versión de GitHub")
+        
+        if st.button("⬇️ Descargar Todo desde GitHub", type="primary", use_container_width=True):
+            try:
+                from github_sync_completo import GitHubSyncCompleto
+                sync = GitHubSyncCompleto()
+                
+                with st.spinner("Descargando archivos desde GitHub..."):
+                    success_count, total_files, results = sync.download_all_from_github()
+                    
+                    if total_files == 0:
+                        st.info("ℹ️ No hay archivos para descargar")
+                        return
+                    
+                    # Mostrar resultados
+                    st.success(f"✅ **Descarga completada:** {success_count}/{total_files} archivos")
+                    
+                    # Resumen rápido
+                    col_res1, col_res2 = st.columns(2)
+                    with col_res1:
+                        st.metric("✅ Exitosos", success_count)
+                    with col_res2:
+                        st.metric("❌ Fallidos", total_files - success_count)
+                    
+                    # Mostrar detalles
+                    with st.expander("📊 Ver detalles de descarga"):
+                        for result in results:
+                            if "✅" in result:
+                                st.success(result)
+                            elif "❌" in result:
+                                st.error(result)
+                            else:
+                                st.info(result)
+                    
+                    # Guardar log
+                    os.makedirs("logs", exist_ok=True)
+                    log_file = "logs/github_sync.log"
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"{timestamp} - DESCARGA COMPLETA\n")
+                        f.write(f"Archivos: {success_count}/{total_files}\n")
+                        for result in results:
+                            f.write(f"  {result}\n")
+                    
+                    # Refrescar estadísticas
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"❌ Error durante la descarga: {str(e)}")
+    
+    with tab_sync3:
+        st.write("#### 🔄 Sincronización Bidireccional")
+        st.info("""
+        **Proceso recomendado:**
+        1. Primero descarga cambios desde GitHub
+        2. Luego sube tus cambios locales
+        3. Mantienes todo sincronizado
+        """)
+        
+        col_full1, col_full2 = st.columns(2)
+        
+        with col_full1:
+            if st.button("🔄 Ejecutar Sincronización Completa", type="primary", use_container_width=True):
+                try:
+                    from github_sync_completo import GitHubSyncCompleto
+                    sync = GitHubSyncCompleto()
+                    
+                    # Paso 1: Descargar
+                    st.write("**Paso 1: 📥 Descargando desde GitHub...**")
+                    with st.spinner("Descargando..."):
+                        d_success, d_total, d_results = sync.download_all_from_github()
+                    
+                    # Paso 2: Subir
+                    st.write("**Paso 2: 📤 Subiendo a GitHub...**")
+                    with st.spinner("Subiendo..."):
+                        u_success, u_total, u_results = sync.sync_all_data()
+                    
+                    # Resultados finales
+                    st.success("""
+                    ✅ **Sincronización completa finalizada:**
+                    
+                    **📥 Descargados:** {}/{} archivos
+                    **📤 Subidos:** {}/{} archivos
+                    """.format(d_success, d_total, u_success, u_total))
+                    
+                    # Guardar log
+                    os.makedirs("logs", exist_ok=True)
+                    log_file = "logs/github_sync.log"
+                    with open(log_file, "a", encoding="utf-8") as f:
+                        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        f.write(f"\n{'='*60}\n")
+                        f.write(f"{timestamp} - SINCRONIZACIÓN COMPLETA\n")
+                        f.write(f"Descargados: {d_success}/{d_total}\n")
+                        f.write(f"Subidos: {u_success}/{u_total}\n")
+                    
+                    st.balloons()
+                    
                 except Exception as e:
                     st.error(f"❌ Error durante la sincronización: {str(e)}")
+        
+        with col_full2:
+            st.write("**📋 Resumen del proceso:**")
+            st.write("1. ✅ Descarga archivos remotos")
+            st.write("2. ✅ Detecta cambios locales")
+            st.write("3. ✅ Sube archivos modificados")
+            st.write("4. ✅ Mantiene historial en GitHub")
     
-    with col_sync2:
-        st.info("""
-        **📋 Archivos que se sincronizan:**
-        - `data/precios_luz.csv` - Planes de electricidad
-        - `data/config_excedentes.csv` - Precio excedentes
-        - `data/planes_gas.json` - Planes de gas
-        - `database.json` - Configuración del sistema
-        """)
-    
-    # Logs de sincronizaciones anteriores
-    st.write("### 📊 Historial")
+    # Historial y logs
+    st.write("### 📜 Historial de Sincronizaciones")
     
     log_file = "logs/github_sync.log"
     if os.path.exists(log_file):
         with open(log_file, "r", encoding="utf-8") as f:
-            lines = f.readlines()
+            content = f.read()
         
-        if lines:
-            st.write(f"**Total de sincronizaciones:** {len(lines)}")
+        if content:
+            # Contar sincronizaciones
+            lines = content.strip().split('\n')
+            sync_count = len([l for l in lines if "SINCRONIZACIÓN" in l or "SUBIDA" in l or "DESCARGA" in l])
             
-            # Mostrar últimas 5
-            st.write("**Últimas 5 sincronizaciones:**")
-            for line in reversed(lines[-5:]):
-                st.info(line.strip())
-        else:
-            st.info("📭 No hay historial aún")
+            col_hist1, col_hist2 = st.columns(2)
+            with col_hist1:
+                st.metric("Total Sincronizaciones", sync_count)
+            with col_hist2:
+                last_sync = "Nunca"
+                if lines:
+                    for line in reversed(lines):
+                        if " - " in line and any(x in line for x in ["SINCRONIZACIÓN", "SUBIDA", "DESCARGA"]):
+                            last_sync = line.split(" - ")[0]
+                            break
+                st.metric("Última Sincronización", last_sync[:10] if last_sync != "Nunca" else "Nunca")
+            
+            # Mostrar últimas 10 operaciones
+            st.write("**Últimas 10 operaciones:**")
+            operations = []
+            current_op = []
+            
+            for line in reversed(lines[-100:]):  # Últimas 100 líneas
+                if "=" * 60 in line:
+                    if current_op:
+                        operations.append("\n".join(reversed(current_op)))
+                        current_op = []
+                else:
+                    current_op.append(line)
+            
+            if current_op:
+                operations.append("\n".join(reversed(current_op)))
+            
+            for i, op in enumerate(operations[:10]):  # Mostrar últimas 10
+                with st.expander(f"Operación #{len(operations)-i}"):
+                    st.code(op)
     else:
-        st.info("📂 El archivo de log se creará con la primera sincronización")
+        st.info("📭 No hay historial de sincronizaciones aún")
     
-    # Información importante
-    st.write("---")
-    st.warning("""
-    **⚠️ Notas importantes:**
-    - Los archivos se suben directamente a la rama `main`
-    - Se mantiene el historial de versiones en GitHub
-    - Si hay conflictos, se sobrescribe el archivo remoto
-    - Los tokens deben tener permiso `repo` en GitHub
-    - El token solo se usa desde Streamlit Cloud (seguro)
-    """)
+    # Botones de mantenimiento
+    st.write("### 🧹 Mantenimiento")
+    
+    col_maint1, col_maint2, col_maint3 = st.columns(3)
+    
+    with col_maint1:
+        if st.button("📄 Ver Log Completo", type="secondary", use_container_width=True):
+            if os.path.exists(log_file):
+                with open(log_file, "r", encoding="utf-8") as f:
+                    st.text_area("Log completo", f.read(), height=300)
+            else:
+                st.info("No hay archivo de log")
+    
+    with col_maint2:
+        if st.button("🗑️ Limpiar Log Antiguo", type="secondary", use_container_width=True):
+            if os.path.exists(log_file):
+                # Mantener solo las últimas 1000 líneas
+                with open(log_file, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                
+                if len(lines) > 1000:
+                    with open(log_file, "w", encoding="utf-8") as f:
+                        f.writelines(lines[-1000:])
+                    st.success(f"✅ Log limpiado. Mantenidas {min(1000, len(lines))} líneas")
+                else:
+                    st.info("ℹ️ El log ya tiene menos de 1000 líneas")
+            else:
+                st.info("📂 No hay log para limpiar")
+    
+    with col_maint3:
+        if st.button("🔄 Refrescar Página", type="secondary", use_container_width=True):
+            st.rerun()
 
 def mostrar_panel_administrador():
     """Panel de administración"""
@@ -1590,4 +1827,4 @@ def mostrar_panel_administrador():
     with tab10:
         interfaz_analisis_llamadas()
     with tab11:  # NUEVA PESTAÑA SIMPLE
-        gestion_sincronizacion_github()  # <-- FUNCIÓN SIMPLIFICADA
+        gestion_sincronizacion_github()
