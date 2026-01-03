@@ -338,6 +338,48 @@ def importar_datos_a_registro(df_analizado, super_users_config):
         if len(agentes_sistema) > 10:
             mensaje += f"- ... y {len(agentes_sistema) - 10} más\n"
     
+    # 🔄 SINCRONIZAR CON GITHUB INMEDIATAMENTE
+    try:
+        # Verificar si tenemos credenciales
+        import streamlit as st
+        if all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]):
+            
+            # Importar nuestro sincronizador
+            from github_sync_completo import GitHubSyncCompleto
+            
+            # Crear instancia
+            sync = GitHubSyncCompleto()
+            
+            # Sincronizar SOLO database.json (donde están los datos)
+            if os.path.exists("database.json"):
+                success, message = sync.upload_file(
+                    "database.json",
+                    f"Auto-sync después de importar CSV: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                )
+                
+                if success:
+                    mensaje += "\n\n✅ **Datos guardados en GitHub automáticamente**"
+                    mensaje += f"\n📁 Archivo: `database.json`"
+                    mensaje += f"\n⏰ Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+                else:
+                    mensaje += "\n\n⚠️ **Datos guardados localmente pero NO en GitHub**"
+                    mensaje += f"\n❌ Error: {message}"
+                    mensaje += "\n🔧 Usa la pestaña '🔄 GitHub Sync' para sincronizar manualmente"
+            else:
+                mensaje += "\n\n⚠️ **Error: database.json no existe después de guardar**"
+        
+        else:
+            mensaje += "\n\n⚠️ **No se pudo sincronizar: faltan credenciales de GitHub**"
+            mensaje += "\n🔧 Configura GITHUB_TOKEN, GITHUB_REPO_OWNER y GITHUB_REPO_NAME en secrets.toml"
+            
+    except Exception as e:
+        mensaje += f"\n\n⚠️ **Error en sincronización automática:** {str(e)}"
+        mensaje += "\n🔧 Los datos se guardaron localmente. Sincroniza manualmente."
+    
+    # ============================================
+    # FIN DE LA MODIFICACIÓN
+    # ============================================
+    
     return True, mensaje
 
 def mostrar_depuracion_agentes(df_analizado, super_users_config):
