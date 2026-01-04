@@ -145,7 +145,10 @@ def main():
             'About': '# Zelenza CEX v2.0 con PVD Mejorado y Grupos'
         }
     )
-    
+
+    from super_users_functions import mostrar_alertas_sidebar
+    mostrar_alertas_sidebar()
+        
     # Añadir estilos CSS
     st.markdown("""
     <style>

@@ -10,6 +10,8 @@ from database import (
     cargar_configuracion_usuarios, cargar_config_sistema
 )
 from utils import obtener_hora_madrid, formatear_hora_madrid
+import plotly.graph_objects as go
+import plotly.express as px
 
 def gestion_super_users_admin():
     """Panel de administración para gestionar super usuarios"""
@@ -19,7 +21,7 @@ def gestion_super_users_admin():
     super_users_config = cargar_super_users()
     usuarios_config = cargar_configuracion_usuarios()
     
-    tab1, tab2, tab3 = st.tabs(["👑 Super Usuarios", "👥 Agentes", "⚙️ Configuración"])
+    tab1, tab2, tab3, tab4 = st.tabs(["👑 Super Users", "👥 Agentes", "⚙️ Configuración", "🧹 Mantenimiento"])
     
     with tab1:
         st.write("### 👑 Lista de Super Usuarios")
@@ -434,6 +436,29 @@ def gestion_super_users_admin():
             help="Si está activado, cada super usuario solo verá los agentes que tiene asignados"
         )
         
+        # NUEVAS CONFIGURACIONES
+        st.write("### 🔔 Configuración de Alertas")
+        
+        col_alert1, col_alert2 = st.columns(2)
+        
+        with col_alert1:
+            umbral_alertas_llamadas = st.number_input(
+                "Umbral alertas llamadas (%):",
+                min_value=1,
+                max_value=100,
+                value=config_actual.get("umbral_alertas_llamadas", 20),
+                help="Porcentaje por debajo de la media que activa alerta"
+            )
+        
+        with col_alert2:
+            minimo_llamadas_dia = st.number_input(
+                "Mínimo llamadas/día para media:",
+                min_value=0,
+                max_value=500,
+                value=config_actual.get("minimo_llamadas_dia", 50),
+                help="Mínimo de llamadas diarias para considerar en cálculo de media"
+            )
+        
         if st.button("💾 Guardar Configuración", type="primary"):
             nueva_config = {
                 "duracion_minima_llamada": duracion_minima,
@@ -441,13 +466,80 @@ def gestion_super_users_admin():
                 "target_llamadas": target_llamadas,
                 "target_ventas": target_ventas,
                 "metrica_eficiencia": metrica,
-                "mostrar_solo_mis_agentes": mostrar_solo_mis_agentes
+                "mostrar_solo_mis_agentes": mostrar_solo_mis_agentes,
+                "umbral_alertas_llamadas": umbral_alertas_llamadas,
+                "minimo_llamadas_dia": minimo_llamadas_dia
             }
             
             super_users_config["configuracion"] = nueva_config
             guardar_super_users(super_users_config)
             st.success("✅ Configuración guardada")
             st.rerun()
+    
+    with tab4:
+        st.write("### 🧹 Mantenimiento del Sistema")
+        
+        col_mant1, col_mant2 = st.columns(2)
+        
+        with col_mant1:
+            st.write("**Reiniciar métricas:**")
+            st.warning("Esta acción eliminará todos los datos históricos de llamadas y ventas")
+            
+            if st.button("🔄 Reiniciar TODAS las métricas", type="secondary", use_container_width=True):
+                st.session_state.confirmar_reinicio = True
+        
+        with col_mant2:
+            st.write("**Exportar/Importar:**")
+            if st.button("📤 Exportar datos completos", use_container_width=True):
+                exportar_datos_completos()
+            
+            if st.button("📥 Importar backup", use_container_width=True):
+                st.session_state.importar_backup = True
+        
+        # Confirmación de reinicio
+        if st.session_state.get('confirmar_reinicio', False):
+            st.error("⚠️ **CONFIRMAR REINICIO COMPLETO**")
+            st.write("Esta acción **NO SE PUEDE DESHACER** y eliminará:")
+            st.write("1. 📊 Todas las métricas históricas de llamadas")
+            st.write("2. 💰 Todas las métricas históricas de ventas")
+            st.write("3. 📅 Todos los registros diarios")
+            st.write("4. 🔄 Se mantendrán solo los agentes configurados")
+            
+            col_conf_r1, col_conf_r2 = st.columns(2)
+            
+            with col_conf_r1:
+                if st.button("✅ SÍ, REINICIAR TODO", type="primary", use_container_width=True):
+                    registro_llamadas = {}
+                    guardar_registro_llamadas(registro_llamadas)
+                    st.success("✅ Todas las métricas reiniciadas")
+                    st.session_state.confirmar_reinicio = False
+                    st.rerun()
+            
+            with col_conf_r2:
+                if st.button("❌ NO, CANCELAR", type="secondary", use_container_width=True):
+                    st.session_state.confirmar_reinicio = False
+                    st.rerun()
+
+def exportar_datos_completos():
+    """Exporta todos los datos del sistema"""
+    registro_llamadas = cargar_registro_llamadas()
+    super_users_config = cargar_super_users()
+    
+    datos_exportar = {
+        "registro_llamadas": registro_llamadas,
+        "super_users_config": super_users_config,
+        "fecha_exportacion": datetime.now().isoformat(),
+        "version": "1.0"
+    }
+    
+    json_str = json.dumps(datos_exportar, indent=2, default=str)
+    
+    st.download_button(
+        label="📥 Descargar backup completo",
+        data=json_str,
+        file_name=f"backup_super_users_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+        mime="application/json"
+    )
 
 def panel_super_usuario():
     """Panel principal para super usuarios"""
@@ -587,6 +679,8 @@ def panel_super_usuario():
                         # Botón para importar
                         if st.button("📥 Importar Datos al Sistema", type="primary"):
                             with st.spinner("Importando datos..."):
+                                # Cargar configuración de super users
+                                super_users_config = cargar_super_users()
                                 exito, mensaje = importar_datos_a_registro(df, super_users_config)
                                 
                                 if exito:
@@ -601,148 +695,181 @@ def panel_super_usuario():
         panel_monitorizaciones_super_usuario()
 
 def gestion_registro_diario(agentes, registro_llamadas, configuracion):
-    """Registro diario de llamadas y ventas"""
-    st.subheader("📅 Registro Diario")
+    """Registro diario de llamadas y ventas - Con AMBOS tipos de llamadas"""
+    st.subheader("📅 Registro Diario - Tabla")
     
     # Seleccionar fecha
     fecha_hoy = datetime.now().date()
     fecha_seleccionada = st.date_input(
         "Fecha:",
         value=fecha_hoy,
-        max_value=fecha_hoy
+        max_value=fecha_hoy,
+        key="fecha_registro_diario"
     )
     
     fecha_str = fecha_seleccionada.strftime("%Y-%m-%d")
     
-    # Obtener datos del día seleccionado
+    # Obtener datos del día
     datos_dia = registro_llamadas.get(fecha_str, {})
     
     st.write(f"### 📝 Registro para {fecha_seleccionada.strftime('%d/%m/%Y')}")
     
-    # Opciones de ordenación
-    col_orden1, col_orden2 = st.columns([1, 3])
-    with col_orden1:
-        orden_por = st.selectbox(
-            "Ordenar por:",
-            ["Username (ID)", "Nombre", "Grupo"],
-            index=0,  # Por defecto ordenar por username
-            key="orden_registro"
-        )
-    with col_orden2:
-        st.caption("💡 Orden alfabético por username facilita encontrar agentes por su número (ej: 0001, 0002, etc.)")
+    # Crear tabla de agentes
+    datos_tabla = []
     
-    # Preparar lista de agentes ordenada
-    agentes_lista = []
     for agent_id, info in agentes.items():
-        if info.get('activo', True):  # Solo agentes activos
-            agentes_lista.append({
-                'id': agent_id,
-                'nombre': info.get('nombre', agent_id),
-                'grupo': info.get('grupo', 'Sin grupo')
+        if info.get('activo', True):
+            nombre = info.get('nombre', agent_id)
+            grupo = info.get('grupo', 'Sin grupo')
+            
+            # Datos del registro (ambos tipos)
+            datos_registro = datos_dia.get(agent_id, {
+                "llamadas_totales": 0,
+                "llamadas_15min": 0,
+                "ventas": 0
+            })
+            
+            datos_tabla.append({
+                'ID': agent_id,
+                'Nombre': nombre,
+                'Grupo': grupo,
+                'Llamadas Totales': int(datos_registro.get('llamadas_totales', 0)),
+                'Llamadas >15min': int(datos_registro.get('llamadas_15min', 0)),
+                'Ventas': int(datos_registro.get('ventas', 0))
             })
     
-    # Ordenar según la opción seleccionada
-    if orden_por == "Username (ID)":
-        agentes_lista.sort(key=lambda x: x['id'])
-    elif orden_por == "Nombre":
-        agentes_lista.sort(key=lambda x: x['nombre'])
-    elif orden_por == "Grupo":
-        agentes_lista.sort(key=lambda x: (x['grupo'], x['id']))
+    # Crear DataFrame
+    df_tabla = pd.DataFrame(datos_tabla)
+    df_tabla = df_tabla.sort_values('ID')
     
-    # Contador para estadísticas
-    total_agentes = len(agentes_lista)
-    agentes_con_datos = 0
+    # Mostrar tabla editable
+    st.write("**Tabla de registro diario:**")
     
-    # Crear formulario para cada agente
-    with st.form("form_registro_diario"):
-        registros = []
+    # Configurar columnas editables
+    column_config = {
+        'ID': st.column_config.TextColumn('ID', disabled=True),
+        'Nombre': st.column_config.TextColumn('Nombre', disabled=True),
+        'Grupo': st.column_config.TextColumn('Grupo', disabled=True),
+        'Llamadas Totales': st.column_config.NumberColumn(
+            'Llamadas Totales',
+            min_value=0,
+            max_value=500,
+            step=1,
+            required=True,
+            help="Total de llamadas del agente (todas las líneas)"
+        ),
+        'Llamadas >15min': st.column_config.NumberColumn(
+            'Llamadas >15min',
+            min_value=0,
+            max_value=500,
+            step=1,
+            required=True,
+            help="Solo llamadas de más de 15 minutos"
+        ),
+        'Ventas': st.column_config.NumberColumn(
+            'Ventas',
+            min_value=0,
+            max_value=100,
+            step=1,
+            required=True
+        )
+    }
+    
+    edited_df = st.data_editor(
+        df_tabla,
+        column_config=column_config,
+        hide_index=True,
+        use_container_width=True,
+        num_rows="dynamic",
+        key=f"editor_registro_{fecha_str}"
+    )
+    
+    # Calcular estadísticas
+    total_llamadas_totales = edited_df['Llamadas Totales'].sum()
+    total_llamadas_15min = edited_df['Llamadas >15min'].sum()
+    total_ventas = edited_df['Ventas'].sum()
+    
+    col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+    with col_stats1:
+        st.metric("Total Agentes", len(edited_df))
+    with col_stats2:
+        st.metric("Llamadas Totales", int(total_llamadas_totales))
+    with col_stats3:
+        st.metric("Llamadas >15min", int(total_llamadas_15min))
+    with col_stats4:
+        st.metric("Ventas", int(total_ventas))
+    
+    # Calcular porcentaje
+    if total_llamadas_totales > 0:
+        porcentaje = (total_llamadas_15min / total_llamadas_totales * 100)
+        st.info(f"📊 **{porcentaje:.1f}%** de las llamadas son >15min")
+    
+    # Botón para guardar
+    if st.button("💾 Guardar Registro Diario", type="primary", use_container_width=True):
+        # Actualizar registro
+        if fecha_str not in registro_llamadas:
+            registro_llamadas[fecha_str] = {}
         
-        for i, agente in enumerate(agentes_lista, 1):
-            agent_id = agente['id']
-            nombre = agente['nombre']
-            grupo = agente['grupo']
-            
-            # Obtener valores actuales
-            datos_agente = datos_dia.get(agent_id, {"llamadas": 0, "ventas": 0})
-            
-            # Verificar si tiene datos previos
-            tiene_datos_previos = datos_agente.get("llamadas", 0) > 0 or datos_agente.get("ventas", 0) > 0
-            if tiene_datos_previos:
-                agentes_con_datos += 1
-            
-            # Mostrar con número de orden
-            col_agent1, col_agent2, col_agent3 = st.columns([4, 2, 2])
-            
-            with col_agent1:
-                # Mostrar número de orden y username en pequeñito
-                st.write(f"**#{i:03d} - {nombre}**")
-                st.caption(f"🆔 {agent_id} | 👥 {grupo}")
-                
-                # Indicador visual si tiene datos previos
-                if tiene_datos_previos:
-                    st.caption("📝 Tiene datos previos")
-            
-            with col_agent2:
-                llamadas = st.number_input(
-                    f"Llamadas >{configuracion.get('duracion_minima_llamada', 15)}min",
-                    min_value=0,
-                    max_value=100,
-                    value=datos_agente.get("llamadas", 0),
-                    key=f"llamadas_{agent_id}_{fecha_str}",
-                    help=f"Llamadas para {nombre} ({agent_id})"
-                )
-            
-            with col_agent3:
-                ventas = st.number_input(
-                    "Ventas",
-                    min_value=0,
-                    max_value=50,
-                    value=datos_agente.get("ventas", 0),
-                    key=f"ventas_{agent_id}_{fecha_str}",
-                    help=f"Ventas para {nombre} ({agent_id})"
-                )
-            
-            # Línea separadora entre agentes (excepto el último)
-            if i < total_agentes:
-                st.markdown("---")
-            
-            registros.append({
-                'agent_id': agent_id,
-                'llamadas': llamadas,
-                'ventas': ventas
-            })
+        for _, row in edited_df.iterrows():
+            agent_id = row['ID']
+            registro_llamadas[fecha_str][agent_id] = {
+                'llamadas_totales': int(row['Llamadas Totales']),
+                'llamadas_15min': int(row['Llamadas >15min']),
+                'ventas': int(row['Ventas']),
+                'fecha': fecha_str,
+                'timestamp': datetime.now().isoformat()
+            }
         
-        # Estadísticas antes del botón de guardar
-        col_stats1, col_stats2, col_stats3 = st.columns(3)
-        with col_stats1:
-            st.metric("Total Agentes", total_agentes)
-        with col_stats2:
-            st.metric("Con Datos", agentes_con_datos)
-        with col_stats3:
-            st.metric("Sin Datos", total_agentes - agentes_con_datos)
-        
-        submitted = st.form_submit_button("💾 Guardar Registro Diario", type="primary")
-        
-        if submitted:
-            # Actualizar registro
-            if fecha_str not in registro_llamadas:
-                registro_llamadas[fecha_str] = {}
+        guardar_registro_llamadas(registro_llamadas)
+        st.success("✅ Registro diario guardado correctamente")
+        st.rerun()
+
+def calcular_media_llamadas_diarias(registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia=50):
+    """Calcula la media de llamadas diarias excluyendo días con menos del mínimo"""
+    llamadas_por_dia = []
+    
+    for fecha_str, datos_dia in registro_llamadas.items():
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+        if fecha_inicio <= fecha <= fecha_fin:
+            total_llamadas_dia = sum(datos.get('llamadas', 0) for datos in datos_dia.values())
             
-            for registro in registros:
-                registro_llamadas[fecha_str][registro['agent_id']] = {
-                    'llamadas': registro['llamadas'],
-                    'ventas': registro['ventas'],
-                    'fecha': fecha_str,
-                    'timestamp': datetime.now().isoformat()
-                }
+            # Solo incluir en la media si supera el mínimo
+            if total_llamadas_dia >= minimo_llamadas_dia:
+                llamadas_por_dia.append(total_llamadas_dia)
+    
+    if not llamadas_por_dia:
+        return 0
+    
+    return sum(llamadas_por_dia) / len(llamadas_por_dia)
+
+def calcular_media_llamadas_por_agente(agentes, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia=50):
+    """Calcula la media de llamadas por agente"""
+    total_llamadas = 0
+    total_agentes = 0
+    
+    for agent_id, info in agentes.items():
+        if info.get('activo', True):
+            llamadas_agente = 0
             
-            guardar_registro_llamadas(registro_llamadas)
-            st.success("✅ Registro diario guardado correctamente")
-            st.rerun()
+            for fecha_str, datos_dia in registro_llamadas.items():
+                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_inicio <= fecha <= fecha_fin:
+                    if agent_id in datos_dia:
+                        llamadas_agente += datos_dia[agent_id].get("llamadas", 0)
+            
+            total_llamadas += llamadas_agente
+            total_agentes += 1
+    
+    return total_llamadas / total_agentes if total_agentes > 0 else 0
 
 def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
-    """Muestra métricas mensuales de agentes"""
-    st.subheader("📊 Métricas Mensuales")
+    """Muestra métricas mensuales de agentes - CON FILTRO POR DÍA VÁLIDO"""
+    st.subheader("📊 Métricas Mensuales - Días Válidos (>X llamadas/día)")
+    
+    # Obtener configuración de mínimo diario
+    minimo_llamadas_dia = configuracion.get("minimo_llamadas_dia", 50)
+    
+    st.info(f"ℹ️ **Nota:** Solo se consideran días con ≥ {minimo_llamadas_dia} llamadas totales")
     
     # Seleccionar periodo
     col_periodo1, col_periodo2 = st.columns(2)
@@ -750,10 +877,9 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
     with col_periodo1:
         periodo_tipo = configuracion.get("periodo_mensual", "calendario")
         if periodo_tipo == "calendario":
-            # Mes natural - usar un enfoque diferente
+            # Mes natural
             st.write("**Seleccionar mes:**")
             
-            # Crear selector de año y mes
             año_actual = datetime.now().year
             mes_actual = datetime.now().month
             
@@ -763,105 +889,321 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
                 año_seleccionado = st.selectbox(
                     "Año:",
                     range(año_actual - 1, año_actual + 2),
-                    index=1,  # año actual por defecto
-                    key="selector_anio"
+                    index=1,
+                    key="selector_anio_metricas"
                 )
             
             with col_mes:
-                meses = [
-                    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-                ]
-                mes_seleccionado = st.selectbox(
-                    "Mes:",
-                    meses,
-                    index=mes_actual - 1,
-                    key="selector_mes"
-                )
+                meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                mes_seleccionado = st.selectbox("Mes:", meses, index=mes_actual - 1, key="selector_mes_metricas")
                 mes_numero = meses.index(mes_seleccionado) + 1
             
-            # Calcular fechas
             fecha_inicio = datetime(año_seleccionado, mes_numero, 1).date()
             fecha_fin = (fecha_inicio + relativedelta(months=1)) - timedelta(days=1)
             
             st.info(f"**Periodo:** {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}")
             
         else:
-            # Rolling 30 días
-            dias_atras = st.number_input("Últimos N días:", min_value=7, max_value=90, value=30)
+            dias_atras = st.number_input("Últimos N días:", min_value=7, max_value=90, value=30, key="dias_rolling")
             fecha_fin = datetime.now().date()
             fecha_inicio = fecha_fin - timedelta(days=dias_atras)
             
             st.info(f"**Periodo (rolling):** {fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}")
     
     with col_periodo2:
-        st.write("**Targets:**")
-        st.write(f"• Llamadas: {configuracion.get('target_llamadas', 50)}")
-        st.write(f"• Ventas: {configuracion.get('target_ventas', 10)}")
+        st.write("**Configuración:**")
+        target_llamadas = configuracion.get('target_llamadas', 50)
+        target_ventas = configuracion.get('target_ventas', 10)
+        st.write(f"• Target llamadas >15min: {target_llamadas}")
+        st.write(f"• Target ventas: {target_ventas}")
+        st.write(f"• Mínimo llamadas/día: {minimo_llamadas_dia}")
+        
+        # Mostrar días totales en periodo
+        total_dias_periodo = (fecha_fin - fecha_inicio).days + 1
+        st.write(f"• Días en periodo: {total_dias_periodo}")
     
-    # Calcular métricas para el periodo
-    st.write("### 📈 Métricas del Período")
+    # =============================================
+    # 1. CALCULAR DATOS FILTRANDO DÍAS VÁLIDOS
+    # =============================================
+    st.write("### 📈 Cálculo con Días Válidos")
+    
+    datos_agentes = []
+    total_llamadas_totales_periodo = 0
+    total_llamadas_15min_periodo = 0
+    total_ventas_periodo = 0
+    agentes_con_datos_validos = 0
+    
+    # Estadísticas de días válidos
+    total_dias_validos = 0
+    agentes_sin_dias_validos = []
+    
+    for agent_id, info in agentes.items():
+        if not info.get('activo', True):
+            continue
+        
+        nombre = info.get('nombre', agent_id)
+        grupo = info.get('grupo', 'Sin grupo')
+        supervisor = info.get('supervisor', 'Sin asignar')
+        
+        # Filtrar solo días válidos para este agente
+        dias_validos_agente = filtrar_dias_validos(
+            agent_id, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia
+        )
+        
+        # Si no tiene días válidos, saltar
+        if not dias_validos_agente:
+            agentes_sin_dias_validos.append({
+                'id': agent_id,
+                'nombre': nombre,
+                'dias_validos': 0
+            })
+            continue
+        
+        # Calcular totales de días válidos
+        llamadas_totales_agente = 0
+        llamadas_15min_agente = 0
+        ventas_agente = 0
+        
+        for fecha_str, datos_dia in dias_validos_agente.items():
+            llamadas_totales_agente += datos_dia['llamadas_totales']
+            llamadas_15min_agente += datos_dia['llamadas_15min']
+            ventas_agente += datos_dia['ventas']
+        
+        # Solo incluir agentes con datos válidos
+        dias_con_datos = len(dias_validos_agente)
+        
+        # Acumular totales para calcular medias
+        total_llamadas_totales_periodo += llamadas_totales_agente
+        total_llamadas_15min_periodo += llamadas_15min_agente
+        total_ventas_periodo += ventas_agente
+        total_dias_validos += dias_con_datos
+        agentes_con_datos_validos += 1
+        
+        datos_agentes.append({
+            'agent_id': agent_id,
+            'nombre': nombre,
+            'grupo': grupo,
+            'supervisor': supervisor,
+            'llamadas_totales': llamadas_totales_agente,
+            'llamadas_15min': llamadas_15min_agente,
+            'ventas': ventas_agente,
+            'dias_validos': dias_con_datos,
+            'dias_validos_list': list(dias_validos_agente.keys())  # Para debug
+        })
+    
+    # =============================================
+    # 2. MOSTRAR ESTADÍSTICAS DE FILTRADO
+    # =============================================
+    col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
+    
+    with col_stats1:
+        st.metric("Agentes Activos", len(agentes))
+    
+    with col_stats2:
+        st.metric("Con días válidos", agentes_con_datos_validos)
+    
+    with col_stats3:
+        st.metric("Sin días válidos", len(agentes_sin_dias_validos))
+    
+    with col_stats4:
+        st.metric("Total días válidos", total_dias_validos)
+    
+    # Mostrar agentes sin días válidos
+    if agentes_sin_dias_validos:
+        with st.expander(f"👀 Ver {len(agentes_sin_dias_validos)} agentes sin días válidos (menos de {minimo_llamadas_dia} llamadas/día)"):
+            for agente in agentes_sin_dias_validos[:20]:
+                st.write(f"- **{agente['id']}** ({agente['nombre']}): {agente['dias_validos']} días válidos")
+    
+    if agentes_con_datos_validos == 0:
+        st.warning(f"⚠️ No hay agentes con días válidos (≥ {minimo_llamadas_dia} llamadas/día) en el período seleccionado")
+        return
+    
+    # =============================================
+    # 3. CALCULAR MEDIAS GLOBALES (SÓLO DÍAS VÁLIDOS)
+    # =============================================
+    # Media de llamadas totales (solo días válidos)
+    media_llamadas_totales = total_llamadas_totales_periodo / agentes_con_datos_validos
+    
+    # Media de llamadas >15min (solo días válidos)
+    media_llamadas_15min = total_llamadas_15min_periodo / agentes_con_datos_validos
+    
+    # Porcentaje global de eficiencia
+    porcentaje_global_15min = (total_llamadas_15min_periodo / total_llamadas_totales_periodo * 100) if total_llamadas_totales_periodo > 0 else 0
+    
+    # Media de días válidos por agente
+    media_dias_validos = total_dias_validos / agentes_con_datos_validos
+    
+    # Mostrar estadísticas globales filtradas
+    st.write("### 📊 Estadísticas Globales (Solo Días Válidos)")
+    
+    col_glob1, col_glob2, col_glob3, col_glob4 = st.columns(4)
+    
+    with col_glob1:
+        st.metric("📅 Días válidos/agente", f"{media_dias_validos:.1f}")
+    
+    with col_glob2:
+        st.metric("📞 Media Totales/agente", f"{media_llamadas_totales:.1f}")
+    
+    with col_glob3:
+        st.metric("⏱️ Media >15min/agente", f"{media_llamadas_15min:.1f}")
+    
+    with col_glob4:
+        st.metric("📊 % Eficiencia global", f"{porcentaje_global_15min:.1f}%")
+    
+    # =============================================
+    # 4. CALCULAR MÉTRICAS INDIVIDUALES (SÓLO DÍAS VÁLIDOS)
+    # =============================================
+    st.write("### 📋 Métricas Individuales (Solo Días Válidos)")
     
     metricas_agentes = []
     
-    for agent_id, info in agentes.items():
-        if info.get('activo', True):
-            nombre = info.get('nombre', agent_id)
-            grupo = info.get('grupo', 'Sin grupo')
-            supervisor = info.get('supervisor', 'Sin asignar')
+    for datos in datos_agentes:
+        llamadas_totales = datos['llamadas_totales']
+        llamadas_15min = datos['llamadas_15min']
+        ventas = datos['ventas']
+        dias_validos = datos['dias_validos']
+        
+        # ========== LLAMADAS DIARIAS PROMEDIO (días válidos) ==========
+        llamadas_diarias_promedio = llamadas_totales / dias_validos if dias_validos > 0 else 0
+        llamadas_15min_diarias_promedio = llamadas_15min / dias_validos if dias_validos > 0 else 0
+        
+        # ========== PORCENTAJE DE EFICIENCIA ==========
+        porcentaje_15min = (llamadas_15min / llamadas_totales * 100) if llamadas_totales > 0 else 0
+        
+        # ========== VS MEDIA DE LLAMADAS TOTALES ==========
+        vs_media_total = ((llamadas_totales - media_llamadas_totales) / media_llamadas_totales * 100) if media_llamadas_totales > 0 else 0
+        
+        # ========== VS MEDIA DE LLAMADAS >15min ==========
+        vs_media_15min = ((llamadas_15min - media_llamadas_15min) / media_llamadas_15min * 100) if media_llamadas_15min > 0 else 0
+        
+        # ========== CUMPLIMIENTO DE TARGETS ==========
+        cumplimiento_llamadas = (llamadas_15min / target_llamadas * 100) if target_llamadas > 0 else 0
+        cumplimiento_ventas = (ventas / target_ventas * 100) if target_ventas > 0 else 0
+        
+        # ========== RATIO DE CONVERSIÓN ==========
+        ratio_conversion = (ventas / llamadas_15min * 100) if llamadas_15min > 0 else 0
+        
+        # ========== EFICIENCIA ==========
+        metrica_tipo = configuracion.get("metrica_eficiencia", "ratio")
+        eficiencia = 0
+        
+        if metrica_tipo == "ratio":
+            eficiencia = ratio_conversion
+        elif metrica_tipo == "total":
+            eficiencia = ventas * 10 + llamadas_15min
+        elif metrica_tipo == "ponderado":
+            eficiencia = ventas * 2 + llamadas_15min
+        
+        # ========== ESTADOS ==========
+        estado_general = '✅' if cumplimiento_llamadas >= 100 and cumplimiento_ventas >= 100 else '⚠️'
+        
+        umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
+        alerta_media = ''
+        if vs_media_total < -umbral_alerta:
+            alerta_media = '🔔'
+        elif vs_media_total > 0:
+            alerta_media = '📈'
+        
+        # ========== AGREGAR A LA LISTA ==========
+        metricas_agentes.append({
+            'ID': datos['agent_id'],
+            'Agente': datos['nombre'],
+            'Grupo': datos['grupo'],
+            'Supervisor': datos['supervisor'],
+            'Días Válidos': dias_validos,
             
-            # Calcular totales del periodo
-            total_llamadas = 0
-            total_ventas = 0
+            # DATOS BRUTOS
+            'Llamadas Totales': llamadas_totales,
+            'Llamadas >15min': llamadas_15min,
+            'Ventas': ventas,
             
-            for fecha_str, datos_dia in registro_llamadas.items():
-                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-                if fecha_inicio <= fecha <= fecha_fin:
-                    if agent_id in datos_dia:
-                        total_llamadas += datos_dia[agent_id].get("llamadas", 0)
-                        total_ventas += datos_dia[agent_id].get("ventas", 0)
+            # PROMEDIOS DIARIOS
+            'Llamadas/Día': f"{llamadas_diarias_promedio:.1f}",
+            '>15min/Día': f"{llamadas_15min_diarias_promedio:.1f}",
             
-            # Calcular métricas
-            target_llamadas = configuracion.get("target_llamadas", 50)
-            target_ventas = configuracion.get("target_ventas", 10)
+            # PORCENTAJES
+            '% >15min': f"{porcentaje_15min:.1f}%",
+            'vs Media Total (%)': f"{vs_media_total:+.1f}%",
+            'vs Media >15min (%)': f"{vs_media_15min:+.1f}%",
             
-            cumplimiento_llamadas = (total_llamadas / target_llamadas * 100) if target_llamadas > 0 else 0
-            cumplimiento_ventas = (total_ventas / target_ventas * 100) if target_ventas > 0 else 0
+            # CUMPLIMIENTO
+            'Cump. Llamadas (%)': f"{cumplimiento_llamadas:.1f}%",
+            'Cump. Ventas (%)': f"{cumplimiento_ventas:.1f}%",
             
-            # Calcular eficiencia según métrica seleccionada
-            metrica_tipo = configuracion.get("metrica_eficiencia", "ratio")
-            eficiencia = 0
+            # RENDIMIENTO
+            'Ratio (%)': f"{ratio_conversion:.1f}%",
+            'Eficiencia': f"{eficiencia:.1f}",
             
-            if metrica_tipo == "ratio":
-                eficiencia = (total_ventas / total_llamadas * 100) if total_llamadas > 0 else 0
-            elif metrica_tipo == "total":
-                eficiencia = total_ventas * 10 + total_llamadas  # Ponderación
-            elif metrica_tipo == "ponderado":
-                eficiencia = total_ventas * 2 + total_llamadas
+            # ESTADOS
+            'Alerta Media': alerta_media,
+            'Estado': estado_general,
             
-            metricas_agentes.append({
-                'Agente': nombre,
-                'Grupo': grupo,
-                'Supervisor': supervisor,
-                'Llamadas': total_llamadas,
-                'Ventas': total_ventas,
-                'Ratio (%)': f"{(total_ventas/total_llamadas*100):.1f}" if total_llamadas > 0 else "0.0",
-                'Cump. Llamadas (%)': f"{cumplimiento_llamadas:.1f}",
-                'Cump. Ventas (%)': f"{cumplimiento_ventas:.1f}",
-                'Eficiencia': f"{eficiencia:.1f}",
-                'Estado': '✅' if cumplimiento_llamadas >= 100 and cumplimiento_ventas >= 100 else '⚠️'
-            })
+            # DATOS PARA ORDENACIÓN
+            '_dias_validos': dias_validos,
+            '_llamadas_totales': llamadas_totales,
+            '_llamadas_15min': llamadas_15min,
+            '_ventas': ventas,
+            '_porcentaje_15min': porcentaje_15min,
+            '_vs_media_total': vs_media_total,
+            '_ratio': ratio_conversion,
+            '_eficiencia': eficiencia
+        })
     
-    # Mostrar tabla
+    # =============================================
+    # 5. MOSTRAR TABLA DE MÉTRICAS
+    # =============================================
     if metricas_agentes:
         df_metricas = pd.DataFrame(metricas_agentes)
         
-        # Ordenar por eficiencia
-        df_metricas['Eficiencia_num'] = df_metricas['Eficiencia'].str.replace('%', '').astype(float)
-        df_metricas = df_metricas.sort_values('Eficiencia_num', ascending=False)
-        df_metricas = df_metricas.drop('Eficiencia_num', axis=1)
+        # Ordenar por ID por defecto
+        df_metricas = df_metricas.sort_values('ID')
         
-        st.dataframe(df_metricas, use_container_width=True)
+        # Opciones de ordenación
+        col_orden1, col_orden2 = st.columns([2, 1])
+        with col_orden1:
+            orden_seleccionado = st.selectbox(
+                "Ordenar por:",
+                [
+                    'ID', 
+                    'Días Válidos',
+                    'Llamadas Totales', 
+                    'Llamadas >15min', 
+                    'Ventas', 
+                    '% >15min', 
+                    'vs Media Total (%)',
+                    'Ratio (%)',
+                    'Eficiencia'
+                ],
+                key="orden_metricas"
+            )
+        
+        # Aplicar ordenación
+        orden_mapping = {
+            'ID': 'ID',
+            'Días Válidos': '_dias_validos',
+            'Llamadas Totales': '_llamadas_totales',
+            'Llamadas >15min': '_llamadas_15min',
+            'Ventas': '_ventas',
+            '% >15min': '_porcentaje_15min',
+            'vs Media Total (%)': '_vs_media_total',
+            'Ratio (%)': '_ratio',
+            'Eficiencia': '_eficiencia'
+        }
+        
+        if orden_seleccionado in orden_mapping:
+            col_orden = orden_mapping[orden_seleccionado]
+            if orden_seleccionado in ['Llamadas Totales', 'Llamadas >15min', 'Ventas', 
+                                     'Días Válidos', '_dias_validos']:
+                df_metricas = df_metricas.sort_values(col_orden, ascending=False)
+            else:
+                df_metricas = df_metricas.sort_values(col_orden, ascending=False)
+        
+        # Mostrar tabla
+        st.dataframe(df_metricas.drop(columns=['_dias_validos', '_llamadas_totales', '_llamadas_15min', 
+                                             '_ventas', '_porcentaje_15min', '_vs_media_total', 
+                                             '_ratio', '_eficiencia']), 
+                    use_container_width=True)
         
         # Exportar opciones
         col_export1, col_export2 = st.columns(2)
@@ -870,7 +1212,7 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
             st.download_button(
                 label="📥 Descargar CSV",
                 data=csv,
-                file_name=f"metricas_{fecha_inicio}_{fecha_fin}.csv",
+                file_name=f"metricas_{fecha_inicio}_{fecha_fin}_min{minimo_llamadas_dia}.csv",
                 mime="text/csv",
                 use_container_width=True
             )
@@ -887,21 +1229,47 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
         st.info("No hay datos para el período seleccionado")
 
 def mostrar_dashboard(agentes, registro_llamadas, configuracion):
-    """Dashboard interactivo de métricas"""
+    """Dashboard interactivo de métricas - CORREGIDO COMPLETO"""
     st.subheader("📈 Dashboard de Desempeño")
     
     # Mostrar información de contexto
     username = st.session_state.get('username', '')
     st.info(f"👑 **Supervisor:** {username} | 👥 **Agentes supervisados:** {len(agentes)}")
     
-    # Métricas generales
-    st.write("### 📊 Métricas Globales")
+    # Seleccionar periodo para dashboard
+    col_periodo1, col_periodo2 = st.columns(2)
     
-    # Calcular métricas del mes actual
-    fecha_inicio = datetime.now().date().replace(day=1)
-    fecha_fin = datetime.now().date()
+    with col_periodo1:
+        periodo = st.selectbox(
+            "Periodo del dashboard:",
+            ["Este mes", "Últimos 7 días", "Últimos 30 días", "Personalizado"],
+            key="periodo_dashboard"
+        )
     
-    total_llamadas = 0
+    # Calcular fechas según periodo
+    fecha_hoy = datetime.now().date()
+    
+    if periodo == "Este mes":
+        fecha_inicio = fecha_hoy.replace(day=1)
+        fecha_fin = fecha_hoy
+    elif periodo == "Últimos 7 días":
+        fecha_inicio = fecha_hoy - timedelta(days=7)
+        fecha_fin = fecha_hoy
+    elif periodo == "Últimos 30 días":
+        fecha_inicio = fecha_hoy - timedelta(days=30)
+        fecha_fin = fecha_hoy
+    else:
+        col_fecha1, col_fecha2 = st.columns(2)
+        with col_fecha1:
+            fecha_inicio = st.date_input("Fecha inicio", value=fecha_hoy - timedelta(days=30))
+        with col_fecha2:
+            fecha_fin = st.date_input("Fecha fin", value=fecha_hoy)
+    
+    # Calcular métricas del periodo - USANDO LLAMADAS >15min PARA MÉTRICAS
+    st.write("### 📊 Métricas Globales (Llamadas >15min)")
+    
+    total_llamadas_15min = 0
+    total_llamadas_totales = 0  # Para contexto
     total_ventas = 0
     agentes_activos = sum(1 for a in agentes.values() if a.get('activo', True))
     
@@ -910,67 +1278,109 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         if fecha_inicio <= fecha <= fecha_fin:
             for agent_id, datos_agente in datos_dia.items():
                 if agent_id in agentes:  # Solo contar agentes supervisados
-                    total_llamadas += datos_agente.get("llamadas", 0)
+                    total_llamadas_15min += datos_agente.get("llamadas_15min", 0)
+                    total_llamadas_totales += datos_agente.get("llamadas_totales", 0)
                     total_ventas += datos_agente.get("ventas", 0)
     
-    # Mostrar KPIs
-    col_kpi1, col_kpi2, col_kpi3, col_kpi4 = st.columns(4)
+    # Calcular media de llamadas >15min por agente
+    media_llamadas_agente_15min = total_llamadas_15min / len(agentes) if agentes else 0
+    
+    # Calcular porcentaje de llamadas >15min
+    porcentaje_15min = (total_llamadas_15min / total_llamadas_totales * 100) if total_llamadas_totales > 0 else 0
+    
+    # Mostrar KPIs CORREGIDOS
+    col_kpi1, col_kpi2, col_kpi3, col_kpi4, col_kpi5 = st.columns(5)
     
     with col_kpi1:
         st.metric("👥 Agentes Activos", agentes_activos)
     
     with col_kpi2:
-        st.metric("📞 Llamadas Total", total_llamadas)
+        st.metric("📞 Llamadas >15min", total_llamadas_15min)
+        st.caption(f"({total_llamadas_totales} totales)")
     
     with col_kpi3:
         st.metric("💰 Ventas Total", total_ventas)
     
     with col_kpi4:
-        ratio = (total_ventas / total_llamadas * 100) if total_llamadas > 0 else 0
+        ratio = (total_ventas / total_llamadas_15min * 100) if total_llamadas_15min > 0 else 0
         st.metric("📈 Ratio Conversión", f"{ratio:.1f}%")
     
+    with col_kpi5:
+        st.metric("📊 Media >15min/Agente", f"{media_llamadas_agente_15min:.1f}")
+        st.caption(f"({porcentaje_15min:.1f}% del total)")
+    
     # Gráfico de tendencia diaria
-    st.write("### 📅 Tendencia Diaria")
+    st.write("### 📅 Tendencia Diaria (Llamadas >15min)")
     
     # Preparar datos para gráfico
     fechas = []
-    llamadas_diarias = []
+    llamadas_diarias_15min = []
     ventas_diarias = []
-    
-    # Obtener últimos 30 días
-    fecha_hoy = datetime.now().date()
-    fecha_30_dias_atras = fecha_hoy - timedelta(days=30)
     
     for fecha_str in sorted(registro_llamadas.keys()):
         fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-        if fecha_30_dias_atras <= fecha <= fecha_hoy:
-            total_dia_llamadas = 0
+        if fecha_inicio <= fecha <= fecha_fin:
+            total_dia_llamadas_15min = 0
             total_dia_ventas = 0
             
             for agent_id, datos_agente in registro_llamadas[fecha_str].items():
                 if agent_id in agentes:  # Solo contar agentes supervisados
-                    total_dia_llamadas += datos_agente.get("llamadas", 0)
+                    total_dia_llamadas_15min += datos_agente.get("llamadas_15min", 0)
                     total_dia_ventas += datos_agente.get("ventas", 0)
             
             fechas.append(fecha.strftime("%d/%m"))
-            llamadas_diarias.append(total_dia_llamadas)
+            llamadas_diarias_15min.append(total_dia_llamadas_15min)
             ventas_diarias.append(total_dia_ventas)
     
     if fechas:
         # Crear DataFrame para el gráfico
         df_tendencia = pd.DataFrame({
             'Fecha': fechas,
-            'Llamadas': llamadas_diarias,
+            'Llamadas >15min': llamadas_diarias_15min,
             'Ventas': ventas_diarias
         })
         
-        # Mostrar gráfico usando st.line_chart
-        st.line_chart(df_tendencia.set_index('Fecha'))
+        # Mostrar gráfico usando Plotly
+        fig = go.Figure()
+        
+        # Llamadas >15min
+        fig.add_trace(go.Scatter(
+            x=df_tendencia['Fecha'],
+            y=df_tendencia['Llamadas >15min'],
+            mode='lines+markers',
+            name='Llamadas >15min',
+            line=dict(color='blue', width=2)
+        ))
+        
+        # Ventas (escala diferente)
+        fig.add_trace(go.Scatter(
+            x=df_tendencia['Fecha'],
+            y=df_tendencia['Ventas'],
+            mode='lines+markers',
+            name='Ventas',
+            line=dict(color='green', width=2),
+            yaxis='y2'
+        ))
+        
+        # Configurar layout
+        fig.update_layout(
+            title='Tendencia Diaria - Llamadas >15min',
+            xaxis_title='Fecha',
+            yaxis_title='Llamadas >15min',
+            yaxis2=dict(
+                title='Ventas',
+                overlaying='y',
+                side='right'
+            ),
+            hovermode='x unified'
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No hay datos de tendencia para los últimos 30 días")
+        st.info("No hay datos de tendencia para el período seleccionado")
     
-    # Ranking de agentes
-    st.write("### 🏆 Ranking de Agentes (Este Mes)")
+    # Ranking de agentes (basado en llamadas >15min)
+    st.write("### 🏆 Ranking de Agentes (Basado en Llamadas >15min)")
     
     ranking_data = []
     
@@ -978,26 +1388,44 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         if info.get('activo', True):
             nombre = info.get('nombre', agent_id)
             
-            # Calcular métricas del mes
-            llamadas_mes = 0
-            ventas_mes = 0
+            # Calcular métricas del periodo (solo >15min)
+            llamadas_periodo_15min = 0
+            ventas_periodo = 0
             
             for fecha_str, datos_dia in registro_llamadas.items():
                 fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
                 if fecha_inicio <= fecha <= fecha_fin:
                     if agent_id in datos_dia:
-                        llamadas_mes += datos_dia[agent_id].get("llamadas", 0)
-                        ventas_mes += datos_dia[agent_id].get("ventas", 0)
+                        llamadas_periodo_15min += datos_dia[agent_id].get("llamadas_15min", 0)
+                        ventas_periodo += datos_dia[agent_id].get("ventas", 0)
             
-            if llamadas_mes > 0:
-                ratio = (ventas_mes / llamadas_mes * 100)
+            if llamadas_periodo_15min > 0:
+                ratio = (ventas_periodo / llamadas_periodo_15min * 100)
+                
+                # Calcular diferencia con media (IMPORTANTE: usando llamadas >15min)
+                diferencia_media = 0
+                if media_llamadas_agente_15min > 0:
+                    diferencia_media = ((llamadas_periodo_15min - media_llamadas_agente_15min) / media_llamadas_agente_15min * 100)
+                
+                # Determinar alerta
+                umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
+                estado_media = ""
+                if diferencia_media < -umbral_alerta:
+                    estado_media = "⚠️"
+                elif diferencia_media > 0:
+                    estado_media = "✅"
+                else:
+                    estado_media = "➖"
                 
                 ranking_data.append({
+                    'ID': agent_id,
                     'Agente': nombre,
-                    'Llamadas': llamadas_mes,
-                    'Ventas': ventas_mes,
+                    'Llamadas >15min': llamadas_periodo_15min,
+                    'Ventas': ventas_periodo,
                     'Ratio': f"{ratio:.1f}%",
-                    'Puntos': ventas_mes * 10 + llamadas_mes
+                    'vs Media': f"{diferencia_media:.1f}%",
+                    'Estado': estado_media,
+                    'Puntos': ventas_periodo * 10 + llamadas_periodo_15min
                 })
     
     if ranking_data:
@@ -1005,9 +1433,53 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         df_ranking = df_ranking.sort_values('Puntos', ascending=False)
         
         # Mostrar top 10
+        st.write("**Top 10 Agentes:**")
         st.dataframe(df_ranking.head(10), use_container_width=True)
+        
+        # Agentes con alerta (basado en llamadas >15min vs media)
+        agentes_alerta = df_ranking[df_ranking['Estado'] == '⚠️']
+        if not agentes_alerta.empty:
+            st.warning("### 🔔 Agentes Necesitan Atención (vs Media de >15min)")
+            st.write("Estos agentes están por debajo del umbral de alerta en llamadas >15min:")
+            st.dataframe(agentes_alerta[['ID', 'Agente', 'Llamadas >15min', 'vs Media']], use_container_width=True)
     else:
-        st.info("No hay datos de ranking para este mes")
+        st.info("No hay datos de ranking para el período seleccionado")
+    
+    # Sección adicional: Comparación con llamadas totales (para contexto)
+    st.write("### 📊 Comparación: Llamadas Totales vs >15min")
+    
+    comparacion_data = []
+    
+    for agent_id, info in agentes.items():
+        if info.get('activo', True):
+            nombre = info.get('nombre', agent_id)
+            
+            llamadas_totales_periodo = 0
+            llamadas_15min_periodo = 0
+            
+            for fecha_str, datos_dia in registro_llamadas.items():
+                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_inicio <= fecha <= fecha_fin:
+                    if agent_id in datos_dia:
+                        llamadas_totales_periodo += datos_dia[agent_id].get("llamadas_totales", 0)
+                        llamadas_15min_periodo += datos_dia[agent_id].get("llamadas_15min", 0)
+            
+            if llamadas_totales_periodo > 0:
+                porcentaje = (llamadas_15min_periodo / llamadas_totales_periodo * 100)
+                
+                comparacion_data.append({
+                    'Agente': nombre,
+                    'Llamadas Totales': llamadas_totales_periodo,
+                    'Llamadas >15min': llamadas_15min_periodo,
+                    '% >15min': f"{porcentaje:.1f}%"
+                })
+    
+    if comparacion_data:
+        df_comparacion = pd.DataFrame(comparacion_data)
+        df_comparacion = df_comparacion.sort_values('% >15min')
+        
+        st.write("**Agentes con menor % de llamadas >15min:**")
+        st.dataframe(df_comparacion.head(5), use_container_width=True)
 
 def gestion_agentes_super_usuario(agentes, super_users_config):
     """Gestión de agentes desde el panel de super usuario"""
@@ -1211,7 +1683,17 @@ def gestion_agentes_super_usuario_edicion(agentes, super_users_config, super_use
                 col_conf1, col_conf2 = st.columns(2)
                 with col_conf1:
                     if st.button("✅ Sí, reiniciar"):
-                        # Aquí podrías agregar lógica para reiniciar métricas
+                        # Reiniciar métricas del mes actual
+                        registro_llamadas = cargar_registro_llamadas()
+                        fecha_inicio = datetime.now().date().replace(day=1)
+                        
+                        for fecha_str, datos_dia in registro_llamadas.items():
+                            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                            if fecha >= fecha_inicio and agent_id in datos_dia:
+                                registro_llamadas[fecha_str][agent_id]['llamadas'] = 0
+                                registro_llamadas[fecha_str][agent_id]['ventas'] = 0
+                        
+                        guardar_registro_llamadas(registro_llamadas)
                         st.success(f"✅ Métricas de {info_agente.get('nombre', agent_id)} reiniciadas")
                         st.rerun()
                 with col_conf2:
@@ -1219,32 +1701,307 @@ def gestion_agentes_super_usuario_edicion(agentes, super_users_config, super_use
                         st.rerun()
 
 def mostrar_graficos_metricas(df_metricas):
-    """Muestra gráficos de métricas"""
+    """Muestra gráficos de métricas - COMPLETA con ambos tipos de llamadas"""
     st.write("### 📊 Visualización de Datos")
     
-    col_graf1, col_graf2 = st.columns(2)
+    # Verificar columnas necesarias
+    columnas_requeridas = ['Llamadas >15min', 'Llamadas Totales', 'Agente']
+    for col in columnas_requeridas:
+        if col not in df_metricas.columns:
+            st.error(f"❌ Falta columna: {col}")
+            st.write("Columnas disponibles:", df_metricas.columns.tolist())
+            return
     
-    with col_graf1:
-        # Gráfico de barras para llamadas
-        df_llamadas = df_metricas[['Agente', 'Llamadas']].copy()
-        df_llamadas['Llamadas'] = df_llamadas['Llamadas'].astype(int)
-        st.bar_chart(df_llamadas.set_index('Agente'))
-        st.caption("Llamadas por Agente")
+    # =============================================
+    # 1. GRÁFICO DE COMPARACIÓN: TOTALES vs >15min
+    # =============================================
+    st.write("#### 📞 Comparación: Llamadas Totales vs >15min")
     
-    with col_graf2:
-        # Gráfico de barras para ventas
-        df_ventas = df_metricas[['Agente', 'Ventas']].copy()
-        df_ventas['Ventas'] = df_ventas['Ventas'].astype(int)
-        st.bar_chart(df_ventas.set_index('Agente'))
-        st.caption("Ventas por Agente")
+    # Preparar datos
+    df_metricas['Llamadas_15min_num'] = pd.to_numeric(df_metricas['Llamadas >15min'], errors='coerce')
+    df_metricas['Llamadas_totales_num'] = pd.to_numeric(df_metricas['Llamadas Totales'], errors='coerce')
     
-    # Gráfico de ratio
-    st.write("#### 📈 Ratio de Conversión")
-    df_ratio = df_metricas[['Agente', 'Ratio (%)']].copy()
-    df_ratio['Ratio (%)'] = df_ratio['Ratio (%)'].str.replace('%', '').astype(float)
-    st.line_chart(df_ratio.set_index('Agente'))
-
-# super_users_functions.py (AGREGAR ESTAS FUNCIONES AL FINAL)
+    # Calcular porcentaje
+    df_metricas['%_15min'] = (df_metricas['Llamadas_15min_num'] / df_metricas['Llamadas_totales_num'] * 100).round(1)
+    
+    fig_comparacion = go.Figure()
+    
+    # Barras para llamadas totales
+    fig_comparacion.add_trace(go.Bar(
+        x=df_metricas['Agente'],
+        y=df_metricas['Llamadas_totales_num'],
+        name='Llamadas Totales',
+        marker_color='lightblue',
+        text=df_metricas['Llamadas Totales'],
+        textposition='auto'
+    ))
+    
+    # Barras para llamadas >15min
+    fig_comparacion.add_trace(go.Bar(
+        x=df_metricas['Agente'],
+        y=df_metricas['Llamadas_15min_num'],
+        name='Llamadas >15min',
+        marker_color='orange',
+        text=df_metricas['Llamadas >15min'],
+        textposition='auto'
+    ))
+    
+    # Texto con porcentaje
+    for i, row in df_metricas.iterrows():
+        fig_comparacion.add_annotation(
+            x=row['Agente'],
+            y=row['Llamadas_totales_num'] + max(df_metricas['Llamadas_totales_num']) * 0.02,
+            text=f"{row['%_15min']:.1f}%",
+            showarrow=False,
+            font=dict(size=10)
+        )
+    
+    fig_comparacion.update_layout(
+        title='Comparación de Llamadas: Totales vs >15min',
+        xaxis_title='Agente',
+        yaxis_title='Número de Llamadas',
+        barmode='group',
+        xaxis_tickangle=-45,
+        hovermode='x unified'
+    )
+    
+    st.plotly_chart(fig_comparacion, use_container_width=True)
+    
+    # =============================================
+    # 2. GRÁFICO DE % vs MEDIA (POSITIVO Y NEGATIVO)
+    # =============================================
+    if 'vs Media (%)' in df_metricas.columns:
+        st.write("#### 📈 Diferencia vs Media Total (%)")
+        
+        # Extraer porcentajes y limpiar
+        df_metricas['vs_media_clean'] = df_metricas['vs Media (%)'].str.replace('%', '').str.replace(' ', '')
+        df_metricas['vs_media_num'] = pd.to_numeric(df_metricas['vs_media_clean'], errors='coerce')
+        
+        # Ordenar por diferencia
+        df_sorted = df_metricas.sort_values('vs_media_num', ascending=False)
+        
+        fig_media = go.Figure()
+        
+        # Crear colores según valor (rojo negativo, verde positivo)
+        colores = []
+        for valor in df_sorted['vs_media_num']:
+            if pd.isna(valor):
+                colores.append('gray')
+            elif valor < 0:
+                # Rojo para negativo (más rojo cuanto más negativo)
+                intensidad = min(abs(valor) / 50, 1)  # Normalizar a 0-1
+                colores.append(f'rgba(255, {int(100*(1-intensidad))}, {int(100*(1-intensidad))}, 0.7)')
+            else:
+                # Verde para positivo (más verde cuanto más positivo)
+                intensidad = min(valor / 50, 1)  # Normalizar a 0-1
+                colores.append(f'rgba({int(100*(1-intensidad))}, 255, {int(100*(1-intensidad))}, 0.7)')
+        
+        # Barras horizontes para mejor visualización
+        fig_media.add_trace(go.Bar(
+            y=df_sorted['Agente'],
+            x=df_sorted['vs_media_num'],
+            orientation='h',
+            name='vs Media',
+            marker_color=colores,
+            text=[f"{x:+.1f}%" for x in df_sorted['vs_media_num']],
+            textposition='auto'
+        ))
+        
+        # Línea vertical en 0%
+        fig_media.add_vline(x=0, line_width=2, line_dash="dash", line_color="black")
+        
+        fig_media.update_layout(
+            title='Diferencia vs Media de Llamadas Totales (%)',
+            yaxis_title='Agente',
+            xaxis_title='Diferencia %',
+            xaxis=dict(ticksuffix='%'),
+            height=600  # Más alto para barras horizontales
+        )
+        
+        st.plotly_chart(fig_media, use_container_width=True)
+        
+        # Estadísticas de vs Media
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        
+        with col_stat1:
+            positivos = len(df_metricas[df_metricas['vs_media_num'] > 0])
+            st.metric("✅ Encima media", positivos)
+        
+        with col_stat2:
+            negativos = len(df_metricas[df_metricas['vs_media_num'] < 0])
+            st.metric("⚠️ Debajo media", negativos)
+        
+        with col_stat3:
+            max_positivo = df_metricas['vs_media_num'].max()
+            agente_max = df_metricas.loc[df_metricas['vs_media_num'].idxmax(), 'Agente']
+            st.metric("Mejor vs Media", f"{max_positivo:+.1f}%")
+            st.caption(f"({agente_max})")
+        
+        with col_stat4:
+            max_negativo = df_metricas['vs_media_num'].min()
+            agente_min = df_metricas.loc[df_metricas['vs_media_num'].idxmin(), 'Agente']
+            st.metric("Peor vs Media", f"{max_negativo:+.1f}%")
+            st.caption(f"({agente_min})")
+    
+    # =============================================
+    # 3. GRÁFICO DE PORCENTAJE >15min
+    # =============================================
+    st.write("#### 📊 Eficiencia: % Llamadas >15min")
+    
+    # Calcular si no existe
+    if '% >15min' not in df_metricas.columns:
+        df_metricas['%_15min_calc'] = df_metricas['%_15min']
+    else:
+        df_metricas['%_15min_calc'] = pd.to_numeric(
+            df_metricas['% >15min'].str.replace('%', ''), 
+            errors='coerce'
+        )
+    
+    # Ordenar por porcentaje
+    df_porcentaje = df_metricas.sort_values('%_15min_calc', ascending=False)
+    
+    fig_porcentaje = go.Figure()
+    
+    # Colores según eficiencia
+    colores_eficiencia = []
+    for valor in df_porcentaje['%_15min_calc']:
+        if pd.isna(valor):
+            colores_eficiencia.append('gray')
+        elif valor < 20:
+            colores_eficiencia.append('red')
+        elif valor < 40:
+            colores_eficiencia.append('orange')
+        elif valor < 60:
+            colores_eficiencia.append('yellow')
+        else:
+            colores_eficiencia.append('green')
+    
+    fig_porcentaje.add_trace(go.Bar(
+        x=df_porcentaje['Agente'],
+        y=df_porcentaje['%_15min_calc'],
+        name='% >15min',
+        marker_color=colores_eficiencia,
+        text=[f"{x:.1f}%" for x in df_porcentaje['%_15min_calc']],
+        textposition='auto'
+    ))
+    
+    # Líneas de referencia
+    fig_porcentaje.add_hline(y=30, line_dash="dot", line_color="orange", 
+                           annotation_text="Umbral 30%", annotation_position="right")
+    fig_porcentaje.add_hline(y=50, line_dash="dash", line_color="green", 
+                           annotation_text="Objetivo 50%", annotation_position="right")
+    
+    fig_porcentaje.update_layout(
+        title='Porcentaje de Llamadas >15min por Agente',
+        xaxis_title='Agente',
+        yaxis_title='Porcentaje %',
+        yaxis=dict(ticksuffix='%', range=[0, 100]),
+        xaxis_tickangle=-45
+    )
+    
+    st.plotly_chart(fig_porcentaje, use_container_width=True)
+    
+    # =============================================
+    # 4. GRÁFICO DE VENTAS
+    # =============================================
+    if 'Ventas' in df_metricas.columns:
+        st.write("#### 💰 Ventas por Agente")
+        
+        df_metricas['Ventas_num'] = pd.to_numeric(df_metricas['Ventas'], errors='coerce')
+        df_ventas = df_metricas.sort_values('Ventas_num', ascending=False)
+        
+        fig_ventas = go.Figure()
+        
+        fig_ventas.add_trace(go.Bar(
+            x=df_ventas['Agente'],
+            y=df_ventas['Ventas_num'],
+            name='Ventas',
+            marker_color='lightgreen',
+            text=df_ventas['Ventas'],
+            textposition='auto'
+        ))
+        
+        fig_ventas.update_layout(
+            title='Ventas por Agente',
+            xaxis_title='Agente',
+            yaxis_title='Ventas',
+            xaxis_tickangle=-45
+        )
+        
+        st.plotly_chart(fig_ventas, use_container_width=True)
+    
+    # =============================================
+    # 5. RESUMEN ESTADÍSTICO COMPLETO
+    # =============================================
+    st.write("#### 📈 Resumen Estadístico")
+    
+    col_res1, col_res2, col_res3, col_res4 = st.columns(4)
+    
+    with col_res1:
+        # Totales
+        total_llamadas_15min = df_metricas['Llamadas_15min_num'].sum()
+        total_llamadas_totales = df_metricas['Llamadas_totales_num'].sum()
+        st.metric("📞 Llamadas >15min", int(total_llamadas_15min))
+        st.caption(f"de {int(total_llamadas_totales)} totales")
+    
+    with col_res2:
+        # Porcentaje global
+        porcentaje_global = (total_llamadas_15min / total_llamadas_totales * 100) if total_llamadas_totales > 0 else 0
+        st.metric("📊 % Global >15min", f"{porcentaje_global:.1f}%")
+        
+        # Media por agente
+        media_15min = df_metricas['Llamadas_15min_num'].mean()
+        st.caption(f"Media: {media_15min:.1f}/agente")
+    
+    with col_res3:
+        # Ventas
+        if 'Ventas_num' in df_metricas.columns:
+            total_ventas = df_metricas['Ventas_num'].sum()
+            st.metric("💰 Ventas Totales", int(total_ventas))
+            
+            # Ratio conversión
+            ratio = (total_ventas / total_llamadas_15min * 100) if total_llamadas_15min > 0 else 0
+            st.caption(f"Ratio: {ratio:.1f}%")
+    
+    with col_res4:
+        # vs Media stats
+        if 'vs_media_num' in df_metricas.columns:
+            media_vs = df_metricas['vs_media_num'].mean()
+            st.metric("📈 Media vs Media", f"{media_vs:+.1f}%")
+            
+            # Agentes por debajo
+            debajo_media = len(df_metricas[df_metricas['vs_media_num'] < 0])
+            st.caption(f"{debajo_media} agentes debajo")
+    
+    # =============================================
+    # 6. TABLA RESUMEN COMPLETA
+    # =============================================
+    st.write("#### 📋 Tabla Resumen de Métricas")
+    
+    # Crear tabla resumen
+    columnas_resumen = ['Agente', 'Llamadas Totales', 'Llamadas >15min', '% >15min']
+    
+    if 'vs Media (%)' in df_metricas.columns:
+        columnas_resumen.append('vs Media (%)')
+    
+    if 'Ventas' in df_metricas.columns:
+        columnas_resumen.append('Ventas')
+    
+    if 'Ratio (%)' in df_metricas.columns:
+        columnas_resumen.append('Ratio (%)')
+    
+    df_resumen = df_metricas[columnas_resumen].copy()
+    
+    # Formatear porcentajes
+    if '% >15min' in df_resumen.columns:
+        df_resumen['% >15min'] = df_resumen['% >15min'].apply(
+            lambda x: f"{float(str(x).replace('%', '')):.1f}%" if pd.notna(x) else "0.0%"
+        )
+    
+    # Ordenar por Llamadas >15min
+    df_resumen = df_resumen.sort_values('Llamadas >15min', ascending=False)
+    
+    st.dataframe(df_resumen, use_container_width=True)
 
 def panel_monitorizaciones_super_usuario():
     """Panel de monitorizaciones integrado en super users"""
@@ -1304,16 +2061,19 @@ def mostrar_formulario_monitorizacion(agentes):
     
     if uploaded_file is not None:
         # Simular análisis del PDF
-        from monitorizacion_utils import analizar_pdf_monitorizacion
-        datos_pdf = analizar_pdf_monitorizacion(uploaded_file)
-        
-        with st.expander("Ver datos extraídos del PDF", expanded=True):
-            st.json(datos_pdf)
-        
-        # Pre-llenar formulario con datos del PDF
-        for key, value in datos_pdf.items():
-            if key not in st.session_state:
-                st.session_state[f"mon_{key}"] = value
+        try:
+            from monitorizacion_utils import analizar_pdf_monitorizacion
+            datos_pdf = analizar_pdf_monitorizacion(uploaded_file)
+            
+            with st.expander("Ver datos extraídos del PDF", expanded=True):
+                st.json(datos_pdf)
+            
+            # Pre-llenar formulario con datos del PDF
+            for key, value in datos_pdf.items():
+                if key not in st.session_state:
+                    st.session_state[f"mon_{key}"] = value
+        except ImportError:
+            st.info("Funcionalidad de análisis de PDF no disponible")
     
     st.write("#### ✍️ Opción 2: Ingreso Manual")
     
@@ -1471,29 +2231,34 @@ def mostrar_formulario_monitorizacion(agentes):
                 'fecha_proxima_monitorizacion': fecha_proxima.strftime('%Y-%m-%d')
             }
             
-            from monitorizacion_utils import guardar_monitorizacion_completa
-            
-            if guardar_monitorizacion_completa(monitorizacion_data, st.session_state.username):
-                st.success("✅ Monitorización guardada exitosamente")
+            try:
+                from monitorizacion_utils import guardar_monitorizacion_completa
                 
-                # Limpiar estado
-                for key in ['mon_nota_global', 'mon_objetivo', 'mon_experiencia', 
-                          'mon_comunicacion', 'mon_deteccion', 'mon_habilidades_venta',
-                          'mon_resolucion_objeciones', 'mon_cierre_contacto',
-                          'mon_feedback', 'mon_plan_accion', 'mon_puntos_clave']:
-                    if key in st.session_state:
-                        del st.session_state[key]
-                
-                st.rerun()
+                if guardar_monitorizacion_completa(monitorizacion_data, st.session_state.username):
+                    st.success("✅ Monitorización guardada exitosamente")
+                    
+                    # Limpiar estado
+                    for key in ['mon_nota_global', 'mon_objetivo', 'mon_experiencia', 
+                              'mon_comunicacion', 'mon_deteccion', 'mon_habilidades_venta',
+                              'mon_resolucion_objeciones', 'mon_cierre_contacto',
+                              'mon_feedback', 'mon_plan_accion', 'mon_puntos_clave']:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                    
+                    st.rerun()
+            except ImportError:
+                st.error("Funcionalidad de guardado no disponible")
 
 def mostrar_agentes_pendientes_monitorizar(agentes):
     """Muestra agentes que necesitan ser monitorizados"""
     
     st.write("### 🔔 Agentes Pendientes de Monitorización")
     
-    from database import obtener_agentes_pendientes_monitorizar
-    
-    agentes_pendientes = obtener_agentes_pendientes_monitorizar()
+    try:
+        from database import obtener_agentes_pendientes_monitorizar
+        agentes_pendientes = obtener_agentes_pendientes_monitorizar()
+    except:
+        agentes_pendientes = []
     
     if not agentes_pendientes:
         st.success("🎉 Todos los agentes están al día")
@@ -1566,8 +2331,11 @@ def mostrar_historial_monitorizaciones(agentes):
     if agente_seleccionado:
         agent_id = agente_seleccionado.split(" - ")[0]
         
-        from database import obtener_monitorizaciones_por_empleado
-        monitorizaciones = obtener_monitorizaciones_por_empleado(agent_id)
+        try:
+            from database import obtener_monitorizaciones_por_empleado
+            monitorizaciones = obtener_monitorizaciones_por_empleado(agent_id)
+        except:
+            monitorizaciones = []
         
         if not monitorizaciones:
             st.info("No hay monitorizaciones para este agente")
@@ -1609,8 +2377,6 @@ def mostrar_monitorizacion_agente_especifico():
     
     st.write("### 👤 Ver Monitorización de Agente")
     
-    from database import cargar_super_users, obtener_ultima_monitorizacion_empleado
-    
     super_users_config = cargar_super_users()
     agentes = super_users_config.get("agentes", {})
     
@@ -1634,7 +2400,11 @@ def mostrar_monitorizacion_agente_especifico():
     if agente_seleccionado:
         agent_id = agente_seleccionado.split(" - ")[0]
         
-        ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+        try:
+            from database import obtener_ultima_monitorizacion_empleado
+            ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+        except:
+            ultima_mon = None
         
         if not ultima_mon:
             st.info("Este agente no tiene monitorizaciones registradas")
@@ -1696,3 +2466,241 @@ def mostrar_monitorizacion_agente_especifico():
             st.write("##### 🔑 Puntos Clave")
             for punto in ultima_mon.get('puntos_clave'):
                 st.write(f"- {punto}")
+
+# En super_users_functions.py (añadir al final)
+
+def mostrar_alertas_sidebar():
+    """Muestra alertas de agentes en el sidebar con opción de descartar"""
+    
+    # Solo mostrar si es admin, super usuario o supervisor
+    username = st.session_state.get('username', '')
+    if not username:
+        return
+    
+    # Cargar alertas descartadas por el usuario
+    alertas_descartadas = cargar_alertas_descartadas(username)
+    
+    # Obtener configuración
+    super_users_config = cargar_super_users()
+    configuracion = super_users_config.get("configuracion", {})
+    
+    # Determinar qué agentes ver
+    agentes_completos = super_users_config.get("agentes", {})
+    
+    if username == "admin":
+        agentes = agentes_completos
+    elif username in super_users_config.get("super_users", []):
+        if configuracion.get("mostrar_solo_mis_agentes", False):
+            agentes = {k: v for k, v in agentes_completos.items() 
+                      if v.get('supervisor', '') == username}
+        else:
+            agentes = agentes_completos
+    else:
+        return
+    
+    # Calcular alertas (solo por X% debajo de la media)
+    alertas = calcular_alertas_media_llamadas(agentes, configuracion)
+    
+    # Filtrar alertas ya descartadas
+    alertas_activas = [a for a in alertas if a['id'] not in alertas_descartadas]
+    
+    if alertas_activas:
+        with st.sidebar:
+            st.write("---")
+            st.subheader(f"🔔 Alertas ({len(alertas_activas)})")
+            
+            # Checkboxes para descartar alertas
+            alertas_a_descartar = []
+            
+            for alerta in alertas_activas[:5]:  # Mostrar máximo 5
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    # Mostrar alerta
+                    st.warning(f"⚠️ {alerta['agente_nombre']}")
+                    st.caption(f"📞 {alerta['llamadas_agente']} vs media {alerta['media_total']:.1f}")
+                    st.caption(f"📉 {alerta['diferencia_porcentaje']:.1f}% debajo de la media")
+                
+                with col2:
+                    # Checkbox para descartar
+                    descartar = st.checkbox(
+                        "✓",
+                        key=f"descartar_{alerta['id']}",
+                        help="Marcar para descartar esta alerta"
+                    )
+                    
+                    if descartar:
+                        alertas_a_descartar.append(alerta['id'])
+            
+            # Botones de acción
+            if alertas_a_descartar:
+                if st.button("✅ Descartar alertas seleccionadas", use_container_width=True):
+                    for alerta_id in alertas_a_descartar:
+                        guardar_alerta_descartada(username, alerta_id)
+                    st.success(f"✅ {len(alertas_a_descartar)} alerta(s) descartada(s)")
+                    st.rerun()
+            
+            if len(alertas_activas) > 5:
+                st.caption(f"... y {len(alertas_activas) - 5} alertas más")
+            
+            # Botón para ver todas las alertas
+            if st.button("📋 Ver todas las alertas", use_container_width=True):
+                st.session_state.mostrar_todas_alertas = True
+                st.rerun()
+            
+            # Botón para limpiar todas las alertas descartadas
+            if st.button("🧹 Limpiar alertas descartadas", use_container_width=True):
+                limpiar_alertas_descartadas(username)
+                st.success("✅ Alertas descartadas limpiadas")
+                st.rerun()
+
+def calcular_alertas_media_llamadas(agentes, configuracion):
+    """Calcula alertas SOLO por X% debajo de la media de llamadas totales"""
+    from datetime import datetime, timedelta
+    
+    alertas = []
+    registro_llamadas = cargar_registro_llamadas()
+    
+    # Calcular periodo (últimos 7 días por defecto)
+    fecha_fin = datetime.now().date()
+    fecha_inicio = fecha_fin - timedelta(days=7)
+    
+    umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)  # X% debajo de la media
+    
+    # 1. Calcular media de llamadas TOTALES de todos los agentes activos
+    total_llamadas_todos = 0
+    agentes_con_datos = 0
+    
+    for agent_id, info in agentes.items():
+        if not info.get('activo', True):
+            continue
+        
+        llamadas_agente = 0
+        
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                if agent_id in datos_dia:
+                    llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
+        
+        if llamadas_agente > 0:  # Solo contar agentes con datos
+            total_llamadas_todos += llamadas_agente
+            agentes_con_datos += 1
+    
+    if agentes_con_datos == 0:
+        return alertas  # No hay datos para calcular media
+    
+    media_llamadas = total_llamadas_todos / agentes_con_datos
+    
+    # 2. Evaluar cada agente contra la media
+    for agent_id, info in agentes.items():
+        if not info.get('activo', True):
+            continue
+        
+        llamadas_agente = 0
+        dias_con_datos = 0
+        
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                if agent_id in datos_dia:
+                    llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
+                    dias_con_datos += 1
+        
+        if dias_con_datos == 0 or llamadas_agente == 0:
+            continue  # Agente sin datos en el periodo
+        
+        # Calcular diferencia con la media
+        diferencia_porcentaje = ((llamadas_agente - media_llamadas) / media_llamadas * 100)
+        
+        # Solo alerta si está X% o más debajo de la media
+        if diferencia_porcentaje < -umbral_alerta:
+            # Generar ID único para la alerta
+            alerta_id = f"{agent_id}_{fecha_inicio}_{fecha_fin}_{int(abs(diferencia_porcentaje))}"
+            
+            alertas.append({
+                'id': alerta_id,
+                'agente_id': agent_id,
+                'agente_nombre': info.get('nombre', agent_id),
+                'grupo': info.get('grupo', 'Sin grupo'),
+                'llamadas_agente': llamadas_agente,
+                'media_total': media_llamadas,
+                'diferencia_porcentaje': abs(diferencia_porcentaje),
+                'periodo': f"{fecha_inicio.strftime('%d/%m')}-{fecha_fin.strftime('%d/%m')}",
+                'dias_con_datos': dias_con_datos,
+                'fecha_deteccion': datetime.now().strftime('%Y-%m-%d'),
+                'tipo': 'bajo_media_llamadas'
+            })
+    
+    # Ordenar por la mayor diferencia porcentual (más crítica primero)
+    alertas.sort(key=lambda x: x['diferencia_porcentaje'], reverse=True)
+    return alertas
+
+def cargar_alertas_descartadas(username):
+    """Carga las alertas que el usuario ha descartado"""
+    try:
+        archivo = f"data/alertas_descartadas_{username}.json"
+        if os.path.exists(archivo):
+            with open(archivo, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except:
+        pass
+    return []
+
+def guardar_alerta_descartada(username, alerta_id):
+    """Guarda una alerta como descartada por el usuario"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo = f"data/alertas_descartadas_{username}.json"
+        
+        alertas_descartadas = cargar_alertas_descartadas(username)
+        
+        if alerta_id not in alertas_descartadas:
+            alertas_descartadas.append(alerta_id)
+            
+            with open(archivo, 'w', encoding='utf-8') as f:
+                json.dump(alertas_descartadas, f, indent=4, ensure_ascii=False)
+        
+        return True
+    except Exception as e:
+        print(f"Error guardando alerta descartada: {e}")
+        return False
+
+def limpiar_alertas_descartadas(username):
+    """Limpia todas las alertas descartadas por el usuario"""
+    try:
+        archivo = f"data/alertas_descartadas_{username}.json"
+        if os.path.exists(archivo):
+            os.remove(archivo)
+        return True
+    except:
+        return False
+
+def filtrar_dias_validos(agente_id, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia=50):
+    """
+    Filtra solo los días donde el agente superó el mínimo de llamadas
+    
+    Returns:
+        dict: {fecha_str: {llamadas_totales: X, llamadas_15min: Y, ventas: Z}}
+    """
+    dias_validos = {}
+    
+    for fecha_str, datos_dia in registro_llamadas.items():
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+        
+        # Verificar que esté en el periodo
+        if fecha_inicio <= fecha <= fecha_fin:
+            # Verificar que el agente tenga datos ese día
+            if agente_id in datos_dia:
+                datos_agente = datos_dia[agente_id]
+                llamadas_dia = datos_agente.get('llamadas_totales', 0)
+                
+                # Solo incluir si supera el mínimo
+                if llamadas_dia >= minimo_llamadas_dia:
+                    dias_validos[fecha_str] = {
+                        'llamadas_totales': datos_agente.get('llamadas_totales', 0),
+                        'llamadas_15min': datos_agente.get('llamadas_15min', 0),
+                        'ventas': datos_agente.get('ventas', 0)
+                    }
+    
+    return dias_validos

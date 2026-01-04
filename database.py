@@ -286,9 +286,22 @@ def cargar_registro_llamadas():
     """Carga el registro histórico de llamadas"""
     try:
         with open('data/registro_llamadas.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+            registro = json.load(f)
+        
+        # MIGRACIÓN: Asegurar que los registros antiguos tengan ambos campos
+        for fecha_str, datos_dia in registro.items():
+            for agent_id, datos_agente in datos_dia.items():
+                if 'llamadas' in datos_agente and 'llamadas_totales' not in datos_agente:
+                    # Los datos antiguos solo tienen "llamadas" (que son las >15min)
+                    datos_agente['llamadas_totales'] = 0  # Inicializar totales
+                    datos_agente['llamadas_15min'] = datos_agente.pop('llamadas')  # Renombrar
+                elif 'llamadas_15min' not in datos_agente:
+                    datos_agente['llamadas_15min'] = datos_agente.get('llamadas', 0)
+                    datos_agente['llamadas_totales'] = datos_agente.get('llamadas_totales', 0)
+        
+        return registro
     except (FileNotFoundError, json.JSONDecodeError):
-        # Estructura: {fecha: {agent_id: {llamadas: X, ventas: Y}}}
+        # Estructura: {fecha: {agent_id: {llamadas_totales: X, llamadas_15min: Y, ventas: Z}}}
         registro = {}
         os.makedirs('data', exist_ok=True)
         with open('data/registro_llamadas.json', 'w', encoding='utf-8') as f:
@@ -453,3 +466,296 @@ def obtener_agentes_pendientes_monitorizar():
     except Exception as e:
         print(f"Error obteniendo agentes pendientes: {e}")
         return []
+
+# database.py (AGREGAR DESPUÉS DE LAS FUNCIONES EXISTENTES)
+
+def obtener_estadisticas_llamadas_diarias(fecha_inicio=None, fecha_fin=None):
+    """
+    Obtiene estadísticas de llamadas diarias para un período específico
+    
+    Args:
+        fecha_inicio: Fecha de inicio (datetime.date)
+        fecha_fin: Fecha de fin (datetime.date)
+    
+    Returns:
+        dict: Estadísticas de llamadas por día
+    """
+    try:
+        from datetime import datetime, date, timedelta
+        
+        # Si no se especifican fechas, usar últimos 30 días
+        if fecha_inicio is None:
+            fecha_fin = date.today()
+            fecha_inicio = fecha_fin - timedelta(days=30)
+        elif fecha_fin is None:
+            fecha_fin = date.today()
+        
+        # Cargar registro de llamadas
+        registro_llamadas = cargar_registro_llamadas()
+        
+        # Preparar estructura para estadísticas
+        estadisticas = {
+            'fechas': [],
+            'llamadas_totales': [],
+            'ventas_totales': [],
+            'agentes_activos': [],
+            'media_llamadas_por_agente': [],
+            'media_ventas_por_agente': []
+        }
+        
+        # Procesar cada día en el rango
+        current_date = fecha_inicio
+        while current_date <= fecha_fin:
+            fecha_str = current_date.strftime('%Y-%m-%d')
+            
+            if fecha_str in registro_llamadas:
+                datos_dia = registro_llamadas[fecha_str]
+                
+                # Calcular totales del día
+                llamadas_dia = sum(datos.get('llamadas', 0) for datos in datos_dia.values())
+                ventas_dia = sum(datos.get('ventas', 0) for datos in datos_dia.values())
+                agentes_dia = len(datos_dia)
+                
+                # Calcular medias
+                media_llamadas = llamadas_dia / agentes_dia if agentes_dia > 0 else 0
+                media_ventas = ventas_dia / agentes_dia if agentes_dia > 0 else 0
+                
+                # Agregar a estadísticas
+                estadisticas['fechas'].append(fecha_str)
+                estadisticas['llamadas_totales'].append(llamadas_dia)
+                estadisticas['ventas_totales'].append(ventas_dia)
+                estadisticas['agentes_activos'].append(agentes_dia)
+                estadisticas['media_llamadas_por_agente'].append(round(media_llamadas, 2))
+                estadisticas['media_ventas_por_agente'].append(round(media_ventas, 2))
+            else:
+                # Día sin datos
+                estadisticas['fechas'].append(fecha_str)
+                estadisticas['llamadas_totales'].append(0)
+                estadisticas['ventas_totales'].append(0)
+                estadisticas['agentes_activos'].append(0)
+                estadisticas['media_llamadas_por_agente'].append(0)
+                estadisticas['media_ventas_por_agente'].append(0)
+            
+            # Siguiente día
+            current_date += timedelta(days=1)
+        
+        # Calcular estadísticas globales del período
+        total_llamadas = sum(estadisticas['llamadas_totales'])
+        total_ventas = sum(estadisticas['ventas_totales'])
+        dias_con_datos = len([x for x in estadisticas['llamadas_totales'] if x > 0])
+        total_dias = len(estadisticas['fechas'])
+        
+        # Agregar resumen
+        estadisticas['resumen'] = {
+            'periodo': f"{fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}",
+            'total_llamadas': total_llamadas,
+            'total_ventas': total_ventas,
+            'dias_con_datos': dias_con_datos,
+            'total_dias': total_dias,
+            'media_llamadas_diaria': round(total_llamadas / dias_con_datos, 2) if dias_con_datos > 0 else 0,
+            'media_ventas_diaria': round(total_ventas / dias_con_datos, 2) if dias_con_datos > 0 else 0,
+            'porcentaje_dias_con_datos': round((dias_con_datos / total_dias) * 100, 1)
+        }
+        
+        return estadisticas
+        
+    except Exception as e:
+        print(f"Error obteniendo estadísticas de llamadas diarias: {e}")
+        # Retornar estructura vacía en caso de error
+        return {
+            'fechas': [],
+            'llamadas_totales': [],
+            'ventas_totales': [],
+            'agentes_activos': [],
+            'media_llamadas_por_agente': [],
+            'media_ventas_por_agente': [],
+            'resumen': {
+                'periodo': '',
+                'total_llamadas': 0,
+                'total_ventas': 0,
+                'dias_con_datos': 0,
+                'total_dias': 0,
+                'media_llamadas_diaria': 0,
+                'media_ventas_diaria': 0,
+                'porcentaje_dias_con_datos': 0
+            }
+        }
+
+def obtener_metricas_agentes_por_periodo(fecha_inicio, fecha_fin, super_users_config=None):
+    """
+    Obtiene métricas de agentes para un período específico
+    
+    Args:
+        fecha_inicio: Fecha de inicio (datetime.date)
+        fecha_fin: Fecha de fin (datetime.date)
+        super_users_config: Configuración de super usuarios (opcional)
+    
+    Returns:
+        list: Lista de diccionarios con métricas de cada agente
+    """
+    try:
+        from datetime import datetime
+        
+        if super_users_config is None:
+            super_users_config = cargar_super_users()
+        
+        agentes = super_users_config.get("agentes", {})
+        registro_llamadas = cargar_registro_llamadas()
+        configuracion = super_users_config.get("configuracion", {})
+        
+        metricas_agentes = []
+        
+        for agent_id, info in agentes.items():
+            if not info.get('activo', True):
+                continue
+            
+            nombre = info.get('nombre', agent_id)
+            grupo = info.get('grupo', 'Sin grupo')
+            supervisor = info.get('supervisor', 'Sin asignar')
+            
+            # Calcular totales del periodo
+            total_llamadas = 0
+            total_ventas = 0
+            dias_con_datos = 0
+            
+            for fecha_str, datos_dia in registro_llamadas.items():
+                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_inicio <= fecha <= fecha_fin:
+                    if agent_id in datos_dia:
+                        llamadas_dia = datos_dia[agent_id].get("llamadas", 0)
+                        ventas_dia = datos_dia[agent_id].get("ventas", 0)
+                        
+                        total_llamadas += llamadas_dia
+                        total_ventas += ventas_dia
+                        
+                        if llamadas_dia > 0 or ventas_dia > 0:
+                            dias_con_datos += 1
+            
+            # Calcular métricas
+            target_llamadas = configuracion.get("target_llamadas", 50)
+            target_ventas = configuracion.get("target_ventas", 10)
+            
+            cumplimiento_llamadas = (total_llamadas / target_llamadas * 100) if target_llamadas > 0 else 0
+            cumplimiento_ventas = (total_ventas / target_ventas * 100) if target_ventas > 0 else 0
+            
+            # Calcular ratio de conversión
+            ratio_conversion = (total_ventas / total_llamadas * 100) if total_llamadas > 0 else 0
+            
+            # Calcular llamadas diarias promedio
+            total_dias = (fecha_fin - fecha_inicio).days + 1
+            llamadas_diarias_promedio = total_llamadas / dias_con_datos if dias_con_datos > 0 else 0
+            
+            metricas_agentes.append({
+                'id': agent_id,
+                'nombre': nombre,
+                'grupo': grupo,
+                'supervisor': supervisor,
+                'total_llamadas': total_llamadas,
+                'total_ventas': total_ventas,
+                'dias_con_datos': dias_con_datos,
+                'total_dias_periodo': total_dias,
+                'cumplimiento_llamadas': round(cumplimiento_llamadas, 1),
+                'cumplimiento_ventas': round(cumplimiento_ventas, 1),
+                'ratio_conversion': round(ratio_conversion, 1),
+                'llamadas_diarias_promedio': round(llamadas_diarias_promedio, 2),
+                'activo': info.get('activo', True)
+            })
+        
+        return metricas_agentes
+        
+    except Exception as e:
+        print(f"Error obteniendo métricas de agentes: {e}")
+        return []
+
+def obtener_agentes_por_supervisor(supervisor_id):
+    """
+    Obtiene los agentes asignados a un supervisor específico
+    
+    Args:
+        supervisor_id: ID del supervisor
+    
+    Returns:
+        dict: Diccionario con agentes del supervisor
+    """
+    try:
+        super_users_config = cargar_super_users()
+        agentes = super_users_config.get("agentes", {})
+        
+        agentes_supervisor = {}
+        for agent_id, info in agentes.items():
+            if info.get('supervisor') == supervisor_id:
+                agentes_supervisor[agent_id] = info
+        
+        return agentes_supervisor
+    except Exception as e:
+        print(f"Error obteniendo agentes por supervisor: {e}")
+        return {}
+
+def obtener_resumen_periodo(fecha_inicio, fecha_fin):
+    """
+    Obtiene un resumen de métricas para un período
+    
+    Args:
+        fecha_inicio: Fecha de inicio (datetime.date)
+        fecha_fin: Fecha de fin (datetime.date)
+    
+    Returns:
+        dict: Resumen de métricas del período
+    """
+    try:
+        from datetime import datetime
+        
+        super_users_config = cargar_super_users()
+        registro_llamadas = cargar_registro_llamadas()
+        
+        total_llamadas = 0
+        total_ventas = 0
+        total_agentes_activos = 0
+        dias_con_datos = 0
+        
+        # Contar agentes activos
+        agentes = super_users_config.get("agentes", {})
+        total_agentes_activos = sum(1 for a in agentes.values() if a.get('activo', True))
+        
+        # Calcular totales del período
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                llamadas_dia = sum(datos.get('llamadas', 0) for datos in datos_dia.values())
+                ventas_dia = sum(datos.get('ventas', 0) for datos in datos_dia.values())
+                
+                total_llamadas += llamadas_dia
+                total_ventas += ventas_dia
+                
+                if llamadas_dia > 0 or ventas_dia > 0:
+                    dias_con_datos += 1
+        
+        total_dias = (fecha_fin - fecha_inicio).days + 1
+        
+        # Calcular medias
+        media_llamadas_diaria = total_llamadas / dias_con_datos if dias_con_datos > 0 else 0
+        media_ventas_diaria = total_ventas / dias_con_datos if dias_con_datos > 0 else 0
+        media_llamadas_por_agente = total_llamadas / total_agentes_activos if total_agentes_activos > 0 else 0
+        media_ventas_por_agente = total_ventas / total_agentes_activos if total_agentes_activos > 0 else 0
+        
+        # Calcular ratio de conversión
+        ratio_conversion = (total_ventas / total_llamadas * 100) if total_llamadas > 0 else 0
+        
+        return {
+            'periodo': f"{fecha_inicio.strftime('%d/%m/%Y')} - {fecha_fin.strftime('%d/%m/%Y')}",
+            'total_dias': total_dias,
+            'dias_con_datos': dias_con_datos,
+            'total_llamadas': total_llamadas,
+            'total_ventas': total_ventas,
+            'total_agentes_activos': total_agentes_activos,
+            'media_llamadas_diaria': round(media_llamadas_diaria, 2),
+            'media_ventas_diaria': round(media_ventas_diaria, 2),
+            'media_llamadas_por_agente': round(media_llamadas_por_agente, 2),
+            'media_ventas_por_agente': round(media_ventas_por_agente, 2),
+            'ratio_conversion': round(ratio_conversion, 2),
+            'porcentaje_dias_con_datos': round((dias_con_datos / total_dias) * 100, 1) if total_dias > 0 else 0
+        }
+        
+    except Exception as e:
+        print(f"Error obteniendo resumen del período: {e}")
+        return {}

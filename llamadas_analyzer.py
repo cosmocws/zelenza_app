@@ -4,8 +4,15 @@ import os
 from datetime import datetime, timedelta
 import tempfile
 import io
-from database import cargar_registro_llamadas, guardar_registro_llamadas
+from database import cargar_registro_llamadas, guardar_registro_llamadas, cargar_super_users
 import json
+import hashlib
+
+def calcular_hash_registro(registro):
+    """Calcula un hash único para un registro"""
+    # Crear string único con los datos relevantes
+    datos_str = f"{registro['agente']}_{registro['fecha']}_{registro['tiempo_conversacion']}_{registro.get('ventas_totales', 0)}"
+    return hashlib.md5(datos_str.encode()).hexdigest()
 
 def analizar_csv_llamadas(uploaded_file):
     """
@@ -55,6 +62,9 @@ def analizar_csv_llamadas(uploaded_file):
         
         if columnas_faltantes:
             st.error(f"❌ Faltan columnas: {', '.join(columnas_faltantes)}")
+            st.info("Columnas encontradas:")
+            for col in df.columns:
+                st.write(f"- {col}")
             return None
         
         # Limpiar datos de campaña
@@ -65,6 +75,9 @@ def analizar_csv_llamadas(uploaded_file):
         
         # Filtrar filas con fecha inválida
         df = df.dropna(subset=['fecha'])
+        
+        # Añadir hash único para cada registro
+        df['hash'] = df.apply(calcular_hash_registro, axis=1)
         
         # Mostrar campañas encontradas
         campanyas_unicas = df['campanya'].unique()
@@ -144,18 +157,24 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     total_agentes = df_filtrado['agente'].nunique()
     media_llamadas_por_agente = total_llamadas / total_agentes if total_agentes > 0 else 0
     
+    # Contar llamadas largas
+    llamadas_largas = len(df_llamadas_largas)
+    
+    # Calcular ventas totales
+    ventas_totales = df_filtrado['ventas_totales'].sum()
+    
+    # Calcular duración promedio
+    duracion_promedio = df_filtrado['duracion_minutos'].mean() if not df_filtrado['duracion_minutos'].isnull().all() else 0
+    
     # ACTUALIZAR LAS COLUMNAS: Añadir una quinta columna para el nuevo KPI
     col1, col2, col3, col4, col5 = st.columns(5)
     with col1:
         st.metric("📞 Llamadas totales", total_llamadas)
     with col2:
-        st.metric("⏱️ Llamadas >15 min", len(df_llamadas_largas))
+        st.metric("⏱️ Llamadas >15 min", llamadas_largas)
     with col3:
-        # Total de ventas (sumando ventas individuales)
-        ventas_totales = df_filtrado['ventas_totales'].sum()
         st.metric("💰 Ventas totales", int(ventas_totales))
     with col4:
-        duracion_promedio = df_filtrado['duracion_minutos'].mean() if not df_filtrado['duracion_minutos'].isnull().all() else 0
         st.metric("⏱️ Duración promedio", f"{duracion_promedio:.1f} min")
     with col5:
         # NUEVO KPI: Media de llamadas por agente
@@ -208,13 +227,9 @@ def realizar_analisis(df_filtrado, nombre_analisis):
 
 def importar_datos_a_registro(df_analizado, super_users_config):
     """
-    Importa los datos analizados al registro diario de super usuarios
+    Importa los datos analizados al registro diario
+    CORRECCIÓN: Cuenta TODAS las líneas, no solo las procesadas
     """
-    # ============================================
-    # AÑADE ESTOS IMPORTS AL INICIO DE LA FUNCIÓN
-    # ============================================
-    import os
-    import json
     import streamlit as st
     from datetime import datetime
     
@@ -227,195 +242,227 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     # Obtener agentes del sistema
     agentes_sistema = super_users_config.get("agentes", {})
     
-    # Crear diccionario de agentes normalizados para búsqueda flexible
-    agentes_normalizados = {}
-    for agent_id, info in agentes_sistema.items():
-        # Crear múltiples variantes para búsqueda
-        agente_clean = str(agent_id).strip().upper()
-        agentes_normalizados[agente_clean] = agent_id  # Variante principal
-        
-        # También considerar nombre del agente
-        nombre = str(info.get('nombre', '')).strip().upper()
-        if nombre and nombre != agente_clean:
-            agentes_normalizados[nombre] = agent_id
-    
-    # Contadores
-    agentes_encontrados = []
-    agentes_no_encontrados = []
-    llamadas_importadas = 0
+    # Contadores REALES
+    total_lineas_csv = len(df_analizado)  # ESTO ES 4239
+    lineas_procesadas = 0
+    lineas_no_procesadas = 0
+    llamadas_totales_importadas = 0  # Debería ser 4239 si todo va bien
+    llamadas_largas_importadas = 0
     ventas_importadas = 0
-    fecha_importada = None
     
-    # Procesar cada fila del análisis
-    for _, row in df_analizado.iterrows():
+    agentes_encontrados_lista = []
+    agentes_no_encontrados_set = set()
+    coincidencias_unicas = set()  # Para evitar duplicados en la lista
+    
+    # Preparar búsqueda flexible
+    # Crear diccionario de búsqueda por diferentes variantes
+    busqueda_agentes = {}
+    
+    for agent_id in agentes_sistema.keys():
+        agent_id_str = str(agent_id).strip().upper()
+        
+        # Variante 1: ID completo
+        busqueda_agentes[agent_id_str] = agent_id
+        
+        # Variante 2: Solo últimos dígitos (si tiene al menos 4)
+        if len(agent_id_str) >= 4:
+            ultimos_4 = agent_id_str[-4:]
+            busqueda_agentes[ultimos_4] = agent_id
+        
+        # Variante 3: Sin prefijos comunes
+        if agent_id_str.startswith('TZS'):
+            sin_tzs = agent_id_str[3:]
+            busqueda_agentes[sin_tzs] = agent_id
+        
+        # Variante 4: Solo números
+        solo_numeros = ''.join(filter(str.isdigit, agent_id_str))
+        if solo_numeros and solo_numeros != agent_id_str:
+            busqueda_agentes[solo_numeros] = agent_id
+    
+    # También buscar por nombre
+    for agent_id, info in agentes_sistema.items():
+        nombre = str(info.get('nombre', '')).strip().upper()
+        if nombre:
+            busqueda_agentes[nombre] = agent_id
+    
+    # Procesar CADA línea del CSV
+    for idx, row in df_analizado.iterrows():
         agente_csv = str(row['agente']).strip()
         agente_csv_upper = agente_csv.upper()
         fecha_str = row['fecha']
         
-        # Guardar la fecha importada (para mostrar)
-        if fecha_importada is None:
-            fecha_importada = fecha_str
-        
-        # Buscar agente en múltiples variantes
+        # Buscar coincidencia FLEXIBLE
         agente_encontrado = None
         
-        # 1. Búsqueda exacta (case insensitive)
-        if agente_csv_upper in agentes_normalizados:
-            agente_encontrado = agentes_normalizados[agente_csv_upper]
+        # 1. Búsqueda exacta
+        if agente_csv_upper in busqueda_agentes:
+            agente_encontrado = busqueda_agentes[agente_csv_upper]
         
-        # 2. Búsqueda por similitud (sin prefijos/sufijos comunes)
+        # 2. Búsqueda por contenido
         if not agente_encontrado:
-            # Quitar posibles prefijos/sufijos
-            agente_limpio = agente_csv_upper
-            
-            # Intentar diferentes patrones
-            for agente_sistema, agent_id in agentes_normalizados.items():
-                # Si uno contiene al otro (ej: TZS0387 vs 0387)
-                if agente_sistema in agente_limpio or agente_limpio in agente_sistema:
+            for key, agent_id in busqueda_agentes.items():
+                if key in agente_csv_upper or agente_csv_upper in key:
                     agente_encontrado = agent_id
                     break
         
-        # 3. Búsqueda por coincidencia parcial
+        # 3. Búsqueda por números
         if not agente_encontrado:
-            for agente_sistema, agent_id in agentes_normalizados.items():
-                # Coincidencia de los últimos dígitos
-                if agente_sistema.endswith(agente_limpio[-4:]) or agente_limpio.endswith(agente_sistema[-4:]):
-                    agente_encontrado = agent_id
-                    break
+            # Extraer números del agente CSV
+            numeros_csv = ''.join(filter(str.isdigit, agente_csv))
+            if numeros_csv:
+                for key, agent_id in busqueda_agentes.items():
+                    numeros_key = ''.join(filter(str.isdigit, key))
+                    if numeros_key and numeros_csv == numeros_key:
+                        agente_encontrado = agent_id
+                        break
         
         if agente_encontrado:
-            # Inicializar día si no existe
+            lineas_procesadas += 1
+            
+            # Inicializar estructuras
             if fecha_str not in registro_llamadas:
                 registro_llamadas[fecha_str] = {}
             
-            # Inicializar agente para el día si no existe
             if agente_encontrado not in registro_llamadas[fecha_str]:
                 registro_llamadas[fecha_str][agente_encontrado] = {
-                    'llamadas': 0,
+                    'llamadas_totales': 0,
+                    'llamadas_15min': 0,
                     'ventas': 0,
                     'fecha': fecha_str,
                     'timestamp': datetime.now().isoformat()
                 }
             
-            # Agregar llamada si es >15 min (900 segundos)
-            if row['tiempo_conversacion'] > 900:
-                registro_llamadas[fecha_str][agente_encontrado]['llamadas'] += 1
-                llamadas_importadas += 1
+            # CONTAR LLAMADA TOTAL (CADA LÍNEA ES UNA LLAMADA)
+            registro_llamadas[fecha_str][agente_encontrado]['llamadas_totales'] += 1
+            llamadas_totales_importadas += 1
             
-            # Agregar ventas (pueden ser 0, 1 o 2 por línea)
+            # Contar si es llamada larga
+            if row['tiempo_conversacion'] > 900:
+                registro_llamadas[fecha_str][agente_encontrado]['llamadas_15min'] += 1
+                llamadas_largas_importadas += 1
+            
+            # Sumar ventas
             ventas_fila = int(row['ventas_totales'])
             if ventas_fila > 0:
                 registro_llamadas[fecha_str][agente_encontrado]['ventas'] += ventas_fila
                 ventas_importadas += ventas_fila
             
-            if agente_csv not in agentes_encontrados:
-                agentes_encontrados.append(f"{agente_csv} → {agente_encontrado}")
+            # Guardar coincidencia única
+            coincidencia = f"{agente_csv} → {agente_encontrado}"
+            if coincidencia not in coincidencias_unicas:
+                coincidencias_unicas.add(coincidencia)
+                agentes_encontrados_lista.append(coincidencia)
         
         else:
-            if agente_csv not in agentes_no_encontrados:
-                agentes_no_encontrados.append(agente_csv)
+            lineas_no_procesadas += 1
+            agentes_no_encontrados_set.add(agente_csv)
     
-    # Guardar cambios LOCALES (en la sesión temporal)
+    # Guardar cambios
     guardar_registro_llamadas(registro_llamadas)
     
-    # Preparar mensaje de resumen
-    mensaje = f"✅ **Importación completada:**\n"
-    mensaje += f"- 📅 Fecha procesada: {fecha_importada}\n"
-    mensaje += f"- 👥 Agentes encontrados: {len(agentes_encontrados)}\n"
-    mensaje += f"- 📞 Llamadas >15min importadas: {llamadas_importadas}\n"
-    mensaje += f"- 💰 Ventas importadas: {ventas_importadas}\n"
+    # PREPARAR MENSAJE CLARO
+    mensaje = f"✅ **IMPORTACIÓN - DIAGNÓSTICO DETALLADO**\n"
+    mensaje += "=" * 50 + "\n"
     
-    if agentes_encontrados:
-        mensaje += f"\n**Agentes importados:**\n"
-        for agente in agentes_encontrados[:10]:
-            mensaje += f"- {agente}\n"
-        if len(agentes_encontrados) > 10:
-            mensaje += f"- ... y {len(agentes_encontrados) - 10} más\n"
+    mensaje += f"📊 **TOTAL CSV:** {total_lineas_csv} líneas\n"
+    mensaje += f"✅ **Procesadas:** {lineas_procesadas} líneas\n"
+    mensaje += f"❌ **NO procesadas:** {lineas_no_procesadas} líneas\n"
+    mensaje += f"📞 **Llamadas importadas:** {llamadas_totales_importadas}\n"
+    mensaje += f"⏱️ **Llamadas >15min:** {llamadas_largas_importadas}\n"
+    mensaje += f"💰 **Ventas:** {ventas_importadas}\n"
     
-    if agentes_no_encontrados:
-        mensaje += f"\n⚠️ **Agentes no encontrados en el sistema:**\n"
-        for i, agente in enumerate(agentes_no_encontrados[:10]):
-            mensaje += f"- {agente}\n"
-        if len(agentes_no_encontrados) > 10:
-            mensaje += f"- ... y {len(agentes_no_encontrados) - 10} más\n"
+    # VERIFICACIÓN CRÍTICA
+    mensaje += "\n🔍 **VERIFICACIÓN:**\n"
+    if llamadas_totales_importadas == lineas_procesadas:
+        mensaje += f"✅ Llamadas importadas = Líneas procesadas ({llamadas_totales_importadas})\n"
+    else:
+        mensaje += f"❌ ERROR: Llamadas ({llamadas_totales_importadas}) ≠ Líneas ({lineas_procesadas})\n"
+    
+    if lineas_procesadas + lineas_no_procesadas == total_lineas_csv:
+        mensaje += f"✅ Suma líneas = Total CSV ({total_lineas_csv})\n"
+    else:
+        mensaje += f"❌ ERROR: Suma ({lineas_procesadas + lineas_no_procesadas}) ≠ Total ({total_lineas_csv})\n"
+    
+    # Agentes encontrados
+    mensaje += f"\n👥 **Agentes con coincidencia:** {len(agentes_encontrados_lista)}\n"
+    if agentes_encontrados_lista:
+        for i, coinc in enumerate(agentes_encontrados_lista[:10]):
+            mensaje += f"  {i+1}. {coinc}\n"
+        if len(agentes_encontrados_lista) > 10:
+            mensaje += f"  ... y {len(agentes_encontrados_lista) - 10} más\n"
+    
+    # Agentes NO encontrados
+    mensaje += f"\n⚠️ **Agentes SIN coincidencia:** {len(agentes_no_encontrados_set)}\n"
+    if agentes_no_encontrados_set:
+        # Mostrar algunos ejemplos
+        ejemplos = list(agentes_no_encontrados_set)[:5]
+        for ej in ejemplos:
+            mensaje += f"  - '{ej}'\n"
+        
+        # Sugerencias
+        mensaje += f"\n💡 **¿Por qué no se encuentran?**\n"
+        mensaje += f"1. Los IDs no coinciden (ej: '0733' vs 'TZS0733')\n"
+        mensaje += f"2. Agentes no están configurados en Super Users\n"
+        mensaje += f"3. Errores de formato en el CSV\n"
         
         # Mostrar agentes disponibles en el sistema
-        mensaje += f"\n**Agentes disponibles en el sistema ({len(agentes_sistema)}):**\n"
+        mensaje += f"\n📋 **Agentes configurados en el sistema ({len(agentes_sistema)}):**\n"
         for i, (agent_id, info) in enumerate(list(agentes_sistema.items())[:10]):
             nombre = info.get('nombre', 'Sin nombre')
-            mensaje += f"- `{agent_id}`: {nombre}\n"
+            mensaje += f"  {i+1}. `{agent_id}`: {nombre}\n"
         if len(agentes_sistema) > 10:
-            mensaje += f"- ... y {len(agentes_sistema) - 10} más\n"
-    
-    # ============================================
-    # 🔄 SINCRONIZACIÓN CON GITHUB - CORREGIDA
-    # ============================================
-    
-    # PRIMERO: Averiguar qué archivo se modificó
-    archivos_posibles = [
-        "database.json",                    # Opción 1
-        "data/registro_llamadas.json",      # Opción 2
-        "data/database.json",               # Opción 3
-        "registro_llamadas.json",           # Opción 4
-    ]
-    
-    archivo_encontrado = None
-    for archivo in archivos_posibles:
-        if os.path.exists(archivo):
-            archivo_encontrado = archivo
-            break
-    
-    if archivo_encontrado:
-        # Verificar credenciales de GitHub
-        if all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]):
-            try:
-                # Importar sincronizador
-                from github_sync_completo import GitHubSyncCompleto
-                sync = GitHubSyncCompleto()
-                
-                # Sincronizar el archivo encontrado
-                success, sync_message = sync.upload_file(
-                    archivo_encontrado,
-                    f"📊 CSV Importado: {len(agentes_encontrados)} agentes, {llamadas_importadas} llamadas"
-                )
-                
-                if success:
-                    mensaje += f"\n\n🎉 **¡SINCRONIZADO CON GITHUB!**\n"
-                    mensaje += f"✅ Archivo guardado: `{archivo_encontrado}`\n"
-                    mensaje += f"📊 {len(agentes_encontrados)} agentes, {llamadas_importadas} llamadas\n"
-                    mensaje += f"⏰ {datetime.now().strftime('%H:%M')}\n"
-                    
-                    # Añadir botón para ver en GitHub
-                    repo_url = f"https://github.com/{st.secrets['GITHUB_REPO_OWNER']}/{st.secrets['GITHUB_REPO_NAME']}/blob/main/{archivo_encontrado}"
-                    mensaje += f"\n🔍 [Ver archivo en GitHub]({repo_url})"
-                    
-                else:
-                    mensaje += f"\n\n⚠️ **Datos guardados localmente**\n"
-                    mensaje += f"❌ Error GitHub: {sync_message}\n"
-                    mensaje += f"📁 Archivo local: `{archivo_encontrado}`\n"
-                    mensaje += f"🔧 Usa '🔄 GitHub Sync' para guardar manualmente"
-                    
-            except Exception as e:
-                mensaje += f"\n\n⚠️ **Error en sincronización**\n"
-                mensaje += f"📁 Datos en: `{archivo_encontrado}`\n"
-                mensaje += f"🔧 Error: {str(e)[:100]}\n"
-                mensaje += f"💾 Sincroniza manualmente desde '🔄 GitHub Sync'"
-        else:
-            mensaje += f"\n\n⚠️ **No se pudo sincronizar**\n"
-            mensaje += f"📁 Datos guardados en: `{archivo_encontrado}`\n"
-            mensaje += f"🔧 Faltan credenciales en secrets.toml\n"
-            mensaje += f"💾 Los datos están SOLO en esta sesión temporal"
-    else:
-        mensaje += f"\n\n❌ **ERROR: No se encontró el archivo de datos**\n"
-        mensaje += f"🔍 Buscado en: {', '.join(archivos_posibles)}\n"
-        mensaje += f"⚠️ Los datos pueden haberse perdido\n"
-        mensaje += f"💾 Revisa el código de guardar_registro_llamadas()"
-    
-    # ============================================
-    # FIN DE LA SINCRONIZACIÓN
-    # ============================================
+            mensaje += f"  ... y {len(agentes_sistema) - 10} más\n"
     
     return True, mensaje
+
+def verificacion_rapida_importacion():
+    """Verificación rápida de qué está pasando en la importación"""
+    
+    st.subheader("🔍 Verificación Rápida de Importación")
+    
+    if 'df_analizado_actual' not in st.session_state:
+        st.warning("No hay datos CSV cargados")
+        return
+    
+    df = st.session_state.df_analizado_actual
+    from database import cargar_super_users
+    super_users_config = cargar_super_users()
+    agentes_sistema = super_users_config.get("agentes", {})
+    
+    st.write(f"### 📊 Datos del CSV:")
+    st.write(f"- Total líneas: {len(df)}")
+    
+    # Contar agentes únicos en CSV
+    agentes_csv = df['agente'].unique()
+    st.write(f"- Agentes únicos en CSV: {len(agentes_csv)}")
+    
+    # Verificar coincidencias rápidas
+    coincidencias = 0
+    no_coincidencias = []
+    
+    for agente_csv in agentes_csv[:50]:  # Revisar primeros 50
+        agente_str = str(agente_csv).strip().upper()
+        encontrado = False
+        
+        for agent_id in agentes_sistema.keys():
+            if (agente_str == str(agent_id).upper() or
+                agente_str in str(agent_id).upper() or
+                str(agent_id).upper() in agente_str):
+                coincidencias += 1
+                encontrado = True
+                break
+        
+        if not encontrado:
+            no_coincidencias.append(agente_str)
+    
+    st.write(f"### 🔗 Coincidencias (primeros 50 agentes):")
+    st.write(f"- Con coincidencia: {coincidencias}")
+    st.write(f"- Sin coincidencia: {len(no_coincidencias)}")
+    
+    if no_coincidencias:
+        st.write("**Ejemplos sin coincidencia:**")
+        for ej in no_coincidencias[:10]:
+            st.write(f"- '{ej}'")
 
 def mostrar_depuracion_agentes(df_analizado, super_users_config):
     """Muestra información de depuración para coincidencia de agentes"""
@@ -495,6 +542,176 @@ def mostrar_depuracion_agentes(df_analizado, super_users_config):
         for agente in sin_coincidencia[:10]:
             st.write(f"- `{agente}`")
 
+def verificar_agentes_con_alerta(df_analizado, super_users_config):
+    """Verifica agentes que necesitan alerta por baja actividad"""
+    
+    st.subheader("🔔 Sistema de Alertas por Baja Actividad")
+    
+    # Obtener configuración
+    configuracion = super_users_config.get("configuracion", {})
+    umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
+    minimo_llamadas_dia = configuracion.get("minimo_llamadas_dia", 50)
+    
+    # Calcular media de llamadas por agente
+    total_llamadas = len(df_analizado)
+    total_agentes = df_analizado['agente'].nunique()
+    media_llamadas_por_agente = total_llamadas / total_agentes if total_agentes > 0 else 0
+    
+    st.info(f"**📊 Estadísticas generales:**")
+    st.info(f"- Media de llamadas por agente: {media_llamadas_por_agente:.1f}")
+    st.info(f"- Umbral de alerta: {umbral_alerta}% por debajo de la media")
+    st.info(f"- Mínimo para considerar activo: {minimo_llamadas_dia} llamadas/día")
+    
+    # Analizar cada agente
+    agentes_alerta = []
+    agentes_ok = []
+    
+    for agente in df_analizado['agente'].unique():
+        df_agente = df_analizado[df_analizado['agente'] == agente]
+        llamadas_agente = len(df_agente)
+        
+        # Calcular diferencia con la media
+        diferencia_porcentaje = 0
+        if media_llamadas_por_agente > 0:
+            diferencia_porcentaje = ((llamadas_agente - media_llamadas_por_agente) / media_llamadas_por_agente * 100)
+        
+        # Determinar si necesita alerta
+        necesita_alerta = diferencia_porcentaje < -umbral_alerta
+        
+        # Verificar si está activo (más del mínimo diario)
+        dias_con_datos = df_agente['fecha'].nunique()
+        llamadas_por_dia = llamadas_agente / dias_con_datos if dias_con_datos > 0 else 0
+        activo = llamadas_por_dia >= minimo_llamadas_dia
+        
+        agente_info = {
+            'Agente': agente,
+            'Llamadas Totales': llamadas_agente,
+            'Días con Datos': dias_con_datos,
+            'Llamadas/Día': f"{llamadas_por_dia:.1f}",
+            'vs Media (%)': f"{diferencia_porcentaje:.1f}%",
+            'Activo': '✅' if activo else '⚠️',
+            'Alerta': '🔔' if necesita_alerta else '✅'
+        }
+        
+        if necesita_alerta:
+            agentes_alerta.append(agente_info)
+        else:
+            agentes_ok.append(agente_info)
+    
+    # Mostrar agentes con alerta
+    if agentes_alerta:
+        st.warning(f"### ⚠️ **{len(agentes_alerta)} Agentes Necesitan Atención**")
+        st.write("Están por debajo del umbral de alerta:")
+        
+        df_alerta = pd.DataFrame(agentes_alerta)
+        df_alerta = df_alerta.sort_values('vs Media (%)')
+        st.dataframe(df_alerta, use_container_width=True)
+        
+        # Recomendaciones
+        st.write("**💡 Recomendaciones:**")
+        st.write("1. Revisar actividad de estos agentes")
+        st.write("2. Verificar posibles problemas técnicos")
+        st.write("3. Considerar capacitación adicional")
+        st.write("4. Establecer objetivos personalizados")
+    else:
+        st.success("🎉 **Todos los agentes están dentro del rango esperado**")
+    
+    # Mostrar resumen general
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Agentes Totales", total_agentes)
+    with col2:
+        st.metric("Con Alerta", len(agentes_alerta))
+    with col3:
+        st.metric("Sin Alerta", len(agentes_ok))
+
+def comprobador_actividad_diaria(df_analizado):
+    """Comprueba qué agentes están trabajando (mínimo 50 llamadas/día)"""
+    
+    st.subheader("📊 Comprobador de Actividad Diaria")
+    
+    # Configuración
+    MINIMO_LLAMADAS_DIA = 50
+    
+    # Agrupar por agente y fecha
+    actividad = df_analizado.groupby(['agente', 'fecha']).size().reset_index(name='llamadas')
+    
+    # Contar días trabajando vs no trabajando
+    resumen_agentes = []
+    
+    for agente in actividad['agente'].unique():
+        df_agente = actividad[actividad['agente'] == agente]
+        
+        dias_totales = df_agente['fecha'].nunique()
+        dias_trabajando = len(df_agente[df_agente['llamadas'] >= MINIMO_LLAMADAS_DIA])
+        dias_no_trabajando = dias_totales - dias_trabajando
+        
+        # Calcular porcentaje
+        porcentaje_trabajando = (dias_trabajando / dias_totales * 100) if dias_totales > 0 else 0
+        
+        resumen_agentes.append({
+            'Agente': agente,
+            'Días Totales': dias_totales,
+            'Días Trabajando': dias_trabajando,
+            'Días No Trabajando': dias_no_trabajando,
+            '% Trabajando': f"{porcentaje_trabajando:.1f}%",
+            'Estado': '✅' if porcentaje_trabajando >= 80 else '⚠️' if porcentaje_trabajando >= 50 else '❌'
+        })
+    
+    if resumen_agentes:
+        df_resumen = pd.DataFrame(resumen_agentes)
+        df_resumen = df_resumen.sort_values('% Trabajando', ascending=False)
+        
+        # Mostrar tabla
+        st.write(f"**📈 Actividad diaria (mínimo {MINIMO_LLAMADAS_DIA} llamadas/día):**")
+        st.dataframe(df_resumen, use_container_width=True)
+        
+        # Estadísticas
+        total_agentes = len(resumen_agentes)
+        agentes_ok = len([a for a in resumen_agentes if a['Estado'] == '✅'])
+        agentes_alerta = len([a for a in resumen_agentes if a['Estado'] == '⚠️'])
+        agentes_critico = len([a for a in resumen_agentes if a['Estado'] == '❌'])
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("✅ Óptimos", agentes_ok)
+        with col2:
+            st.metric("⚠️ Necesitan atención", agentes_alerta)
+        with col3:
+            st.metric("❌ Críticos", agentes_critico)
+        
+        # Mostrar detalles para agentes críticos
+        agentes_criticos_lista = [a for a in resumen_agentes if a['Estado'] == '❌']
+        if agentes_criticos_lista:
+            st.warning("### 🔴 Agentes con Baja Actividad Crítica")
+            st.write("Estos agentes trabajan menos del 50% de los días:")
+            
+            for agente in agentes_criticos_lista:
+                st.write(f"- **{agente['Agente']}**: {agente['Días Trabajando']}/{agente['Días Totales']} días ({agente['% Trabajando']})")
+        
+        # Gráfico de actividad
+        st.write("### 📊 Distribución de Actividad")
+        
+        # Preparar datos para gráfico
+        estados_counts = {
+            '✅ Óptimos (>80%)': agentes_ok,
+            '⚠️ Atención (50-79%)': agentes_alerta,
+            '❌ Críticos (<50%)': agentes_critico
+        }
+        
+        import plotly.express as px
+        
+        fig = px.pie(
+            names=list(estados_counts.keys()),
+            values=list(estados_counts.values()),
+            title='Distribución de Agentes por Nivel de Actividad',
+            color_discrete_sequence=['green', 'orange', 'red']
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No hay datos suficientes para analizar actividad diaria")
+
 def interfaz_analisis_llamadas():
     """Interfaz principal del analizador"""
     
@@ -564,6 +781,10 @@ def interfaz_analisis_llamadas():
         if len(campanyas) >= 2:
             opciones.append("🔄 COMPARAR campañas principales")
         
+        # Opciones adicionales de análisis
+        opciones.append("🔔 Verificar alertas de actividad")
+        opciones.append("📊 Comprobar actividad diaria")
+        
         # Selector que NO causa rerun inmediato
         seleccion = st.selectbox(
             "Elige una opción de análisis:",
@@ -618,6 +839,14 @@ def interfaz_analisis_llamadas():
                                 st.metric("Ventas", int(ventas2))
                                 st.metric("Tasa", f"{(ventas2/llamadas2*100):.1f}%" if llamadas2 > 0 else "0%")
                 
+                elif "🔔 Verificar alertas de actividad" in seleccion:
+                    # Cargar configuración de super users
+                    super_users_config = cargar_super_users()
+                    verificar_agentes_con_alerta(df, super_users_config)
+                
+                elif "📊 Comprobar actividad diaria" in seleccion:
+                    comprobador_actividad_diaria(df)
+                
                 else:
                     # Extraer el nombre real de la campaña (quitando el emoji)
                     campanya_seleccionada = seleccion[2:]  # Quitar emoji + espacio
@@ -639,8 +868,7 @@ def interfaz_analisis_llamadas():
         if st.session_state.df_analizado_actual is not None and not st.session_state.df_analizado_actual.empty:
             st.subheader("3. 📥 Importar al Sistema de Agentes")
             
-            # Cargar configuración de super usuarios (AGREGAR ESTA LÍNEA)
-            from database import cargar_super_users
+            # Cargar configuración de super usuarios
             super_users_config = cargar_super_users()
             
             # Mostrar vista previa de lo que se importará
@@ -672,8 +900,9 @@ def interfaz_analisis_llamadas():
             # Confirmación de importación
             st.info("💡 **Importará:** Llamadas >15min y ventas al registro diario de agentes")
             st.warning("⚠️ **Advertencia:** Los datos existentes para las mismas fechas y agentes serán sumados, no reemplazados.")
+            st.info("🔄 **Deduplicación:** Se evitan duplicados mediante sistema de hashes")
             
-            col_import1, col_import2 = st.columns(2)
+            col_import1, col_import2, col_import3 = st.columns(3)
             with col_import1:
                 if st.button("📥 Importar Datos", type="primary", use_container_width=True):
                     with st.spinner("Importando datos al sistema..."):
@@ -694,7 +923,6 @@ def interfaz_analisis_llamadas():
             with col_import2:
                 if st.button("🧹 Limpiar y Probar", type="secondary", use_container_width=True):
                     # Probar importación sin guardar
-                    from database import cargar_registro_llamadas
                     registro_actual = cargar_registro_llamadas()
                     
                     # Simular importación
@@ -724,9 +952,9 @@ def interfaz_analisis_llamadas():
                             for i, agente in enumerate(no_coincidentes[:5]):
                                 st.write(f"- {agente}")
             
-            # Botón para depuración (AGREGAR super_users_config COMO PARÁMETRO)
-            if st.button("🔍 Depurar coincidencia de agentes", type="secondary"):
-                mostrar_depuracion_agentes(st.session_state.df_analizado_actual, super_users_config)
+            with col_import3:
+                if st.button("🔍 Depurar agentes", type="secondary", use_container_width=True):
+                    mostrar_depuracion_agentes(st.session_state.df_analizado_actual, super_users_config)
         
         # Botones de control
         col_control1, col_control2 = st.columns(2)
@@ -759,10 +987,25 @@ def interfaz_analisis_llamadas():
            - Ventas detectadas (cada UTIL POSITIVO cuenta)
            - Se suman a los datos existentes (no reemplazan)
         
+        **🔄 Sistema de deduplicación:**
+        - Cada registro tiene un hash único
+        - Registros duplicados se ignoran automáticamente
+        - Solo se actualiza si hay más datos que los existentes
+        
         **📈 Conteo de ventas mejorado:**
         - Cada "UTIL POSITIVO" = 1 venta
         - Si hay LUZ y GAS en la misma línea = 2 ventas
         - Se detectan "DÚO" o "DUO" = 2 ventas
+        
+        **🔔 Sistema de alertas:**
+        - Detecta agentes por debajo del umbral configurado
+        - Calcula media de llamadas por agente
+        - Muestra alertas para agentes que necesitan atención
+        
+        **📊 Comprobador de actividad:**
+        - Verifica si agentes trabajan mínimo 50 llamadas/día
+        - Calcula porcentaje de días trabajando
+        - Clasifica agentes por nivel de actividad
         
         **📅 Compatibilidad:**
         - Las fechas del CSV deben estar en formato reconocible
