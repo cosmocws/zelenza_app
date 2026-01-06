@@ -2729,7 +2729,7 @@ def mostrar_alertas_sidebar():
     else:
         return
     
-    # Calcular nuevas alertas
+    # Calcular nuevas alertas (AHORA CON MEDIA DIARIA)
     alertas = calcular_alertas_media_llamadas(agentes, configuracion)
     
     # Filtrar solo alertas que NO han sido descartadas
@@ -2747,8 +2747,11 @@ def mostrar_alertas_sidebar():
                 
                 with col1:
                     st.warning(f"⚠️ {alerta['agente_nombre']}")
-                    st.caption(f"📞 {alerta['llamadas_agente']} vs media {alerta['media_total']:.1f}")
-                    st.caption(f"📉 {alerta['diferencia_porcentaje']:.1f}% debajo de la media")
+                    # AHORA MUESTRA MEDIA DIARIA, NO TOTAL
+                    st.caption(f"📅 Media diaria: {alerta['media_diaria_agente']:.1f} llamadas")
+                    st.caption(f"🌍 vs Media global: {alerta['media_diaria_global']:.1f}")
+                    st.caption(f"📉 {alerta['diferencia_porcentaje']:.1f}% debajo")
+                    st.caption(f"📊 {alerta['dias_con_datos']} días con datos")
                 
                 with col2:
                     descartar = st.checkbox(
@@ -2796,7 +2799,7 @@ def mostrar_alertas_sidebar():
 
 
 def calcular_alertas_media_llamadas(agentes, configuracion):
-    """Calcula alertas SOLO por X% debajo de la media de llamadas totales"""
+    """Calcula alertas por X% debajo de la MEDIA DIARIA de llamadas totales"""
     from datetime import datetime, timedelta
     
     alertas = []
@@ -2807,67 +2810,88 @@ def calcular_alertas_media_llamadas(agentes, configuracion):
     
     umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
     
+    # ==============================================
+    # CALCULAR MEDIA DIARIA GLOBAL (no total)
+    # ==============================================
     total_llamadas_todos = 0
+    total_dias_con_datos = 0
     agentes_con_datos = 0
     
-    # Primero calcular total para obtener la media
+    # Primero calcular media diaria global
     for agent_id, info in agentes.items():
         if not info.get('activo', True):
             continue
         
         llamadas_agente = 0
+        dias_agente = 0
         
         for fecha_str, datos_dia in registro_llamadas.items():
             fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
             if fecha_inicio <= fecha <= fecha_fin:
                 if agent_id in datos_dia:
                     llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
+                    dias_agente += 1
         
-        if llamadas_agente > 0:
+        if dias_agente > 0:  # Solo contar agentes con al menos un día de datos
             total_llamadas_todos += llamadas_agente
+            total_dias_con_datos += dias_agente
             agentes_con_datos += 1
     
-    if agentes_con_datos == 0:
+    if agentes_con_datos == 0 or total_dias_con_datos == 0:
         return alertas
     
-    media_llamadas = total_llamadas_todos / agentes_con_datos
+    # Calcular media diaria global
+    media_diaria_global = total_llamadas_todos / total_dias_con_datos
     
-    # Ahora calcular alertas individuales
+    # ==============================================
+    # CALCULAR ALERTAS POR AGENTE (comparando medias diarias)
+    # ==============================================
     for agent_id, info in agentes.items():
         if not info.get('activo', True):
             continue
         
         llamadas_agente = 0
-        dias_con_datos = 0
+        dias_con_datos_agente = 0
         
+        # Sumar llamadas del agente en el período
         for fecha_str, datos_dia in registro_llamadas.items():
             fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
             if fecha_inicio <= fecha <= fecha_fin:
                 if agent_id in datos_dia:
                     llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
-                    dias_con_datos += 1
+                    dias_con_datos_agente += 1
         
-        if dias_con_datos == 0 or llamadas_agente == 0:
+        # Si el agente no tiene datos suficientes, saltar
+        if dias_con_datos_agente < 3:  # Mínimo 3 días para considerar
             continue
         
-        diferencia_porcentaje = ((llamadas_agente - media_llamadas) / media_llamadas * 100)
+        # Calcular media diaria del agente
+        media_diaria_agente = llamadas_agente / dias_con_datos_agente
         
+        # Calcular diferencia porcentual con la media global
+        if media_diaria_global > 0:
+            diferencia_porcentaje = ((media_diaria_agente - media_diaria_global) / media_diaria_global * 100)
+        else:
+            diferencia_porcentaje = 0
+        
+        # Verificar si está por debajo del umbral
         if diferencia_porcentaje < -umbral_alerta:
-            # Crear un ID único para esta alerta
-            alerta_id = f"{agent_id}_{fecha_inicio.strftime('%Y%m%d')}_{fecha_fin.strftime('%Y%m%d')}_{int(abs(diferencia_porcentaje))}"
+            alerta_id = f"{agent_id}_{fecha_inicio}_{fecha_fin}_{int(abs(diferencia_porcentaje))}_DIARIA"
             
             alertas.append({
                 'id': alerta_id,
                 'agente_id': agent_id,
                 'agente_nombre': info.get('nombre', agent_id),
                 'grupo': info.get('grupo', 'Sin grupo'),
-                'llamadas_agente': llamadas_agente,
-                'media_total': media_llamadas,
+                'llamadas_totales': llamadas_agente,
+                'dias_con_datos': dias_con_datos_agente,
+                'media_diaria_agente': round(media_diaria_agente, 1),
+                'media_diaria_global': round(media_diaria_global, 1),
                 'diferencia_porcentaje': abs(diferencia_porcentaje),
                 'periodo': f"{fecha_inicio.strftime('%d/%m')}-{fecha_fin.strftime('%d/%m')}",
-                'dias_con_datos': dias_con_datos,
                 'fecha_deteccion': datetime.now().strftime('%Y-%m-%d'),
-                'tipo': 'bajo_media_llamadas'
+                'tipo': 'bajo_media_diaria_llamadas',
+                'explicacion': f"Media diaria: {media_diaria_agente:.1f} vs Global: {media_diaria_global:.1f}"
             })
     
     # Ordenar por diferencia porcentual (las peores primero)
