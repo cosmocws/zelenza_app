@@ -2,6 +2,7 @@ import os
 import shutil
 import json
 import pandas as pd
+from datetime import datetime, timedelta
 from config import (
     PLANES_GAS_ESTRUCTURA, PMG_COSTE, PMG_IVA,
     USUARIOS_DEFAULT, PVD_CONFIG_DEFAULT,
@@ -9,6 +10,7 @@ from config import (
     SUPER_USER_CONFIG_DEFAULT
 )
 from utils import inicializar_directorios
+MONITORIZACIONES_FILE = 'data/monitorizaciones.json'
 
 def inicializar_datos():
     """Inicializa los archivos de datos con backup automático"""
@@ -327,10 +329,9 @@ def guardar_registro_llamadas(registro):
 def crear_tabla_monitorizaciones():
     """Crea la tabla de monitorizaciones si no existe"""
     try:
-        # Archivo de monitorizaciones
-        monitorizaciones_path = 'data/monitorizaciones.json'
-        if not os.path.exists(monitorizaciones_path):
-            with open(monitorizaciones_path, 'w', encoding='utf-8') as f:
+        if not os.path.exists(MONITORIZACIONES_FILE):
+            os.makedirs(os.path.dirname(MONITORIZACIONES_FILE), exist_ok=True)
+            with open(MONITORIZACIONES_FILE, 'w', encoding='utf-8') as f:
                 json.dump({}, f, indent=4, ensure_ascii=False)
         return True
     except Exception as e:
@@ -338,29 +339,52 @@ def crear_tabla_monitorizaciones():
         return False
 
 def cargar_monitorizaciones():
-    """Carga todas las monitorizaciones desde el archivo"""
+    """Carga todas las monitorizaciones desde el archivo JSON"""
     try:
-        monitorizaciones_path = 'data/monitorizaciones.json'
-        if not os.path.exists(monitorizaciones_path):
-            crear_tabla_monitorizaciones()
-            return {}
+        crear_tabla_monitorizaciones()
         
-        with open(monitorizaciones_path, 'r', encoding='utf-8') as f:
-            monitorizaciones = json.load(f)
-        return monitorizaciones
-    except (FileNotFoundError, json.JSONDecodeError):
+        with open(MONITORIZACIONES_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Convertir de dict a lista si es necesario
+        if isinstance(data, dict):
+            # Estructura: {id: monitorizacion_data}
+            return data
+        elif isinstance(data, list):
+            # Convertir lista a dict
+            monitorizaciones_dict = {}
+            for item in data:
+                mon_id = item.get('id_monitorizacion')
+                if mon_id:
+                    monitorizaciones_dict[mon_id] = item
+                else:
+                    # Generar ID si no existe
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                    mon_id = f"MON_{timestamp}_{item.get('id_empleado', 'UNK')}"
+                    item['id_monitorizacion'] = mon_id
+                    monitorizaciones_dict[mon_id] = item
+            return monitorizaciones_dict
+        else:
+            return {}
+            
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error cargando monitorizaciones: {e}")
         return {}
 
 def guardar_monitorizaciones(monitorizaciones):
-    """Guarda las monitorizaciones en el archivo"""
+    """Guarda las monitorizaciones en el archivo JSON"""
     try:
-        os.makedirs('data', exist_ok=True)
-        with open('data/monitorizaciones.json', 'w', encoding='utf-8') as f:
+        os.makedirs(os.path.dirname(MONITORIZACIONES_FILE), exist_ok=True)
+        with open(MONITORIZACIONES_FILE, 'w', encoding='utf-8') as f:
             json.dump(monitorizaciones, f, indent=4, ensure_ascii=False)
         
         # Backup
-        os.makedirs('data_backup', exist_ok=True)
-        shutil.copy('data/monitorizaciones.json', 'data_backup/monitorizaciones.json')
+        backup_file = f"data_backup/{os.path.basename(MONITORIZACIONES_FILE)}"
+        os.makedirs(os.path.dirname(backup_file), exist_ok=True)
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(monitorizaciones, f, indent=4, ensure_ascii=False)
+            
         return True
     except Exception as e:
         print(f"Error guardando monitorizaciones: {e}")
@@ -443,18 +467,31 @@ def obtener_agentes_pendientes_monitorizar():
                     'estado': 'NUNCA MONITORIZADO'
                 })
             else:
-                fecha_ultima = datetime.strptime(ultima_mon.get('fecha_monitorizacion'), '%Y-%m-%d').date()
-                dias_sin = (hoy - fecha_ultima).days
-                
-                if dias_sin >= 10:
-                    agentes_pendientes.append({
-                        'id': agent_id,
-                        'nombre': agente_info.get('nombre', agent_id),
-                        'grupo': agente_info.get('grupo', 'Sin grupo'),
-                        'ultima_fecha': fecha_ultima.strftime('%d/%m/%Y'),
-                        'dias_sin': dias_sin,
-                        'estado': f'{dias_sin} DÍAS SIN'
-                    })
+                fecha_str = ultima_mon.get('fecha_monitorizacion')
+                if fecha_str:
+                    try:
+                        fecha_ultima = datetime.strptime(fecha_str, '%Y-%m-%d').date()
+                        dias_sin = (hoy - fecha_ultima).days
+                        
+                        if dias_sin >= 10:
+                            agentes_pendientes.append({
+                                'id': agent_id,
+                                'nombre': agente_info.get('nombre', agent_id),
+                                'grupo': agente_info.get('grupo', 'Sin grupo'),
+                                'ultima_fecha': fecha_ultima.strftime('%d/%m/%Y'),
+                                'dias_sin': dias_sin,
+                                'estado': f'{dias_sin} DÍAS SIN'
+                            })
+                    except:
+                        # Error al parsear fecha
+                        agentes_pendientes.append({
+                            'id': agent_id,
+                            'nombre': agente_info.get('nombre', agent_id),
+                            'grupo': agente_info.get('grupo', 'Sin grupo'),
+                            'ultima_fecha': 'Fecha inválida',
+                            'dias_sin': float('inf'),
+                            'estado': 'ERROR FECHA'
+                        })
         
         # Ordenar por prioridad
         agentes_pendientes.sort(key=lambda x: (
@@ -466,6 +503,100 @@ def obtener_agentes_pendientes_monitorizar():
     except Exception as e:
         print(f"Error obteniendo agentes pendientes: {e}")
         return []
+
+def eliminar_monitorizaciones_empleado(empleado_id: str, keep_last: bool = False) -> int:
+    """Elimina monitorizaciones de un empleado"""
+    try:
+        monitorizaciones = cargar_monitorizaciones()
+        
+        if not monitorizaciones:
+            return 0
+        
+        # Filtrar monitorizaciones del empleado
+        monitorizaciones_empleado = {}
+        otras_monitorizaciones = {}
+        
+        for mon_id, mon_data in monitorizaciones.items():
+            if str(mon_data.get('id_empleado')) == str(empleado_id):
+                monitorizaciones_empleado[mon_id] = mon_data
+            else:
+                otras_monitorizaciones[mon_id] = mon_data
+        
+        if not monitorizaciones_empleado:
+            return 0
+        
+        if keep_last:
+            # Encontrar la última monitorización por fecha
+            monitorizaciones_list = list(monitorizaciones_empleado.values())
+            monitorizaciones_list.sort(
+                key=lambda x: x.get('fecha_monitorizacion', ''),
+                reverse=True
+            )
+            
+            if monitorizaciones_list:
+                # Mantener solo la última
+                ultima_id = monitorizaciones_list[0].get('id_monitorizacion')
+                if ultima_id:
+                    # Eliminar todas excepto la última
+                    for mon_id in list(monitorizaciones_empleado.keys()):
+                        if mon_id != ultima_id:
+                            del monitorizaciones_empleado[mon_id]
+                    
+                    # Combinar de nuevo
+                    nuevas_monitorizaciones = {**otras_monitorizaciones, **monitorizaciones_empleado}
+                else:
+                    # No se puede identificar la última, eliminar todas
+                    nuevas_monitorizaciones = otras_monitorizaciones
+            else:
+                nuevas_monitorizaciones = otras_monitorizaciones
+        else:
+            # Eliminar todas
+            nuevas_monitorizaciones = otras_monitorizaciones
+        
+        # Calcular cuántas se eliminaron
+        eliminadas = len(monitorizaciones) - len(nuevas_monitorizaciones)
+        
+        if eliminadas > 0:
+            guardar_monitorizaciones(nuevas_monitorizaciones)
+        
+        return eliminadas
+        
+    except Exception as e:
+        print(f"Error eliminando monitorizaciones: {e}")
+        return 0
+
+def actualizar_monitorizacion(monitorizacion_id, nuevos_datos):
+    """Actualiza una monitorización existente"""
+    try:
+        monitorizaciones = cargar_monitorizaciones()
+        
+        if monitorizacion_id not in monitorizaciones:
+            return False
+        
+        # Preservar el ID y metadata original
+        nuevos_datos['id_monitorizacion'] = monitorizacion_id
+        if 'created_at' not in nuevos_datos:
+            nuevos_datos['created_at'] = monitorizaciones[monitorizacion_id].get('created_at')
+        
+        nuevos_datos['updated_at'] = datetime.now().isoformat()
+        
+        # Actualizar
+        monitorizaciones[monitorizacion_id] = nuevos_datos
+        guardar_monitorizaciones(monitorizaciones)
+        
+        return True
+    except Exception as e:
+        print(f"Error actualizando monitorización: {e}")
+        return False
+
+def obtener_monitorizacion_por_id(monitorizacion_id):
+    """Obtiene una monitorización específica por su ID"""
+    try:
+        monitorizaciones = cargar_monitorizaciones()
+        return monitorizaciones.get(monitorizacion_id)
+    except Exception as e:
+        print(f"Error obteniendo monitorización por ID: {e}")
+        return None
 
 # database.py (AGREGAR DESPUÉS DE LAS FUNCIONES EXISTENTES)
 
