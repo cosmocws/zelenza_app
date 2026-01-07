@@ -420,19 +420,6 @@ def guardar_monitorizacion_completa(monitorizacion_data: Dict[str, Any], supervi
         monitorizacion_data['supervisor_id'] = supervisor_id
         monitorizacion_data['fecha_creacion'] = datetime.now().isoformat()
         
-        # Calcular fecha próxima
-        if 'fecha_monitorizacion' in monitorizacion_data and monitorizacion_data['fecha_monitorizacion']:
-            try:
-                fecha_actual = datetime.strptime(monitorizacion_data['fecha_monitorizacion'], '%Y-%m-%d')
-                fecha_proxima = fecha_actual + timedelta(days=14)
-                monitorizacion_data['fecha_proxima_monitorizacion'] = fecha_proxima.strftime('%Y-%m-%d')
-            except:
-                fecha_proxima = datetime.now() + timedelta(days=14)
-                monitorizacion_data['fecha_proxima_monitorizacion'] = fecha_proxima.strftime('%Y-%m-%d')
-        else:
-            fecha_proxima = datetime.now() + timedelta(days=14)
-            monitorizacion_data['fecha_proxima_monitorizacion'] = fecha_proxima.strftime('%Y-%m-%d')
-        
         # **GUARDAR EN BASE DE DATOS**
         monitorizacion_id = agregar_monitorizacion(monitorizacion_data)
         

@@ -2233,13 +2233,16 @@ def mostrar_formulario_monitorizacion(agentes):
             
             col1, col2, col3 = st.columns(3)
             with col1:
+                # En la sección donde transfieres datos del PDF:
                 if st.button("📋 Pasar datos al formulario", type="primary", use_container_width=True):
                     # Guardar todos los datos del PDF en session_state
                     # PERO NO LIMPIAR EL FORMULARIO EXISTENTE
                     for key, value in datos_pdf.items():
-                        # Solo guardamos si no es el ID de empleado (según tu requerimiento)
+                        # Solo guardamos si no es el ID de empleado
                         if key != 'id_empleado':
-                            st.session_state[f"mon_{key}"] = value
+                            # Y NO transferimos fecha_proxima_monitorizacion porque NO EXISTE
+                            if key != 'fecha_proxima_monitorizacion':  # ¡AÑADE ESTA LÍNEA!
+                                st.session_state[f"mon_{key}"] = value
                     
                     # Mostrar confirmación
                     st.success("✅ Datos del PDF transferidos al formulario manual!")
@@ -2350,24 +2353,41 @@ def mostrar_formulario_monitorizacion(agentes):
             )
             datos_formulario['fecha_monitorizacion'] = fecha_monitorizacion.strftime('%Y-%m-%d')
         
+
         with col_fecha2:
-            # Obtener fecha próxima del PDF si existe
-            fecha_prox_pdf_str = st.session_state.get('mon_fecha_proxima_monitorizacion')
-            if fecha_prox_pdf_str:
+            # ================================================
+            # FECHA PRÓXIMA MONITORIZACIÓN
+            # ================================================
+            # NOTA: Esta fecha NO EXISTE en el PDF de monitorización
+            # Es una fecha que el supervisor debe definir manualmente
+            # para programar la próxima revisión
+            
+            # Usar un valor por defecto razonable: 14 días desde hoy
+            # o 14 días desde la fecha de monitorización si está disponible
+            fecha_mon = None
+            if 'fecha_monitorizacion' in datos_formulario:
                 try:
-                    fecha_prox_pdf = datetime.strptime(fecha_prox_pdf_str, '%Y-%m-%d').date()
-                    fecha_prox_default = fecha_prox_pdf
+                    fecha_mon = datetime.strptime(datos_formulario['fecha_monitorizacion'], '%Y-%m-%d').date()
                 except:
-                    fecha_prox_default = datetime.now().date() + timedelta(days=14)
+                    fecha_mon = datetime.now().date()
             else:
-                fecha_prox_default = datetime.now().date() + timedelta(days=14)
+                fecha_mon = datetime.now().date()
+            
+            # Calcular fecha default: 14 días desde la fecha de monitorización
+            fecha_default = fecha_mon + timedelta(days=14)
             
             fecha_proxima = st.date_input(
-                "Fecha próxima monitorización:",
-                value=fecha_prox_default,
-                key="form_mon_fecha_proxima"
+                "Fecha próxima monitorización *:",
+                value=fecha_default,
+                key="form_mon_fecha_proxima",
+                help="* Esta fecha NO viene en el PDF. Define cuándo será la próxima monitorización."
             )
+            
+            # Guardar la fecha seleccionada por el usuario
             datos_formulario['fecha_proxima_monitorizacion'] = fecha_proxima.strftime('%Y-%m-%d')
+            
+            # Mostrar ayuda claramente
+            st.caption("ℹ️ Esta fecha se programa manualmente para la próxima revisión")
         
         # 3. Nota y objetivo (usar datos del PDF si existen)
         col_nota1, col_nota2 = st.columns(2)
@@ -2549,13 +2569,27 @@ def _procesar_formulario_monitorizacion(datos_formulario):
     try:
         from monitorizacion_utils import guardar_monitorizacion_completa
         
-        # Obtener supervisor actual
         username = st.session_state.get('username', '')
         
-        # Crear objeto de monitorización
+        # VERIFICA QUE LA FECHA PRÓXIMA ESTÉ PRESENTE
+        fecha_proxima = datos_formulario.get('fecha_proxima_monitorizacion')
+        if not fecha_proxima:
+            # Si no está, calcular automáticamente
+            from datetime import datetime, timedelta
+            fecha_mon = datos_formulario.get('fecha_monitorizacion')
+            if fecha_mon:
+                try:
+                    fecha_mon_dt = datetime.strptime(fecha_mon, '%Y-%m-%d')
+                    fecha_proxima = (fecha_mon_dt + timedelta(days=14)).strftime('%Y-%m-%d')
+                except:
+                    fecha_proxima = (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')
+            else:
+                fecha_proxima = (datetime.now() + timedelta(days=14)).strftime('%Y-%m-%d')
+        
         monitorizacion_data = {
             'id_empleado': datos_formulario['agente_id'],
             'fecha_monitorizacion': datos_formulario.get('fecha_monitorizacion'),
+            'fecha_proxima_monitorizacion': fecha_proxima,  # ¡AQUÍ!
             'nota_global': datos_formulario.get('nota_global', 0),
             'objetivo': datos_formulario.get('objetivo', 85),
             'experiencia': datos_formulario.get('experiencia', 0),
@@ -2566,24 +2600,21 @@ def _procesar_formulario_monitorizacion(datos_formulario):
             'cierre_contacto': datos_formulario.get('cierre_contacto', 0),
             'feedback': datos_formulario.get('feedback', ''),
             'plan_accion': datos_formulario.get('plan_accion', ''),
-            'puntos_clave': datos_formulario.get('puntos_clave', []),
-            'fecha_proxima_monitorizacion': datos_formulario.get('fecha_proxima_monitorizacion')
+            'puntos_clave': datos_formulario.get('puntos_clave', [])
         }
         
-        # Guardar
+        # DEBUG: Mostrar qué datos se van a guardar
+        st.info(f"📅 Fecha próxima a guardar: {fecha_proxima}")
+        
         exito = guardar_monitorizacion_completa(monitorizacion_data, username)
         
         if exito:
             st.success("✅ Monitorización guardada exitosamente")
-            
-            # Limpiar session_state de monitorización
+            # Limpiar session_state
             for key in list(st.session_state.keys()):
-                if key.startswith('mon_'):
+                if key.startswith('mon_') or key.startswith('form_mon_'):
                     del st.session_state[key]
-            
-            if 'datos_formulario_temporal' in st.session_state:
-                del st.session_state['datos_formulario_temporal']
-            
+            st.session_state.datos_transferidos = False
             st.rerun()
             return True
         else:
