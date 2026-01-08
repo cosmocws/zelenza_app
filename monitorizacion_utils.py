@@ -265,7 +265,7 @@ def _detectar_puntos_clave_automatico(texto: str) -> List[str]:
     if re.search(r'2\.1\s*A\)\s*No sondea[^.]*?\s+SI\b', texto, re.IGNORECASE):
         puntos_clave.append("Sondeo")
     
-    if re.search(r'2\.1\s*B\)\s*No identifica[^.]*?\s+SI\b', texto, re.IGNORECASE):
+    if re.search(r'2\.1\s*B\)\s*No identifica las necesidades[^.]*?\s+SI\b', texto, re.IGNORECASE):
         puntos_clave.append("Detección")
     
     # SECCIÓN 2.2
@@ -330,7 +330,7 @@ def _detectar_puntos_clave_automatico(texto: str) -> List[str]:
         puntos_clave.append("LOPD ¡CUIDADO!")
     
     # SECCIÓN 3.2
-    if re.search(r'3\.2\s*A\)\s*No identifica[^.]*?\s+SI\b', texto, re.IGNORECASE):
+    if re.search(r'3\.2\s*A\)\s*No identifica al titular[^.]*?\s+SI\b', texto, re.IGNORECASE):
         puntos_clave.append("Sondeo ¡CUIDADO!")
     
     if re.search(r'3\.2\s*B\)\s*No informa[^.]*?\s+SI\b', texto, re.IGNORECASE):
