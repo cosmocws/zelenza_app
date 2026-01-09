@@ -2731,7 +2731,87 @@ def limpiar_monitorizaciones_duplicadas():
         return 0
 
 # ============================================================================
-# ALERTAS
+# ALERTAS DE MONITORIZACIÓN
+# ============================================================================
+
+def calcular_alertas_monitorizaciones_pendientes(agentes):
+    """Calcula alertas para agentes que tienen monitorización programada para hoy"""
+    from datetime import datetime
+    
+    alertas = []
+    hoy = datetime.now().date()
+    
+    try:
+        from database import obtener_ultima_monitorizacion_empleado
+        
+        for agent_id, info in agentes.items():
+            if not info.get('activo', True):
+                continue
+            
+            ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+            
+            if ultima_mon and ultima_mon.get('fecha_proxima_monitorizacion'):
+                try:
+                    fecha_proxima = datetime.strptime(
+                        ultima_mon['fecha_proxima_monitorizacion'], 
+                        '%Y-%m-%d'
+                    ).date()
+                    
+                    # Si la monitorización es para hoy o ya pasó la fecha
+                    if fecha_proxima == hoy:
+                        alerta_id = f"monitorizacion_hoy_{agent_id}_{hoy}"
+                        
+                        alertas.append({
+                            'id': alerta_id,
+                            'agente_id': agent_id,
+                            'agente_nombre': info.get('nombre', agent_id),
+                            'grupo': info.get('grupo', 'Sin grupo'),
+                            'tipo': 'monitorizacion_hoy',
+                            'fecha_monitorizacion': ultima_mon.get('fecha_monitorizacion', ''),
+                            'fecha_proxima': ultima_mon.get('fecha_proxima_monitorizacion', ''),
+                            'nota_anterior': ultima_mon.get('nota_global', 0),
+                            'prioridad': 'alta',  # Hoy es alta prioridad
+                            'mensaje': f"✅ Monitorización programada para HOY",
+                            'explicacion': f"Última monitorización: {ultima_mon.get('fecha_monitorizacion', 'N/A')} - Nota: {ultima_mon.get('nota_global', 0)}%"
+                        })
+                    
+                    elif fecha_proxima < hoy:
+                        # Si la fecha ya pasó (atrasada)
+                        dias_atraso = (hoy - fecha_proxima).days
+                        alerta_id = f"monitorizacion_atrasada_{agent_id}_{fecha_proxima}"
+                        
+                        alertas.append({
+                            'id': alerta_id,
+                            'agente_id': agent_id,
+                            'agente_nombre': info.get('nombre', agent_id),
+                            'grupo': info.get('grupo', 'Sin grupo'),
+                            'tipo': 'monitorizacion_atrasada',
+                            'fecha_proxima': ultima_mon.get('fecha_proxima_monitorizacion', ''),
+                            'dias_atraso': dias_atraso,
+                            'nota_anterior': ultima_mon.get('nota_global', 0),
+                            'prioridad': 'urgente',  # Atrasada es urgente
+                            'mensaje': f"⚠️ Monitorización ATRASADA {dias_atraso} día(s)",
+                            'explicacion': f"Debía ser el {fecha_proxima.strftime('%d/%m/%Y')} - {dias_atraso} día(s) atrasada"
+                        })
+                    
+                except Exception as e:
+                    continue
+    
+    except ImportError as e:
+        print(f"Error importando módulo de monitorizaciones: {e}")
+    except Exception as e:
+        print(f"Error calculando alertas de monitorización: {e}")
+    
+    # Ordenar: primero las atrasadas (urgente), luego las de hoy (alta)
+    alertas_ordenadas = []
+    alertas_ordenadas.extend([a for a in alertas if a['prioridad'] == 'urgente'])
+    alertas_ordenadas.extend([a for a in alertas if a['prioridad'] == 'alta'])
+    
+    return alertas_ordenadas
+
+
+# ============================================================================
+# MOSTRAR ALERTAS COMBINADAS EN SIDEBAR
 # ============================================================================
 
 def mostrar_alertas_sidebar():
@@ -2760,11 +2840,21 @@ def mostrar_alertas_sidebar():
     else:
         return
     
-    # Calcular nuevas alertas (AHORA CON MEDIA DIARIA)
-    alertas = calcular_alertas_media_llamadas(agentes, configuracion)
+    # ==============================================
+    # CALCULAR TODOS LOS TIPOS DE ALERTAS
+    # ==============================================
+    
+    # 1. Alertas por bajo rendimiento en llamadas (media diaria)
+    alertas_llamadas = calcular_alertas_media_llamadas(agentes, configuracion)
+    
+    # 2. Alertas de monitorizaciones pendientes/hoy
+    alertas_monitorizaciones = calcular_alertas_monitorizaciones_pendientes(agentes)
+    
+    # Combinar todas las alertas
+    todas_alertas = alertas_monitorizaciones + alertas_llamadas
     
     # Filtrar solo alertas que NO han sido descartadas
-    alertas_activas = [a for a in alertas if a['id'] not in alertas_descartadas]
+    alertas_activas = [a for a in todas_alertas if a['id'] not in alertas_descartadas]
     
     if alertas_activas:
         with st.sidebar:
@@ -2773,17 +2863,28 @@ def mostrar_alertas_sidebar():
             
             alertas_a_descartar = []
             
-            for alerta in alertas_activas[:5]:
-                col1, col2 = st.columns([4, 1])
-                
-                with col1:
-                    st.warning(f"⚠️ {alerta['agente_nombre']}")
-                    # AHORA MUESTRA MEDIA DIARIA, NO TOTAL
+            for alerta in alertas_activas[:8]:  # Mostrar más alertas
+                # Estilos diferentes según tipo de alerta
+                if alerta['tipo'] == 'monitorizacion_hoy':
+                    st.success(f"📅 {alerta['agente_nombre']}")
+                    st.caption(f"✅ {alerta['mensaje']}")
+                    st.caption(f"📊 Nota anterior: {alerta['nota_anterior']}%")
+                    
+                elif alerta['tipo'] == 'monitorizacion_atrasada':
+                    st.error(f"⏰ {alerta['agente_nombre']}")
+                    st.caption(f"⚠️ {alerta['mensaje']}")
+                    st.caption(f"📅 Fecha programada: {alerta['fecha_proxima']}")
+                    
+                elif alerta['tipo'] == 'bajo_media_diaria_llamadas':
+                    st.warning(f"📞 {alerta['agente_nombre']}")
                     st.caption(f"📅 Media diaria: {alerta['media_diaria_agente']:.1f} llamadas")
                     st.caption(f"🌍 vs Media global: {alerta['media_diaria_global']:.1f}")
                     st.caption(f"📉 {alerta['diferencia_porcentaje']:.1f}% debajo")
-                    st.caption(f"📊 {alerta['dias_con_datos']} días con datos")
                 
+                # Checkbox para descartar
+                col1, col2 = st.columns([4, 1])
+                with col1:
+                    st.caption("")
                 with col2:
                     descartar = st.checkbox(
                         "✓",
@@ -2793,6 +2894,8 @@ def mostrar_alertas_sidebar():
                     
                     if descartar:
                         alertas_a_descartar.append(alerta['id'])
+                
+                st.write("---")
             
             # BOTÓN PARA DESCARTAR ALERTAS SELECCIONADAS
             if alertas_a_descartar:
@@ -2801,19 +2904,34 @@ def mostrar_alertas_sidebar():
                     for alerta_id in alertas_a_descartar:
                         guardar_alerta_descartada(username, alerta_id)
                     
-                    st.success(f"✅ {len(alertas_a_descartar)} alerta(s) descartada(s) permanentemente")
+                    st.success(f"✅ {len(alertas_a_descartar)} alerta(s) descartada(s)")
                     st.rerun()
             
-            # Si hay más de 5 alertas
-            if len(alertas_activas) > 5:
-                st.caption(f"... y {len(alertas_activas) - 5} alertas más")
+            # Contadores por tipo
+            monitorizaciones_hoy = len([a for a in alertas_activas if a['tipo'] == 'monitorizacion_hoy'])
+            monitorizaciones_atrasadas = len([a for a in alertas_activas if a['tipo'] == 'monitorizacion_atrasada'])
+            alertas_llamadas_count = len([a for a in alertas_activas if a['tipo'] == 'bajo_media_diaria_llamadas'])
+            
+            # Mostrar resumen
+            if monitorizaciones_hoy > 0 or monitorizaciones_atrasadas > 0 or alertas_llamadas_count > 0:
+                with st.expander("📊 Resumen de alertas", expanded=False):
+                    if monitorizaciones_hoy > 0:
+                        st.write(f"📅 **Monitorizaciones hoy:** {monitorizaciones_hoy}")
+                    if monitorizaciones_atrasadas > 0:
+                        st.write(f"⏰ **Monitorizaciones atrasadas:** {monitorizaciones_atrasadas}")
+                    if alertas_llamadas_count > 0:
+                        st.write(f"📞 **Bajo rendimiento llamadas:** {alertas_llamadas_count}")
+            
+            # Si hay más de 8 alertas
+            if len(alertas_activas) > 8:
+                st.caption(f"... y {len(alertas_activas) - 8} alertas más")
             
             # BOTÓN PARA VER TODAS LAS ALERTAS
             if st.button("📋 Ver todas las alertas", use_container_width=True, key="btn_ver_todas_alertas"):
                 st.session_state.mostrar_todas_alertas = True
                 st.rerun()
             
-            # BOTÓN PARA LIMPIAR ALERTAS DESCARTADAS (OPCIONAL)
+            # BOTÓN PARA GESTIONAR ALERTAS DESCARTADAS
             if st.button("🧹 Gestionar alertas descartadas", use_container_width=True, key="btn_gestionar_alertas"):
                 st.session_state.mostrar_gestion_alertas = True
                 st.rerun()
