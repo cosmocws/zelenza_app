@@ -231,154 +231,157 @@ def _analizar_texto_monitorizacion(texto: str, datos_extraidos: Dict[str, Any]) 
         return _datos_ejemplo_desarrollo()
     
 def _detectar_puntos_clave_automatico(texto: str) -> List[str]:
-    """Detecta puntos clave automáticamente basándose en respuestas SI/NO del PDF - VERSIÓN CORREGIDA"""
+    """Detecta puntos clave usando la estructura jerárquica del PDF - VERSIÓN PRECISA"""
     puntos_clave = []
     
-    # Normalizar el texto: reemplazar múltiples espacios y saltos de línea
-    texto = re.sub(r'\s+', ' ', texto)
+    try:
+        # Primero, limpiar el texto y dividirlo por líneas para análisis más preciso
+        lineas = [linea.strip() for linea in texto.split('\n') if linea.strip()]
+        
+        # Unir líneas que probablemente pertenecen a la misma pregunta
+        texto_para_analisis = []
+        i = 0
+        while i < len(lineas):
+            linea_actual = lineas[i]
+            
+            # Si la línea empieza con un patrón de pregunta (ej: "2.1 A)")
+            if re.match(r'\d+\.\d+\s+[A-Z]\)', linea_actual):
+                # Esta es una pregunta, juntarla con las siguientes líneas hasta encontrar otra pregunta o respuesta
+                pregunta_completa = linea_actual
+                j = i + 1
+                
+                while j < len(lineas) and not re.match(r'(\d+\.\d+\s+[A-Z]\)|[SÍS]I\b|NO\b|N/A\b)', lineas[j]):
+                    pregunta_completa += " " + lineas[j]
+                    j += 1
+                
+                # Ahora añadir la respuesta si está en la siguiente línea
+                if j < len(lineas):
+                    # Verificar si la siguiente línea tiene SI/NO/N/A
+                    if re.search(r'([SÍS]I|NO|N/A)\b', lineas[j], re.IGNORECASE):
+                        pregunta_completa += " " + lineas[j]
+                        j += 1
+                
+                texto_para_analisis.append(pregunta_completa)
+                i = j
+            else:
+                i += 1
+        
+        print(f"DEBUG - Preguntas identificadas: {len(texto_para_analisis)}")
+        
+        # Ahora analizar cada pregunta individualmente
+        for pregunta_texto in texto_para_analisis:
+            # Extraer el número de pregunta (ej: "2.1 A)")
+            match_pregunta = re.match(r'(\d+\.\d+\s+[A-Z]\))', pregunta_texto)
+            if not match_pregunta:
+                continue
+                
+            pregunta_num = match_pregunta.group(1)
+            
+            # Verificar si contiene SI/Sí
+            if re.search(r'\b[SÍS]I\b', pregunta_texto, re.IGNORECASE):
+                print(f"DEBUG - Pregunta con SI: {pregunta_num}")
+                
+                # Mapeo específico para preguntas con SI
+                mapeo_si = {
+                    # SECCIÓN 3.1 - PROCESO DE VENTA (¡CUIDADO!)
+                    "3.1 G)": "LOPD ¡CUIDADO!",
+                    
+                    # SECCIÓN 3.2 - VERIFICACIÓN DE VENTA (¡CUIDADO!)
+                    "3.2 A)": "Sondeo ¡CUIDADO!",
+                    "3.2 B)": "Argumentación ¡CUIDADO!",
+                    "3.2 C)": "Gestión BBDD ¡CUIDADO!",
+                    
+                    # SECCIÓN 2.1 - DETECCIÓN
+                    "2.1 A)": "Sondeo",
+                    "2.1 B)": "Detección",
+                    
+                    # SECCIÓN 2.2 - HABILIDADES DE VENTA
+                    "2.2 A)": "Oportunidad venta",
+                    "2.2 B)": "Resumen beneficios",
+                    "2.2 C)": "Oportunidad venta",
+                    "2.2 D)": "Argumentación",
+                    "2.2 E)": "Cierre de venta",
+                    "2.2 F)": "Gestión BBDD",
+                    
+                    # SECCIÓN 1.1 - COMUNICACIÓN
+                    "1.1 A)": "Tono",
+                    "1.1 B)": "Estructura",
+                    
+                    # SECCIÓN 1.2 - ACTITUD
+                    "1.2 A)": "Argumentación",
+                    "1.2 B)": "Tono",
+                    "1.2 C)": "Escucha activa",
+                    "1.2 D)": "Actitud",
+                    
+                    # SECCIÓN 2.3 - RESOLUCIÓN OBJECIONES
+                    "2.3 A)": "Resolución objeciones",
+                    
+                    # SECCIÓN 2.4 - CIERRE CONTACTO
+                    "2.4 A)": "Cierre de venta",
+                    "2.4 B)": "Cierre de venta",
+                    "2.4 C)": "Cierre de venta",
+                    "2.4 D)": "Gestión BBDD",
+                    "2.4 E)": "Gestión BBDD",
+                }
+                
+                if pregunta_num in mapeo_si:
+                    punto = mapeo_si[pregunta_num]
+                    if punto not in puntos_clave:
+                        puntos_clave.append(punto)
+                        print(f"  ✅ Asignado: {pregunta_num} -> {punto}")
+                else:
+                    print(f"  ⚠️ No mapeada: {pregunta_num}")
+        
+        # Verificación adicional para casos específicos
+        # Buscar específicamente 3.1 G) con EC
+        patron_31g_ec = r'3\.1\s+G\)\s*EC\s*-\s*No\s+informa\s+al\s+cliente\s+de\s+que\s+la\s+llamada\s+podrá\s+ser\s+grabada[^.]*?\b[SÍS]I\b'
+        if re.search(patron_31g_ec, texto, re.IGNORECASE):
+            if "LOPD ¡CUIDADO!" not in puntos_clave:
+                puntos_clave.append("LOPD ¡CUIDADO!")
+                print("✅ Verificado 3.1 G) EC con patrón específico")
+        
+        # Buscar específicamente 2.1 A) - Sondeo
+        patron_21a = r'2\.1\s+A\)\s*No\s+sondea\s+sobre\s+las\s+condiciones[^.]*?\b[SÍS]I\b'
+        if re.search(patron_21a, texto, re.IGNORECASE):
+            if "Sondeo" not in puntos_clave:
+                puntos_clave.append("Sondeo")
+                print("✅ Verificado 2.1 A) con patrón específico")
+        
+        # Buscar específicamente 2.2 B) - Resumen beneficios
+        patron_22b = r'2\.2\s+B\)\s*No\s+usa\s+técnicas\s+de\s+venta[^.]*?\b[SÍS]I\b'
+        if re.search(patron_22b, texto, re.IGNORECASE):
+            if "Resumen beneficios" not in puntos_clave:
+                puntos_clave.append("Resumen beneficios")
+                print("✅ Verificado 2.2 B) con patrón específico")
+        
+        # Buscar específicamente 3.2 A) - Sondeo ¡CUIDADO!
+        patron_32a = r'3\.2\s+A\)\s*EC\s*-\s*No\s+identifica\s+al\s+titular[^.]*?\b[SÍS]I\b'
+        if re.search(patron_32a, texto, re.IGNORECASE):
+            if "Sondeo ¡CUIDADO!" not in puntos_clave:
+                puntos_clave.append("Sondeo ¡CUIDADO!")
+                print("✅ Verificado 3.2 A) EC con patrón específico")
+        
+    except Exception as e:
+        print(f"ERROR en _detectar_puntos_clave_automatico: {str(e)}")
+        import traceback
+        traceback.print_exc()
     
-    # ============================================================
-    # PATRONES MEJORADOS - Buscan la estructura EXACTA del PDF
-    # ============================================================
+    # Eliminar duplicados
+    puntos_unicos = list(set(puntos_clave))
     
-    # SECCIÓN 1.1
-    if re.search(r'1\.1\s*A\)\s*Utiliza un estilo comunicativo[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Tono")
+    # Ordenar para mejor visualización
+    orden_preferido = [
+        "LOPD ¡CUIDADO!", "Sondeo ¡CUIDADO!", "Argumentación ¡CUIDADO!",
+        "Gestión BBDD ¡CUIDADO!", "Textos legales ¡CUIDADO!", "Proceso venta ¡CUIDADO!",
+        "Sondeo", "Resumen beneficios", "Oportunidad venta", "Cierre de venta",
+        "Detección", "Argumentación", "Estructura", "Tono",
+        "Escucha activa", "Actitud", "Resolución objeciones", "Gestión BBDD"
+    ]
     
-    if re.search(r'1\.1\s*B\)\s*No construye un mensaje[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Estructura")
+    puntos_ordenados = [p for p in orden_preferido if p in puntos_unicos]
     
-    # SECCIÓN 1.2
-    if re.search(r'1\.2\s*A\)\s*Perjudica[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación")
-    
-    if re.search(r'1\.2\s*B\)\s*Presiona/coacciona[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Tono")
-    
-    if re.search(r'1\.2\s*C\)\s*No escucha[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Escucha activa")
-    
-    if re.search(r'1\.2\s*D\)\s*Su actitud[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Actitud")
-    
-    # SECCIÓN 2.1
-    if re.search(r'2\.1\s*A\)\s*No sondea[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Sondeo")
-    
-    if re.search(r'2\.1\s*B\)\s*No identifica las necesidades[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Detección")
-    
-    # SECCIÓN 2.2
-    if re.search(r'2\.2\s*A\)\s*No presenta[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Oportunidad venta")
-    
-    if re.search(r'2\.2\s*B\)\s*No usa técnicas[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Resumen beneficios")
-    
-    if re.search(r'2\.2\s*C\)\s*No aprovecha[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Oportunidad venta")
-    
-    if re.search(r'2\.2\s*D\)\s*Utiliza argumentos[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación")
-    
-    if re.search(r'2\.2\s*E\)\s*No lanza[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Cierre de venta")
-    
-    if re.search(r'2\.2\s*F\)\s*No realiza[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Gestión BBDD")
-    
-    # SECCIÓN 2.3
-    if re.search(r'2\.3\s*A\)\s*No responde[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Resolución objeciones")
-    
-    # SECCIÓN 2.4
-    if re.search(r'2\.4\s*A\)\s*Cuando es necesario[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Resumen beneficios")
-    
-    if re.search(r'2\.4\s*B\)\s*No informa[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Resolución objeciones")
-    
-    if re.search(r'2\.4\s*C\)\s*No propone[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Sondeo")
-    
-    if re.search(r'2\.4\s*D\)\s*No tipifica[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Gestión BBDD")
-    
-    if re.search(r'2\.4\s*E\)\s*No tipifica[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Gestión BBDD")
-    
-    # SECCIÓN 3.1
-    if re.search(r'3\.1\s*A\)\s*Realiza[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Sondeo")
-    
-    if re.search(r'3\.1\s*B\)\s*Ofrece[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación ¡CUIDADO!")
-    
-    if re.search(r'3\.1\s*C\)\s*Utiliza[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación ¡CUIDADO!")
-    
-    if re.search(r'3\.1\s*D\)\s*No sigue[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Textos legales")
-    
-    if re.search(r'3\.1\s*E\)\s*No lee[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Textos legales ¡CUIDADO!")
-    
-    if re.search(r'3\.1\s*F\)\s*No explica[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación ¡CUIDADO!")
-    
-    if re.search(r'3\.1\s*G\)\s*No informa[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("LOPD ¡CUIDADO!")
-    
-    # SECCIÓN 3.2
-    if re.search(r'3\.2\s*A\)\s*No identifica al titular[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Sondeo ¡CUIDADO!")
-    
-    if re.search(r'3\.2\s*B\)\s*No informa[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Argumentación ¡CUIDADO!")
-    
-    if re.search(r'3\.2\s*C\)\s*No gestiona[^.]*?\s+SI\b', texto, re.IGNORECASE):
-        puntos_clave.append("Gestión BBDD ¡CUIDADO!")
-    
-    # ============================================================
-    # VERIFICACIÓN ESPECIAL PARA EL PDF CONCRETO
-    # ============================================================
-    
-    # Para debugging: mostrar qué está detectando
-    print(f"DEBUG - Puntos clave detectados: {puntos_clave}")
-    
-    # Verificar específicamente las preguntas que sabemos tienen SI en tu PDF:
-    # 2.1 A) No sondea sobre las condiciones comerciales... SI
-    # 2.2 B) No usa técnicas de venta para potenciar... SI
-    # 3.2 A) No identifica al titular y punto de suministro... SI
-    
-    if "Sondeo" not in puntos_clave and re.search(r'No sondea sobre las condiciones comerciales', texto, re.IGNORECASE):
-        # Buscar específicamente "SI" después de esa frase
-        if re.search(r'No sondea sobre las condiciones comerciales[^.]*?SI', texto, re.IGNORECASE):
-            puntos_clave.append("Sondeo")
-            print("DEBUG - Añadido Sondeo por búsqueda específica")
-    
-    if "Resumen beneficios" not in puntos_clave and re.search(r'No usa técnicas de venta', texto, re.IGNORECASE):
-        if re.search(r'No usa técnicas de venta[^.]*?SI', texto, re.IGNORECASE):
-            puntos_clave.append("Resumen beneficios")
-            print("DEBUG - Añadido Resumen beneficios por búsqueda específica")
-    
-    if "Sondeo ¡CUIDADO!" not in puntos_clave and re.search(r'No identifica al titular', texto, re.IGNORECASE):
-        if re.search(r'No identifica al titular[^.]*?SI', texto, re.IGNORECASE):
-            puntos_clave.append("Sondeo ¡CUIDADO!")
-            print("DEBUG - Añadido Sondeo ¡CUIDADO! por búsqueda específica")
-    
-    # ============================================================
-    # LIMPIAR Y DEVOLVER
-    # ============================================================
-    
-    # Eliminar duplicados manteniendo orden
-    puntos_unicos = []
-    for punto in puntos_clave:
-        if punto not in puntos_unicos:
-            puntos_unicos.append(punto)
-    
-    print(f"DEBUG - Puntos clave finales: {puntos_unicos}")
-    return puntos_unicos
+    print(f"\nDEBUG - Puntos clave finales ({len(puntos_ordenados)}): {puntos_ordenados}")
+    return puntos_ordenados
 
 def _separar_feedback_plan_accion(texto_feedback: str) -> tuple[str, str]:
     """Separa el feedback del plan de acción"""
@@ -391,7 +394,6 @@ def _separar_feedback_plan_accion(texto_feedback: str) -> tuple[str, str]:
         'Acciones:',
         'Para mejorar:',
         'Próximos pasos:',
-        'Vamos a:',
         'Recomendaciones:',
         'Acciones a tomar:'
     ]
