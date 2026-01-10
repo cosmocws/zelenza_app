@@ -1,6 +1,6 @@
 """
 Sistema completo de sincronización: TEMPORAL → GITHUB
-Sincroniza TODOS los archivos importantes de data/
+Sincroniza TODOS los archivos importantes de data/ y modelos_facturas/
 """
 
 import os
@@ -15,26 +15,42 @@ class DataSyncManager:
     
     def __init__(self):
         self.data_folder = "data/"
+        self.modelos_folder = "modelos_facturas/"
         self.sync_interval = 3600  # 1 hora en segundos
         self.last_sync_time = None
         self.last_modified_times = {}
         
-        # Archivos específicos que quieres sincronizar
-        self.target_files = [
-            "data/config_excedentes.csv",
-            "data/config_pmg.json", 
-            "data/config_sistema.json",
-            "data/monitorizaciones.json",
-            "data/planes_gas.json",
-            "data/precios_luz.csv",
-            "data/registro_llamadas.json", 
-            "data/super_users.json",
-            "data/usuarios.json"
-        ]
+        # NO usamos target_files específicos - sincronizamos TODO
+        self.target_files = self._get_all_files_to_sync()
+    
+    def _get_all_files_to_sync(self):
+        """Obtiene TODOS los archivos de data/ y modelos_facturas/"""
+        all_files = []
+        
+        # Obtener TODOS los archivos de data/
+        if os.path.exists(self.data_folder):
+            for file_path in Path(self.data_folder).rglob("*"):
+                if file_path.is_file():
+                    all_files.append(str(file_path))
+        
+        # Obtener TODOS los archivos de modelos_facturas/
+        if os.path.exists(self.modelos_folder):
+            for file_path in Path(self.modelos_folder).rglob("*"):
+                if file_path.is_file():
+                    all_files.append(str(file_path))
+        
+        return all_files
+    
+    def _update_file_list(self):
+        """Actualiza la lista de archivos a sincronizar"""
+        self.target_files = self._get_all_files_to_sync()
     
     def check_for_changes(self):
         """Verifica si hay archivos modificados desde la última sincronización"""
         changed_files = []
+        
+        # Primero actualizamos la lista por si hay nuevos archivos
+        self._update_file_list()
         
         for file_path in self.target_files:
             if os.path.exists(file_path):
@@ -70,15 +86,32 @@ class DataSyncManager:
             if success:
                 # Registrar éxito
                 self._log_sync(file_path, True, operation_name)
-                return True, f"✅ {os.path.basename(file_path)} → GitHub"
+                
+                # Determinar tipo de archivo para mensaje
+                if "data/" in file_path:
+                    file_display = file_path.replace("data/", "")
+                elif "modelos_facturas/" in file_path:
+                    file_display = file_path.replace("modelos_facturas/", "📄 ")
+                else:
+                    file_display = os.path.basename(file_path)
+                
+                return True, f"✅ {file_display} → GitHub"
             else:
                 self._log_sync(file_path, False, f"Error: {message}")
-                return False, f"❌ {os.path.basename(file_path)}: {message}"
+                
+                if "data/" in file_path:
+                    file_display = file_path.replace("data/", "")
+                elif "modelos_facturas/" in file_path:
+                    file_display = file_path.replace("modelos_facturas/", "📄 ")
+                else:
+                    file_display = os.path.basename(file_path)
+                    
+                return False, f"❌ {file_display}: {message}"
                 
         except Exception as e:
             error_msg = f"Excepción: {str(e)[:100]}"
             self._log_sync(file_path, False, error_msg)
-            return False, error_msg
+            return False, f"❌ Error en {os.path.basename(file_path)}: {str(e)[:50]}"
     
     def sync_all_changed_files(self, force=False):
         """
@@ -88,6 +121,8 @@ class DataSyncManager:
             force: Si True, sincroniza todos aunque no hayan cambiado
         """
         if force:
+            # Primero actualizamos la lista por si hay nuevos archivos
+            self._update_file_list()
             files_to_sync = [f for f in self.target_files if os.path.exists(f)]
         else:
             files_to_sync = self.check_for_changes()
@@ -98,7 +133,13 @@ class DataSyncManager:
         results = []
         success_count = 0
         
-        for file_path in files_to_sync:
+        st.info(f"📁 Sincronizando {len(files_to_sync)} archivos...")
+        
+        for i, file_path in enumerate(files_to_sync, 1):
+            # Mostrar progreso cada 5 archivos
+            if i % 5 == 0 or i == len(files_to_sync):
+                st.write(f"📤 Progreso: {i}/{len(files_to_sync)} archivos")
+            
             success, message = self.sync_single_file(
                 file_path, 
                 f"Sync {'forzado' if force else 'automático'}"
@@ -142,21 +183,60 @@ class DataSyncManager:
     
     def get_sync_status(self):
         """Obtiene estado de sincronización"""
+        # Actualizar lista de archivos primero
+        self._update_file_list()
+        
+        changed_files = self.check_for_changes()
+        total_files = len([f for f in self.target_files if os.path.exists(f)])
+        
         status = {
             "last_sync": self.last_sync_time,
             "next_sync_in": None,
-            "changed_files": [],
-            "total_files": len([f for f in self.target_files if os.path.exists(f)])
+            "changed_files": changed_files,
+            "total_files": total_files
         }
         
         if self.last_sync_time:
             next_sync = self.last_sync_time + self.sync_interval
             remaining = max(0, next_sync - time.time())
-            status["next_sync_in"] = f"{int(remaining // 60)}m {int(remaining % 60)}s"
-        
-        status["changed_files"] = self.check_for_changes()
+            
+            hours = int(remaining // 3600)
+            minutes = int((remaining % 3600) // 60)
+            seconds = int(remaining % 60)
+            
+            if hours > 0:
+                status["next_sync_in"] = f"{hours}h {minutes}m"
+            elif minutes > 0:
+                status["next_sync_in"] = f"{minutes}m {seconds}s"
+            else:
+                status["next_sync_in"] = f"{seconds}s"
         
         return status
+    
+    def get_file_stats(self):
+        """Obtiene estadísticas de los archivos"""
+        data_count = 0
+        modelos_count = 0
+        data_size = 0
+        modelos_size = 0
+        
+        for file_path in self.target_files:
+            if os.path.exists(file_path):
+                size = os.path.getsize(file_path)
+                
+                if "data/" in file_path:
+                    data_count += 1
+                    data_size += size
+                elif "modelos_facturas/" in file_path:
+                    modelos_count += 1
+                    modelos_size += size
+        
+        return {
+            "data_files": data_count,
+            "modelos_files": modelos_count,
+            "data_size_mb": round(data_size / (1024 * 1024), 2),
+            "modelos_size_mb": round(modelos_size / (1024 * 1024), 2)
+        }
     
     def _log_sync(self, file_path, success, details=""):
         """Registra operación de sync"""
@@ -178,6 +258,14 @@ class DataSyncManager:
         
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"{timestamp} - AUTO-SYNC: {success_count}/{total_files} archivos\n")
+            
+        # También log detallado
+        detail_log = "logs/auto_sync_detail.log"
+        with open(detail_log, "a", encoding="utf-8") as f:
+            f.write(f"\n{'='*60}\n")
+            f.write(f"{timestamp} - AUTO-SYNC DETALLADO\n")
+            f.write(f"Total archivos: {total_files}\n")
+            f.write(f"Exitosos: {success_count}\n")
 
 # Instancia global
 sync_manager = DataSyncManager()
@@ -198,3 +286,7 @@ def get_status():
 def auto_sync():
     """Auto-sync si es necesario"""
     return sync_manager.auto_sync_if_needed()
+
+def get_file_stats():
+    """Obtiene estadísticas de archivos"""
+    return sync_manager.get_file_stats()

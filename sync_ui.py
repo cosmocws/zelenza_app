@@ -5,49 +5,79 @@ Interfaz de usuario para sincronización TEMPORAL → GITHUB
 import streamlit as st
 import os
 from datetime import datetime
-from sync_data_to_github import sync_manager, sync_now, get_status, auto_sync
+from sync_data_to_github import sync_manager, sync_now, get_status, auto_sync, get_file_stats
 
 def show_sync_panel():
     """Muestra el panel de control de sincronización"""
-    st.subheader("🔄 Sincronización: TEMPORAL → GITHUB")
+    st.subheader("🔄 Sincronización COMPLETA: TEMPORAL → GITHUB")
     
     st.info("""
-    **🎯 OBJETIVO:** Guardar los datos de tu sesión temporal de Streamlit en GitHub PERMANENTEMENTE
+    **🎯 OBJETIVO:** Guardar TODOS los datos de tu sesión temporal de Streamlit en GitHub PERMANENTEMENTE
     
-    **📁 Archivos que se sincronizan:**
-    - `config_excedentes.csv` - Precios excedentes
-    - `config_pmg.json` - Configuración PMG
-    - `config_sistema.json` - Configuración del sistema
-    - `monitorizaciones.json` - Datos de monitorización
-    - `planes_gas.json` - Planes de gas
-    - `precios_luz.csv` - Planes de electricidad
-    - `registro_llamadas.json` - Datos CSV importados
-    - `super_users.json` - Super usuarios
-    - `usuarios.json` - Usuarios del sistema
+    **📁 TODOS los archivos que se sincronizan:**
+    
+    **📂 Carpeta `data/` (COMPLETA):**
+    - ✅ `config_excedentes.csv` - Precios excedentes
+    - ✅ `config_pmg.json` - Configuración PMG  
+    - ✅ `config_sistema.json` - Configuración del sistema
+    - ✅ `monitorizaciones.json` - Datos de monitorización
+    - ✅ `planes_gas.json` - Planes de gas
+    - ✅ `precios_luz.csv` - Planes de electricidad
+    - ✅ `registro_llamadas.json` - Datos CSV importados
+    - ✅ `super_users.json` - Super usuarios
+    - ✅ `usuarios.json` - Usuarios del sistema
+    - ✅ **TODO lo demás en `data/`**
+    
+    **📂 Carpeta `modelos_facturas/` (COMPLETA):**
+    - ✅ **TODOS los modelos de factura de todas las empresas**
+    - ✅ **TODAS las imágenes y PDFs**
     """)
     
-    # Estado actual
+    # Obtener estadísticas
+    stats = get_file_stats()
     status = get_status()
     
-    col1, col2, col3 = st.columns(3)
+    # Mostrar estadísticas
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("📁 Archivos vigilados", status["total_files"])
+        st.metric("📂 Archivos en data/", stats["data_files"])
+        st.caption(f"{stats['data_size_mb']} MB")
     with col2:
-        changed = len(status["changed_files"])
-        st.metric("✏️ Modificados", changed)
+        st.metric("📄 Archivos facturas", stats["modelos_files"])
+        st.caption(f"{stats['modelos_size_mb']} MB")
     with col3:
-        if status["next_sync_in"]:
+        changed = len(status.get("changed_files", []))
+        st.metric("✏️ Modificados", changed)
+    with col4:
+        if status.get("next_sync_in"):
             st.metric("⏰ Próximo auto-sync", status["next_sync_in"])
         else:
             st.metric("⏰ Auto-sync", "Cada 1 hora")
     
     # Archivos modificados
-    if status["changed_files"]:
-        st.warning(f"⚠️ **{len(status['changed_files'])} archivos modificados sin sincronizar:**")
-        for file in status["changed_files"][:5]:
-            st.write(f"• `{os.path.basename(file)}`")
-        if len(status["changed_files"]) > 5:
-            st.write(f"• ... y {len(status['changed_files']) - 5} más")
+    changed_files = status.get("changed_files", [])
+    if changed_files:
+        st.warning(f"⚠️ **{len(changed_files)} archivos modificados sin sincronizar:**")
+        
+        # Agrupar por carpeta
+        data_files = [f for f in changed_files if "data/" in f]
+        modelos_files = [f for f in changed_files if "modelos_facturas/" in f]
+        
+        if data_files:
+            st.write("**📂 data/:**")
+            for file in data_files[:5]:
+                file_display = file.replace("data/", "")
+                st.write(f"• `{file_display}`")
+            if len(data_files) > 5:
+                st.write(f"• ... y {len(data_files) - 5} más en data/")
+        
+        if modelos_files:
+            st.write("**📄 modelos_facturas/:**")
+            for file in modelos_files[:3]:
+                file_display = file.replace("modelos_facturas/", "")
+                st.write(f"• `{file_display}`")
+            if len(modelos_files) > 3:
+                st.write(f"• ... y {len(modelos_files) - 3} más en modelos_facturas/")
     else:
         st.success("✅ Todos los archivos están sincronizados")
     
@@ -59,8 +89,8 @@ def show_sync_panel():
     col_btn1, col_btn2, col_btn3 = st.columns(3)
     
     with col_btn1:
-        if st.button("🚀 **SINCRONIZAR TODO**", type="primary", use_container_width=True):
-            with st.spinner("Sincronizando todos los archivos..."):
+        if st.button("🚀 **SINCRONIZAR TODO AHORA**", type="primary", use_container_width=True):
+            with st.spinner("Sincronizando TODOS los archivos..."):
                 success_count, total_files, results = sync_now(force=True)
                 
                 if success_count > 0:
@@ -68,15 +98,22 @@ def show_sync_panel():
                     st.balloons()
                     
                     # Mostrar detalles
-                    with st.expander("📊 Ver detalles"):
-                        for result in results:
-                            st.write(result)
+                    with st.expander("📊 Ver detalles completos"):
+                        for result in results[:20]:  # Mostrar primeros 20
+                            if "✅" in result:
+                                st.success(result)
+                            elif "❌" in result:
+                                st.error(result)
+                            else:
+                                st.info(result)
+                        if len(results) > 20:
+                            st.write(f"... y {len(results) - 20} más")
                 else:
                     st.error("❌ No se pudo sincronizar ningún archivo")
     
     with col_btn2:
-        if st.button("📤 **Solo Modificados**", type="secondary", use_container_width=True):
-            with st.spinner("Sincronizando archivos modificados..."):
+        if st.button("📤 **Solo Archivos Modificados**", type="secondary", use_container_width=True):
+            with st.spinner("Sincronizando solo archivos modificados..."):
                 success_count, total_files, results = sync_now(force=False)
                 
                 if total_files > 0:
@@ -86,15 +123,21 @@ def show_sync_panel():
                         st.warning(f"⚠️ {total_files} archivos modificados pero no se pudieron sincronizar")
                     
                     with st.expander("📝 Ver resultados"):
-                        for result in results:
-                            st.write(result)
+                        for result in results[:10]:
+                            if "✅" in result:
+                                st.success(result)
+                            elif "❌" in result:
+                                st.error(result)
+                            else:
+                                st.info(result)
                 else:
                     st.info("ℹ️ No hay archivos modificados para sincronizar")
     
     with col_btn3:
-        if st.button("🔄 **Forzar Auto-Sync**", type="secondary", use_container_width=True):
+        if st.button("🔄 **Forzar Auto-Sync Ahora**", type="secondary", use_container_width=True):
             # Resetear tiempo para forzar auto-sync
-            sync_manager.last_sync_time = None
+            if hasattr(sync_manager, 'last_sync_time'):
+                sync_manager.last_sync_time = None
             success, message = auto_sync()
             
             if success:
@@ -104,47 +147,46 @@ def show_sync_panel():
     
     st.markdown("---")
     
-    # Sincronización por archivo
-    st.write("### 📁 Sincronización por Archivo")
+    # Listar archivos más importantes
+    st.write("### 📋 Archivos Principales para Sincronizar")
     
-    # Listar archivos con estado
-    files_status = []
-    for file_path in sync_manager.target_files:
-        exists = os.path.exists(file_path)
-        if exists:
+    # Archivos clave de data/
+    important_files = [
+        "data/monitorizaciones.json",
+        "data/usuarios.json", 
+        "data/super_users.json",
+        "data/precios_luz.csv",
+        "data/planes_gas.json",
+        "data/config_sistema.json"
+    ]
+    
+    # Verificar cada archivo
+    for file_path in important_files:
+        if os.path.exists(file_path):
+            file_name = os.path.basename(file_path)
             size = os.path.getsize(file_path)
-            modified = file_path in status["changed_files"]
+            size_kb = size / 1024
             
-            files_status.append({
-                "archivo": os.path.basename(file_path),
-                "tamaño": f"{size:,} bytes",
-                "estado": "✏️ Modificado" if modified else "✅ Sincronizado",
-                "ruta": file_path
-            })
-    
-    if files_status:
-        # Mostrar tabla
-        for file_info in files_status:
-            col_file1, col_file2, col_file3, col_file4 = st.columns([3, 2, 2, 1])
+            col_file1, col_file2, col_file3, col_file4 = st.columns([3, 1, 1, 1])
             
             with col_file1:
-                st.write(f"**{file_info['archivo']}**")
+                st.write(f"**{file_name}**")
             
             with col_file2:
-                st.write(file_info['tamaño'])
+                st.write(f"{size_kb:.1f} KB")
             
             with col_file3:
-                if file_info['estado'] == "✏️ Modificado":
-                    st.warning(file_info['estado'])
+                if file_path in changed_files:
+                    st.warning("✏️ Modificado")
                 else:
-                    st.success(file_info['estado'])
+                    st.success("✅ Sincronizado")
             
             with col_file4:
-                if file_info['estado'] == "✏️ Modificado":
-                    if st.button("⬆️", key=f"sync_{file_info['archivo']}", help="Sincronizar este archivo"):
+                if file_path in changed_files:
+                    if st.button("⬆️", key=f"sync_{file_name}", help="Sincronizar este archivo"):
                         success, message = sync_manager.sync_single_file(
-                            file_info['ruta'], 
-                            f"Sincronización manual: {file_info['archivo']}"
+                            file_path, 
+                            f"Sincronización manual: {file_name}"
                         )
                         
                         if success:
@@ -176,26 +218,21 @@ def show_sync_panel():
             st.success(f"✅ Intervalo actualizado: cada {interval_hours}h")
     
     with col_config2:
-        # Limpiar logs
-        if st.button("🧹 Limpiar Logs Antiguos", use_container_width=True):
-            log_files = ["logs/data_sync.log", "logs/auto_sync_summary.log"]
-            cleared = 0
+        # Verificar configuración de GitHub
+        st.write("**🔑 Configuración GitHub:**")
+        
+        required_secrets = ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]
+        missing = [s for s in required_secrets if s not in st.secrets]
+        
+        if missing:
+            st.error(f"❌ Faltan: {', '.join(missing)}")
+        else:
+            st.success("✅ Configuración OK")
             
-            for log_file in log_files:
-                if os.path.exists(log_file):
-                    # Mantener solo últimas 1000 líneas
-                    with open(log_file, "r", encoding="utf-8") as f:
-                        lines = f.readlines()
-                    
-                    if len(lines) > 1000:
-                        with open(log_file, "w", encoding="utf-8") as f:
-                            f.writelines(lines[-1000:])
-                        cleared += 1
-            
-            if cleared > 0:
-                st.success(f"✅ {cleared} logs limpiados")
-            else:
-                st.info("ℹ️ No hay logs para limpiar")
+            # Mostrar info (oculta token)
+            token_preview = st.secrets["GITHUB_TOKEN"][:4] + "..." + st.secrets["GITHUB_TOKEN"][-4:]
+            st.caption(f"Token: {token_preview}")
+            st.caption(f"Repo: {st.secrets['GITHUB_REPO_OWNER']}/{st.secrets['GITHUB_REPO_NAME']}")
     
     # Historial
     st.write("### 📜 Historial de Sincronizaciones")
@@ -219,3 +256,24 @@ def show_sync_panel():
                     st.info(line.strip())
     else:
         st.info("📭 No hay historial de sincronizaciones aún")
+    
+    # Información importante
+    st.markdown("---")
+    st.write("### ⚠️ Información Importante")
+    
+    st.warning("""
+    **📝 ¿Por qué se pierden los datos?**
+    
+    Streamlit Cloud tiene sesiones TEMPORALES. Cuando:
+    1. 🕒 Pasas 24h sin usar la app
+    2. 🔄 Reinicias la app manualmente
+    3. ⚡ Streamlit hace mantenimiento
+    
+    **TODOS los datos se pierden** a menos que los hayas sincronizado con GitHub.
+    
+    **✅ SOLUCIÓN:** Usa el botón **🚀 SINCRONIZAR TODO AHORA** después de:
+    - Crear nuevos usuarios
+    - Modificar planes de luz/gas  
+    - Subir modelos de factura
+    - Cualquier cambio importante
+    """)
