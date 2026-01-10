@@ -1,6 +1,7 @@
 """
 Sistema completo de sincronización: TEMPORAL → GITHUB
 Sincroniza TODOS los archivos importantes de data/ y modelos_facturas/
+SOLUCIÓN CORREGIDA - FUNCIONA
 """
 
 import os
@@ -10,8 +11,19 @@ import streamlit as st
 from datetime import datetime, timedelta
 from pathlib import Path
 
+# Importar UNA sola vez al inicio
+try:
+    from github_sync_completo import GitHubSyncCompleto
+    GITHUB_AVAILABLE = True
+except ImportError as e:
+    st.error(f"❌ No se puede importar github_sync_completo: {e}")
+    GITHUB_AVAILABLE = False
+except Exception as e:
+    st.error(f"❌ Error importando: {e}")
+    GITHUB_AVAILABLE = False
+
 class DataSyncManager:
-    """Gestor de sincronización de datos TEMPORAL → GITHUB"""
+    """Gestor de sincronización de datos TEMPORAL → GITHUB - CORREGIDO"""
     
     def __init__(self):
         self.data_folder = "data/"
@@ -20,8 +32,17 @@ class DataSyncManager:
         self.last_sync_time = None
         self.last_modified_times = {}
         
-        # NO usamos target_files específicos - sincronizamos TODO
-        self.target_files = self._get_all_files_to_sync()
+        # Crear instancia UNA sola vez
+        self.github_sync = None
+        if GITHUB_AVAILABLE:
+            try:
+                self.github_sync = GitHubSyncCompleto()
+            except Exception as e:
+                st.warning(f"⚠️ No se pudo crear GitHubSyncCompleto: {e}")
+                self.github_sync = None
+        
+        # Inicializar lista de archivos
+        self._update_file_list()
     
     def _get_all_files_to_sync(self):
         """Obtiene TODOS los archivos de data/ y modelos_facturas/"""
@@ -64,24 +85,19 @@ class DataSyncManager:
         return changed_files
     
     def sync_single_file(self, file_path, operation_name="Cambios"):
-        """Sincroniza un solo archivo a GitHub"""
+        """Sincroniza un solo archivo a GitHub - CORREGIDO"""
         try:
-            from github_sync_completo import GitHubSyncCompleto
-            
-            # Verificar credenciales
-            if not all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"]):
-                return False, "Faltan credenciales de GitHub"
+            # Verificar que tenemos conexión a GitHub
+            if self.github_sync is None:
+                return False, "GitHub no configurado o disponible"
             
             # Verificar que el archivo existe en la sesión temporal
             if not os.path.exists(file_path):
                 return False, f"Archivo no existe en sesión temporal: {file_path}"
             
-            # Crear sincronizador
-            sync = GitHubSyncCompleto()
-            
-            # Subir archivo
+            # Subir archivo usando la instancia ya creada
             commit_msg = f"🔄 Sync automático: {operation_name} - {datetime.now().strftime('%H:%M')}"
-            success, message = sync.upload_file(file_path, commit_msg)
+            success, message = self.github_sync.upload_file(file_path, commit_msg)
             
             if success:
                 # Registrar éxito
@@ -95,31 +111,27 @@ class DataSyncManager:
                 else:
                     file_display = os.path.basename(file_path)
                 
-                return True, f"✅ {file_display} → GitHub"
+                return True, f"✅ {file_display}"
             else:
                 self._log_sync(file_path, False, f"Error: {message}")
-                
-                if "data/" in file_path:
-                    file_display = file_path.replace("data/", "")
-                elif "modelos_facturas/" in file_path:
-                    file_display = file_path.replace("modelos_facturas/", "📄 ")
-                else:
-                    file_display = os.path.basename(file_path)
-                    
-                return False, f"❌ {file_display}: {message}"
+                return False, f"❌ {message}"
                 
         except Exception as e:
             error_msg = f"Excepción: {str(e)[:100]}"
             self._log_sync(file_path, False, error_msg)
-            return False, f"❌ Error en {os.path.basename(file_path)}: {str(e)[:50]}"
+            return False, f"❌ Error: {str(e)[:50]}"
     
     def sync_all_changed_files(self, force=False):
         """
-        Sincroniza todos los archivos modificados
+        Sincroniza todos los archivos modificados - CORREGIDO
         
         Args:
             force: Si True, sincroniza todos aunque no hayan cambiado
         """
+        # Verificar conexión primero
+        if self.github_sync is None:
+            return 0, 0, ["❌ GitHub no está configurado. Verifica secrets.toml"]
+        
         if force:
             # Primero actualizamos la lista por si hay nuevos archivos
             self._update_file_list()
@@ -133,23 +145,20 @@ class DataSyncManager:
         results = []
         success_count = 0
         
-        st.info(f"📁 Sincronizando {len(files_to_sync)} archivos...")
+        # Probar conexión primero
+        test_success, test_message = self.github_sync.test_connection()
+        if not test_success:
+            return 0, len(files_to_sync), [f"❌ Error de conexión: {test_message}"]
         
         for i, file_path in enumerate(files_to_sync, 1):
-            # Mostrar progreso cada 5 archivos
-            if i % 5 == 0 or i == len(files_to_sync):
-                st.write(f"📤 Progreso: {i}/{len(files_to_sync)} archivos")
-            
             success, message = self.sync_single_file(
                 file_path, 
                 f"Sync {'forzado' if force else 'automático'}"
             )
             
+            results.append(message)
             if success:
                 success_count += 1
-                results.append(f"✅ {os.path.basename(file_path)}")
-            else:
-                results.append(f"❌ {os.path.basename(file_path)}: {message}")
         
         # Actualizar tiempo de última sincronización
         if success_count > 0:
@@ -171,7 +180,7 @@ class DataSyncManager:
     
     def auto_sync_if_needed(self):
         """Ejecuta sync automático si es necesario"""
-        if self.should_auto_sync():
+        if self.should_auto_sync() and self.github_sync is not None:
             success_count, total_files, results = self.sync_all_changed_files()
             
             if success_count > 0:
@@ -193,7 +202,8 @@ class DataSyncManager:
             "last_sync": self.last_sync_time,
             "next_sync_in": None,
             "changed_files": changed_files,
-            "total_files": total_files
+            "total_files": total_files,
+            "github_available": self.github_sync is not None
         }
         
         if self.last_sync_time:
@@ -258,22 +268,27 @@ class DataSyncManager:
         
         with open(log_file, "a", encoding="utf-8") as f:
             f.write(f"{timestamp} - AUTO-SYNC: {success_count}/{total_files} archivos\n")
-            
-        # También log detallado
-        detail_log = "logs/auto_sync_detail.log"
-        with open(detail_log, "a", encoding="utf-8") as f:
-            f.write(f"\n{'='*60}\n")
-            f.write(f"{timestamp} - AUTO-SYNC DETALLADO\n")
-            f.write(f"Total archivos: {total_files}\n")
-            f.write(f"Exitosos: {success_count}\n")
 
-# Instancia global
-sync_manager = DataSyncManager()
+# Instancia global - IMPORTANTE: Crear una sola vez
+try:
+    sync_manager = DataSyncManager()
+except Exception as e:
+    st.error(f"❌ Error inicializando DataSyncManager: {e}")
+    # Crear un manager vacío para evitar crash
+    class DummyManager:
+        def __init__(self): pass
+        def sync_all_changed_files(self, force=False): return 0, 0, ["❌ Error inicial"]
+        def get_sync_status(self): return {"error": True, "github_available": False}
+        def get_file_stats(self): return {}
+    sync_manager = DummyManager()
 
 # Funciones de conveniencia
 def sync_now(force=False):
     """Sincroniza ahora mismo"""
-    return sync_manager.sync_all_changed_files(force=force)
+    try:
+        return sync_manager.sync_all_changed_files(force=force)
+    except Exception as e:
+        return 0, 0, [f"❌ Error en sync_now: {str(e)}"]
 
 def sync_file(file_path):
     """Sincroniza un archivo específico"""
@@ -281,7 +296,10 @@ def sync_file(file_path):
 
 def get_status():
     """Obtiene estado"""
-    return sync_manager.get_sync_status()
+    try:
+        return sync_manager.get_sync_status()
+    except:
+        return {"error": True, "github_available": False}
 
 def auto_sync():
     """Auto-sync si es necesario"""
@@ -289,4 +307,7 @@ def auto_sync():
 
 def get_file_stats():
     """Obtiene estadísticas de archivos"""
-    return sync_manager.get_file_stats()
+    try:
+        return sync_manager.get_file_stats()
+    except:
+        return {"data_files": 0, "modelos_files": 0, "data_size_mb": 0, "modelos_size_mb": 0}
