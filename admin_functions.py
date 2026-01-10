@@ -1419,11 +1419,11 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
     
-    # 11 pestañas (sin GitHub Sync, solo con Sync Data)
+    # 11 pestañas
     tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11 = st.tabs([
         "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
         "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", 
-        "📊 Analizador Llamadas", "💾 Sync Data"  # <-- ÚNICA PESTAÑA DE SINCRONIZACIÓN
+        "📊 Analizador Llamadas", "🔄 GitHub Sync"  # <-- NUEVO NOMBRE
     ])
     
     with tab1:
@@ -1446,6 +1446,11 @@ def mostrar_panel_administrador():
         gestion_secciones_visibles()
     with tab10:
         interfaz_analisis_llamadas()
-    with tab11:  # NUEVA PESTAÑA ÚNICA
-        from sync_ui import show_sync_panel
-        show_sync_panel()
+    with tab11:  # PESTAÑA DE SINCRONIZACIÓN
+        try:
+            # Importar la interfaz SIMPLE
+            from sync_ui_simple import show_sync_panel_simple
+            show_sync_panel_simple()
+        except ImportError:
+            st.error("❌ No se puede cargar el módulo de sincronización")
+            st.info("Asegúrate de que `sync_ui_simple.py` existe en tu repositorio")
