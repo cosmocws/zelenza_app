@@ -70,70 +70,32 @@ def mostrar_panel_usuario():
         return
     
     # ============================================
-    # MANEJADOR DE PÁGINAS ESPECIALES PARA AGENTES
+    # 1. PRIMERO: Panel personal del agente (si se solicitó desde sidebar)
     # ============================================
-    
-    # 1. Panel personal del agente (cuando se hace clic en sidebar)
     if st.session_state.get('mostrar_panel_personal', False):
         try:
             from super_users_functions import mostrar_estadisticas_agente_personal
             mostrar_estadisticas_agente_personal(st.session_state.username)
-            
-            # Botón para volver al menú principal
-            if st.button("← Volver al menú principal", type="secondary", use_container_width=True):
-                st.session_state.mostrar_panel_personal = False
-                st.rerun()
-            return  # IMPORTANTE: Salir para no mostrar las pestañas
+            return  # IMPORTANTE: Salir aquí, no mostrar nada más
         except ImportError as e:
             st.error(f"No se pudo cargar el panel personal: {e}")
             st.session_state.mostrar_panel_personal = False
-    
-    # ============================================
-    # CONTENIDO NORMAL (pestañas)
-    # ============================================
-    
-    # PRIMERO: Mostrar bienvenida y opción para ver panel completo
-    st.header(f"👤 Portal del Agente")
-    
-    col_welcome1, col_welcome2 = st.columns([3, 1])
-    
-    with col_welcome1:
-        from database import cargar_configuracion_usuarios
-        if st.session_state.username in cargar_configuracion_usuarios():
-            config = cargar_configuracion_usuarios()[st.session_state.username]
-            st.write(f"Hola **{config.get('nombre', 'Agente')}**, bienvenido/a a tu portal.")
-    
-    with col_welcome2:
-        if st.button("📊 Ver mi panel completo", type="primary", use_container_width=True):
-            st.session_state.mostrar_panel_personal = True
             st.rerun()
     
-    st.info("Aquí puedes acceder a todas las herramientas disponibles:")
+    # ============================================
+    # 2. SEGUNDO: Contenido normal (pestañas) - SOLO si no estamos en panel personal
+    # ============================================
     
+    # IMPORTAR las funciones necesarias aquí
     from user_functions import (
         consultar_modelos_factura, comparativa_exacta,
         calculadora_gas, cups_naturgy, comparativa_estimada,
         gestion_pvd_usuario
     )
     
-    # Mostrar información del usuario
-    from database import cargar_configuracion_usuarios
-    if st.session_state.username in cargar_configuracion_usuarios():
-        config = cargar_configuracion_usuarios()[st.session_state.username]
-        st.header(f"👤 {config.get('nombre', 'Usuario')}")
-    else:
-        st.header("👤 Portal del Cliente")
+    # Ocultar el título y bienvenida para que no aparezca "None"
+    # Solo mostrar directamente las pestañas
     
-    # PRIMERO: Mostrar la monitorización del agente (si existe)
-    try:
-        from monitorizacion_utils import mostrar_monitorizacion_agente
-        mostrar_monitorizacion_agente(st.session_state.username)
-    except ImportError:
-        # Si no existe la función de monitorización, continuar sin ella
-        pass
-    except Exception as e:
-        st.warning(f"No se pudo cargar la monitorización: {e}")
-
     # Cargar configuración de secciones
     from database import cargar_config_sistema
     config_sistema = cargar_config_sistema()
