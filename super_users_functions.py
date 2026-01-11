@@ -4413,21 +4413,41 @@ def mostrar_panel_objetivos_sidebar():
                 help="Objetivo global de ventas de la campaña"
             )
 
+# En super_users_functions.py, añade esta función:
 
-# ============================================================================
-# MANTENIMIENTO DE FUNCIONES ELIMINADAS
-# ============================================================================
-
-# Las siguientes funciones relacionadas con alertas SMS han sido eliminadas:
-# - cargar_alertas_pendientes_sms()
-# - guardar_alertas_pendientes_sms()
-# - agregar_alertas_sms_nuevas() (versión duplicada)
-# - confirmar_venta_sms() (versión duplicada)
-# - rechazar_venta_sms() (versión duplicada)
-# - actualizar_ventas_agente_confirmadas()
-# - mostrar_alertas_sms_en_sidebar()
-# - panel_alertas_sms_completo()
-# - obtener_alertas_pendientes() (versión duplicada)
-
-# En su lugar, se mantiene la funcionalidad de monitorizaciones y alertas básicas
-# que es lo que realmente necesita el sistema.
+def mostrar_alertas_sms_en_sidebar():
+    """Muestra las alertas SMS pendientes en el sidebar"""
+    try:
+        from database import cargar_alertas_sms
+        
+        alertas = cargar_alertas_sms()
+        alertas_pendientes = [a for a in alertas.values() if a.get('estado') in ['pendiente', 'confirmado', 'rechazado']]
+        
+        if alertas_pendientes:
+            st.sidebar.markdown("---")
+            st.sidebar.subheader("📱 Alertas SMS Pendientes")
+            
+            # Mostrar contador
+            total_pendientes = len([a for a in alertas_pendientes if a.get('estado') == 'pendiente'])
+            total_confirmadas = len([a for a in alertas_pendientes if a.get('estado') == 'confirmado'])
+            total_rechazadas = len([a for a in alertas_pendientes if a.get('estado') == 'rechazado'])
+            
+            col1, col2, col3 = st.sidebar.columns(3)
+            with col1:
+                st.metric("⏳", total_pendientes, help="Pendientes de revisar")
+            with col2:
+                st.metric("✅", total_confirmadas, help="Confirmadas")
+            with col3:
+                st.metric("❌", total_rechazadas, help="Rechazadas")
+            
+            # Botón para ir a la sección
+            if st.sidebar.button("📋 Ver todas las alertas", use_container_width=True):
+                st.session_state.mostrar_alertas_sms = True
+                st.rerun()
+            
+            return True
+        return False
+        
+    except Exception as e:
+        st.sidebar.error(f"Error cargando alertas: {e}")
+        return False
