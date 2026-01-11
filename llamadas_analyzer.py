@@ -172,6 +172,18 @@ def contar_ventas_resultado_mejorado(resultado_str, motivo_str=None):
     
     return 0
 
+def verificar_si_procesada(hash_registro):
+    """Verifica si una alerta ya fue procesada"""
+    try:
+        from database import cargar_alertas_sms
+        alertas = cargar_alertas_sms()
+        
+        alerta_id = f"sms_{hash_registro}"
+        return alerta_id in alertas
+        
+    except:
+        return False
+
 # ==============================================
 # VERSIÓN CORREGIDA DE LA FUNCIÓN realizar_analisis()
 # ==============================================
@@ -528,20 +540,6 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         except Exception as e:
             st.error(f"Error procesando alerta individual: {e}")
             return False
-
-
-    def verificar_si_procesada(hash_registro):
-        """Verifica si una alerta ya fue procesada"""
-        try:
-            from database import cargar_alertas_sms
-            alertas = cargar_alertas_sms()
-            
-            alerta_id = f"sms_{hash_registro}"
-            return alerta_id in alertas
-            
-        except:
-            return False
-
 
     def mostrar_modal_edicion(datos, index):
         """Muestra un modal simple para edición detallada"""
