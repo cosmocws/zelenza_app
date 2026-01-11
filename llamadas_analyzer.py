@@ -184,9 +184,6 @@ def verificar_si_procesada(hash_registro):
     except:
         return False
 
-# ==============================================
-# VERSIÓN CORREGIDA DE LA FUNCIÓN realizar_analisis()
-# ==============================================
 
 def realizar_analisis(df_filtrado, nombre_analisis):
     """Realiza el análisis sobre datos filtrados"""
@@ -269,188 +266,105 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         st.metric("⏳ Pendientes SMS", int(total_pendientes), delta=delta)
     
     # Mostrar alerta si hay pendientes SMS
-        if pendientes_sms_data:
-            st.warning(f"⚠️ **{total_pendientes} llamadas con PENDIENTE SMS detectadas ({ventas_pendientes} ventas pendientes)**")
+    if pendientes_sms_data:
+        st.warning(f"⚠️ **{total_pendientes} llamadas con PENDIENTE SMS detectadas ({ventas_pendientes} ventas pendientes)**")
+        
+        # Guardar en session_state para uso posterior
+        st.session_state.pendientes_sms = pendientes_sms_data
+        
+        # Mostrar tabla de pendientes
+        with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
+            df_pendientes = pd.DataFrame(pendientes_sms_data)
+            df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
+                                                   'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
+            df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
+                                             'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
+            st.dataframe(df_pendientes_display, use_container_width=True)
             
-            # Guardar en session_state
-            st.session_state.pendientes_sms = pendientes_sms_data
+            st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
             
-            # Mostrar tabla de pendientes
-            with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
-                df_pendientes = pd.DataFrame(pendientes_sms_data)
-                df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
-                                                    'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
-                df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
-                                                'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
-                st.dataframe(df_pendientes_display, use_container_width=True)
-                
-                st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
-                
-                # ==============================================
-                # FORMULARIO SIMPLIFICADO - SIN COMPLICACIONES DE ESTADO
-                # ==============================================
-                st.divider()
-                st.subheader("📝 Procesar Pendientes SMS")
-                
-                # Opción 1: Procesar todas automáticamente
-                st.write("**Opción rápida:**")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    if st.button("✅ Todas como Confirmadas", 
-                            help="Marcar todas las SMS como contestadas y contar ventas",
-                            use_container_width=True):
-                        procesar_todas_alertas(pendientes_sms_data, estado="confirmado")
-                        st.success("¡Todas las alertas procesadas como confirmadas!")
-                        st.rerun()
-                
-                with col2:
-                    if st.button("❌ Todas como No Contestadas", 
-                            help="Marcar todas las SMS como no contestadas",
-                            use_container_width=True):
-                        procesar_todas_alertas(pendientes_sms_data, estado="rechazado")
-                        st.success("¡Todas las alertas procesadas como no contestadas!")
-                        st.rerun()
-                
-                st.divider()
-                st.write("**Opción detallada:** Procesar una por una")
-                
-                # Formulario simple y directo - SIN estado complejo
-                for i, datos in enumerate(pendientes_sms_data):
-                    with st.container():
-                        st.markdown(f"---")
-                        st.write(f"**Llamada #{i+1}**")
-                        
-                        col_a, col_b, col_c = st.columns(3)
-                        with col_a:
-                            st.write(f"**Agente:** {datos['agente']}")
-                        with col_b:
-                            st.write(f"**Fecha:** {datos['fecha']}")
-                        with col_c:
-                            st.write(f"**Hora:** {datos['hora']}")
-                        
-                        st.write(f"**Ventas pendientes:** {datos['ventas_pendientes']}")
-                        st.write(f"**Duración:** {datos['duracion_minutos']} minutos")
-                        
-                        # Botones de acción para esta llamada específica
-                        col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
-                        
-                        with col_btn1:
-                            if st.button(f"✅ Confirmar #{i+1}", 
-                                    key=f"confirm_{datos['hash']}",
-                                    use_container_width=True):
+            # ==============================================
+            # VERSIÓN SIMPLE Y FUNCIONAL - SIN ESTADO COMPLEJO
+            # ==============================================
+            st.divider()
+            st.subheader("📝 Procesar Pendientes SMS")
+            
+            # Opción 1: Procesar todas automáticamente
+            st.write("**Opción rápida:**")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                if st.button("✅ Todas como Confirmadas", 
+                           help="Marcar todas las SMS como contestadas y contar ventas",
+                           use_container_width=True,
+                           key=f"confirm_all_{nombre_analisis}"):
+                    procesar_todas_alertas(pendientes_sms_data, estado="confirmado")
+                    st.success("¡Todas las alertas procesadas como confirmadas!")
+                    st.rerun()
+            
+            with col2:
+                if st.button("❌ Todas como No Contestadas", 
+                           help="Marcar todas las SMS como no contestadas",
+                           use_container_width=True,
+                           key=f"reject_all_{nombre_analisis}"):
+                    procesar_todas_alertas(pendientes_sms_data, estado="rechazado")
+                    st.success("¡Todas las alertas procesadas como no contestadas!")
+                    st.rerun()
+            
+            st.divider()
+            st.write("**Opción detallada:** Procesar una por una")
+            
+            # Formulario simple y directo
+            for i, datos in enumerate(pendientes_sms_data):
+                with st.container():
+                    st.markdown(f"---")
+                    st.write(f"**Llamada #{i+1}**")
+                    
+                    col_a, col_b, col_c = st.columns(3)
+                    with col_a:
+                        st.write(f"**Agente:** {datos['agente']}")
+                    with col_b:
+                        st.write(f"**Fecha:** {datos['fecha']}")
+                    with col_c:
+                        st.write(f"**Hora:** {datos['hora']}")
+                    
+                    st.write(f"**Ventas pendientes:** {datos['ventas_pendientes']}")
+                    st.write(f"**Duración:** {datos['duracion_minutos']} minutos")
+                    
+                    # Verificar si ya está procesada
+                    procesada = verificar_si_procesada(datos['hash'])
+                    
+                    # Botones de acción
+                    col_btn1, col_btn2, col_btn3 = st.columns(3)
+                    
+                    with col_btn1:
+                        if not procesada:
+                            if st.button(f"✅ Confirmar", 
+                                       key=f"confirm_{datos['hash']}",
+                                       use_container_width=True):
                                 procesar_alerta_individual(datos, estado="confirmado")
                                 st.success(f"Llamada #{i+1} confirmada")
                                 st.rerun()
-                        
-                        with col_btn2:
-                            if st.button(f"❌ Rechazar #{i+1}", 
-                                    key=f"reject_{datos['hash']}",
-                                    use_container_width=True):
+                        else:
+                            st.success("✓ Confirmada")
+                    
+                    with col_btn2:
+                        if not procesada:
+                            if st.button(f"❌ Rechazar", 
+                                       key=f"reject_{datos['hash']}",
+                                       use_container_width=True):
                                 procesar_alerta_individual(datos, estado="rechazado")
                                 st.success(f"Llamada #{i+1} rechazada")
                                 st.rerun()
-                        
-                        with col_btn3:
-                            if st.button(f"📝 Editar #{i+1}", 
-                                    key=f"edit_{datos['hash']}",
-                                    use_container_width=True):
-                                mostrar_modal_edicion(datos, i)
-                        
-                        with col_btn4:
-                            # Verificar si ya está procesada
-                            if verificar_si_procesada(datos['hash']):
-                                st.success("✓ Procesada")
-                            else:
-                                st.info("⏳ Pendiente")
-
-    def guardar_lineas_formulario(lineas_formulario, datos_originales, solo_seleccionadas=False):
-        """Guarda las líneas del formulario manual en alertas_sms.json"""
-        
-        try:
-            from database import agregar_varias_alertas_sms
-            
-            st.write("### 💾 Guardando información...")
-            
-            # Convertir a formato de alertas
-            alertas = []
-            total_ventas_confirmadas = 0
-            total_ventas_rechazadas = 0
-            total_pendientes = 0
-            
-            for i, linea in enumerate(lineas_formulario):
-                # Crear alerta
-                alerta_id = f"sms_{linea['hash_original']}"
-                
-                alerta = {
-                    'id': alerta_id,
-                    'tipo': 'pendiente_sms',
-                    'agente': linea['agente'],
-                    'fecha': linea['fecha'],
-                    'hora': linea['hora'],
-                    'duracion_minutos': linea['duracion_minutos'],
-                    'duracion_segundos': linea['duracion_segundos'],
-                    'resultado_elec': linea['resultado_elec'],
-                    'resultado_gas': linea['resultado_gas'],
-                    'motivo_elec': linea['motivo_elec'],
-                    'motivo_gas': linea['motivo_gas'],
-                    'ventas_pendientes': linea['ventas_pendientes'],
-                    'ventas_finales': linea['ventas_finales'],
-                    'campanya': linea['campanya'],
-                    'timestamp_deteccion': datos_originales[i]['timestamp'] if i < len(datos_originales) else datetime.now().isoformat(),
-                    'timestamp_revision': linea['timestamp_revision'],
-                    'hash_registro': linea['hash_original'],
-                    'detalles': f"{linea['opcion_seleccionada']} - Originalmente {linea['ventas_pendientes']} venta(s) pendiente(s)",
-                    'estado': linea['estado'],
-                    'opcion_seleccionada': linea['opcion_seleccionada'],
-                    'accion': None,
-                    'confirmado_por': None,
-                    'timestamp_confirmacion': None,
-                    'revisado_manual': True,
-                    'datos_manuales': {
-                        'agente_manual': linea['agente'],
-                        'fecha_manual': linea['fecha'],
-                        'duracion_manual': linea['duracion_minutos']
-                    }
-                }
-                
-                alertas.append(alerta)
-                
-                # Contar estadísticas
-                if linea['estado'] == 'confirmado':
-                    total_ventas_confirmadas += linea['ventas_finales']
-                elif linea['estado'] == 'rechazado':
-                    total_ventas_rechazadas += linea['ventas_pendientes']
-                else:
-                    total_pendientes += 1
-            
-            # Guardar alertas
-            nuevas_agregadas = agregar_varias_alertas_sms(alertas)
-            
-            if nuevas_agregadas > 0:
-                st.success(f"✅ **¡{nuevas_agregadas} alertas guardadas exitosamente!**")
-                
-                # Mostrar resumen
-                col1, col2, col3 = st.columns(3)
-                with col1:
-                    st.metric("📊 Total procesadas", len(lineas_formulario))
-                with col2:
-                    st.metric("✅ SMS Contestados", total_ventas_confirmadas, delta=f"{total_ventas_confirmadas} ventas")
-                with col3:
-                    st.metric("❌ SMS No Contestados", total_ventas_rechazadas, delta=f"-{total_ventas_rechazadas} ventas")
-                
-                st.info("📋 Las alertas aparecerán en el sidebar de Super Users para procesamiento final.")
-                
-            else:
-                st.info("ℹ️ No se agregaron nuevas alertas (posiblemente ya existían)")
-                
-        except ImportError:
-            st.error("❌ No se pudo importar la función de database.py")
-            st.info("💡 Asegúrate de haber agregado las funciones de alertas SMS a database.py")
-        except Exception as e:
-            st.error(f"❌ Error al guardar alertas: {e}")
-            import traceback
-            st.text(traceback.format_exc())
+                        else:
+                            st.info("✓ Procesada")
+                    
+                    with col_btn3:
+                        # Botón para editar (opcional)
+                        if st.button(f"📝 Editar", 
+                                   key=f"edit_{datos['hash']}",
+                                   use_container_width=True):
+                            mostrar_modal_edicion(datos, i, nombre_analisis)
 
     # ==============================================
     # FUNCIONES AUXILIARES PARA EL FORMULARIO SIMPLE
