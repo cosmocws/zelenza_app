@@ -495,7 +495,7 @@ def _mostrar_configuracion_metricas(super_users_config):
             "🎯 Target mensual VENTAS (Campaña Total):",
             min_value=1,
             max_value=10000,
-            value=config_actual.get("target_ventas_global", 100),
+            value=obtener_objetivo_global_campana(),
             help="Objetivo TOTAL de ventas para toda la campaña/equipo"
         )
     
@@ -539,15 +539,21 @@ def _mostrar_configuracion_metricas(super_users_config):
             "duracion_minima_llamada": duracion_minima,
             "periodo_mensual": periodo,
             "target_llamadas": target_llamadas,
-            "target_ventas_global": target_ventas_global,  # ⬅️ CAMBIADO DE 'target_ventas'
+            "target_ventas_global": target_ventas_global,  # ⬅️ Esto está bien
             "metrica_eficiencia": metrica,
             "mostrar_solo_mis_agentes": mostrar_solo_mis_agentes,
             "umbral_alertas_llamadas": umbral_alertas_llamadas,
             "minimo_llamadas_dia": minimo_llamadas_dia
         }
         
-        super_users_config["configuracion"] = nueva_config
+        # Asegurar que se guarda el objetivo global
+        super_users_config = cargar_super_users()
+        if "configuracion" not in super_users_config:
+            super_users_config["configuracion"] = {}
+        
+        super_users_config["configuracion"]["target_ventas_global"] = target_ventas_global
         guardar_super_users(super_users_config)
+        
         st.success("✅ Configuración guardada")
         st.rerun()
 
@@ -1810,6 +1816,36 @@ def _mostrar_comparacion_llamadas(agentes, registro_llamadas, fecha_inicio, fech
 # ============================================================================
 # GESTIÓN DE AGENTES PARA SUPER USUARIOS
 # ============================================================================
+
+# AÑADE ESTA FUNCIÓN EN super_users_functions.py (al principio, después de los imports)
+
+def obtener_objetivo_global_campana(force_default=None):
+    """
+    Obtiene el objetivo global de campaña desde super_users.json
+    Si no existe, lo crea con un valor por defecto
+    """
+    try:
+        super_users_config = cargar_super_users()
+        configuracion = super_users_config.get("configuracion", {})
+        
+        # Verificar si existe la clave
+        if "target_ventas_global" in configuracion:
+            return configuracion["target_ventas_global"]
+        else:
+            # Si no existe, crear con valor por defecto
+            default_value = force_default if force_default is not None else 100
+            
+            # Actualizar configuración
+            configuracion["target_ventas_global"] = default_value
+            super_users_config["configuracion"] = configuracion
+            guardar_super_users(super_users_config)
+            
+            print(f"✅ Objetivo global creado con valor por defecto: {default_value}")
+            return default_value
+            
+    except Exception as e:
+        print(f"❌ Error obteniendo objetivo global: {e}")
+        return force_default if force_default is not None else 100
 
 def gestion_agentes_super_usuario(agentes, super_users_config):
     """Gestión de agentes desde el panel de super usuario - VERSIÓN MEJORADA"""
