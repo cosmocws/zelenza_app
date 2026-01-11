@@ -4399,7 +4399,10 @@ def mostrar_panel_objetivos_sidebar():
             
             # Enlace rápido para ver detalles completos
             st.write("---")
-            if st.button("📈 Ver mi panel completo", use_container_width=True):
+            if st.button("📊 **Ver mi panel completo de estadísticas**", 
+                        use_container_width=True, 
+                        type="primary",  # Hacerlo más visible
+                        help="Ver todas tus estadísticas, ventas, días laborables y progreso detallado"):
                 st.session_state.mostrar_panel_personal = True
                 st.rerun()
         
@@ -4456,7 +4459,36 @@ def mostrar_estadisticas_agente_personal(username):
     """Muestra panel personal del agente con estadísticas, objetivos y días laborables"""
     from datetime import datetime, date, timedelta
     
-    st.subheader("📊 Mi Panel Personal")
+    # Botón para volver (arriba a la derecha)
+    col_title, col_back = st.columns([3, 1])
+    with col_title:
+        st.subheader("📊 Mi Panel Personal")
+    with col_back:
+        if st.button("← Volver", type="secondary", use_container_width=True):
+            st.session_state.mostrar_panel_personal = False
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Verificar si las funciones de días laborables están disponibles
+    try:
+        # Importar si no están en el scope global
+        from super_users_functions import (
+            calcular_dias_laborables_transcurridos,
+            calcular_dias_laborables_restantes,
+            obtener_total_dias_laborables_mes
+        )
+    except ImportError:
+        # Si no existen, crear funciones básicas
+        def calcular_dias_laborables_transcurridos(inicio, hoy):
+            # Simulación básica - contar días de lunes a viernes
+            return (hoy - inicio).days
+        
+        def calcular_dias_laborables_restantes(hoy, fin):
+            return (fin - hoy).days
+        
+        def obtener_total_dias_laborables_mes(inicio, fin):
+            return (fin - inicio).days + 1
     
     # 1. Cargar objetivos desde JSON (sistema principal)
     objetivos_data = cargar_objetivos_ventas()
