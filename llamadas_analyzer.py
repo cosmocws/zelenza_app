@@ -1,24 +1,24 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 import tempfile
 import io
 from database import cargar_registro_llamadas, guardar_registro_llamadas, cargar_super_users
 import json
 import hashlib
 
+
 def calcular_hash_registro(registro):
     """Calcula un hash único para un registro"""
-    # Crear string único con los datos relevantes
     datos_str = f"{registro['agente']}_{registro['fecha']}_{registro['tiempo_conversacion']}_{registro.get('ventas_totales', 0)}"
     return hashlib.md5(datos_str.encode()).hexdigest()
+
 
 def analizar_csv_llamadas(uploaded_file):
     """
     Analiza un CSV de llamadas con la estructura específica de Zelenza
     """
-    
     # Guardar el archivo en session_state para persistencia
     if uploaded_file is not None:
         st.session_state.uploaded_file_data = uploaded_file.getvalue()
@@ -44,11 +44,9 @@ def analizar_csv_llamadas(uploaded_file):
             first_line = f.readline()
         
         # Detectar separador
-        if '\t' in first_line:
-            separator = '\t'
+        separator = '\t' if '\t' in first_line else ','
+        if separator == '\t':
             st.info("📄 Archivo detectado como separado por TABULACIONES")
-        else:
-            separator = ','
         
         # Leer el archivo
         df = pd.read_csv(tmp_path, sep=separator, encoding='utf-8')
@@ -57,7 +55,8 @@ def analizar_csv_llamadas(uploaded_file):
         df.columns = df.columns.str.strip().str.lower()
         
         # Verificar columnas necesarias
-        columnas_requeridas = ['agente', 'tiempo_conversacion', 'resultado_elec', 'resultado_gas', 'fecha', 'hora', 'campanya']
+        columnas_requeridas = ['agente', 'tiempo_conversacion', 'resultado_elec', 
+                               'resultado_gas', 'fecha', 'hora', 'campanya']
         columnas_faltantes = [col for col in columnas_requeridas if col not in df.columns]
         
         if columnas_faltantes:
@@ -67,30 +66,29 @@ def analizar_csv_llamadas(uploaded_file):
                 st.write(f"- {col}")
             return None
         
-        # Limpiar datos de campaña
+        # Asegurar columnas de motivo
+        df['motivo_elec'] = df.get('motivo_elec', '')
+        df['motivo_gas'] = df.get('motivo_gas', '')
+        
+        # Limpiar datos
         df['campanya'] = df['campanya'].astype(str).str.strip()
-        
-        # Convertir fecha a formato estándar
         df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce').dt.strftime('%Y-%m-%d')
-        
-        # Filtrar filas con fecha inválida
         df = df.dropna(subset=['fecha'])
         
-        # Añadir hash único para cada registro
+        # Añadir hash único
         df['hash'] = df.apply(calcular_hash_registro, axis=1)
         
         # Mostrar campañas encontradas
         campanyas_unicas = df['campanya'].unique()
         st.success(f"✅ **Campañas detectadas ({len(campanyas_unicas)}):**")
         
-        # Crear lista para mostrar
         for i, camp in enumerate(campanyas_unicas[:10]):
             st.write(f"{i+1}. {camp}")
         
         if len(campanyas_unicas) > 10:
             st.info(f"... y {len(campanyas_unicas) - 10} más")
         
-        # Guardar datos en session_state para usar después
+        # Guardar datos en session_state
         st.session_state.df_original = df
         st.session_state.campanyas_unicas = campanyas_unicas
         
@@ -105,28 +103,78 @@ def analizar_csv_llamadas(uploaded_file):
         except:
             pass
 
+
 def contar_ventas_resultado(resultado_str):
-    """Cuenta ventas en un resultado (puede haber LUZ y GAS en la misma línea)"""
+    """Cuenta ventas en un resultado (compatibilidad)"""
     if pd.isna(resultado_str):
         return 0
     
     resultado = str(resultado_str).upper()
     
-    # Si es UTIL POSITIVO, cuenta 1 venta
+    if 'PENDIENTE SMS' in resultado:
+        return 0
+    
     if 'UTIL POSITIVO' in resultado:
-        # Verificar si hay indicadores de doble venta
         if ('LUZ' in resultado and 'GAS' in resultado) or ('DÚO' in resultado or 'DUO' in resultado):
-            # Si menciona ambos o dice DÚO, son 2 ventas
             return 2
         else:
-            # Solo una venta (podría ser luz o gas)
             return 1
-    else:
+    
+    return 0
+
+
+def detectar_pendientes_sms_mejorado(row):
+    """Detecta si hay ventas pendientes de SMS en resultado o motivo"""
+    ventas_pendientes = 0
+    
+    # Revisar electricidad
+    resultado_elec = str(row.get('resultado_elec', '')).upper() if pd.notna(row.get('resultado_elec')) else ''
+    motivo_elec = str(row.get('motivo_elec', '')).upper() if pd.notna(row.get('motivo_elec')) else ''
+    
+    # Revisar gas
+    resultado_gas = str(row.get('resultado_gas', '')).upper() if pd.notna(row.get('resultado_gas')) else ''
+    motivo_gas = str(row.get('motivo_gas', '')).upper() if pd.notna(row.get('motivo_gas')) else ''
+    
+    # Función para verificar si hay PENDIENTE SMS
+    def tiene_pendiente_sms(resultado, motivo):
+        return 'PENDIENTE SMS' in resultado or 'PENDIENTE SMS' in motivo
+    
+    # Contar ventas pendientes en electricidad
+    if tiene_pendiente_sms(resultado_elec, motivo_elec):
+        if ('LUZ' in resultado_elec and 'GAS' in resultado_elec) or ('DÚO' in resultado_elec or 'DUO' in resultado_elec):
+            ventas_pendientes += 2
+        else:
+            ventas_pendientes += 1
+    
+    # Contar ventas pendientes en gas
+    if tiene_pendiente_sms(resultado_gas, motivo_gas) and ventas_pendientes < 2:
+        ventas_pendientes += 1
+    
+    return ventas_pendientes > 0, ventas_pendientes
+
+
+def contar_ventas_resultado_mejorado(resultado_str, motivo_str=None):
+    """Cuenta ventas en un resultado, considerando PENDIENTE SMS en motivo"""
+    if pd.isna(resultado_str):
         return 0
+    
+    resultado = str(resultado_str).upper()
+    motivo = str(motivo_str).upper() if motivo_str and pd.notna(motivo_str) else ''
+    
+    if 'PENDIENTE SMS' in resultado or 'PENDIENTE SMS' in motivo:
+        return 0
+    
+    if 'UTIL POSITIVO' in resultado:
+        if ('LUZ' in resultado and 'GAS' in resultado) or ('DÚO' in resultado or 'DUO' in resultado):
+            return 2
+        else:
+            return 1
+    
+    return 0
+
 
 def realizar_analisis(df_filtrado, nombre_analisis):
     """Realiza el análisis sobre datos filtrados"""
-    
     if df_filtrado.empty:
         st.warning(f"⚠️ No hay datos para {nombre_analisis}")
         return None
@@ -136,38 +184,59 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     df_filtrado['resultado_elec'] = df_filtrado['resultado_elec'].astype(str).str.strip()
     df_filtrado['resultado_gas'] = df_filtrado['resultado_gas'].astype(str).str.strip()
     
-    # Calcular ventas por llamada (pueden ser 0, 1 o 2 ventas por línea)
-    df_filtrado['ventas_elec'] = df_filtrado['resultado_elec'].apply(contar_ventas_resultado)
-    df_filtrado['ventas_gas'] = df_filtrado['resultado_gas'].apply(contar_ventas_resultado)
+    # Asegurar columnas de motivo
+    df_filtrado['motivo_elec'] = df_filtrado.get('motivo_elec', '')
+    df_filtrado['motivo_gas'] = df_filtrado.get('motivo_gas', '')
+    
+    # Calcular ventas
+    df_filtrado['ventas_elec'] = df_filtrado.apply(
+        lambda row: contar_ventas_resultado_mejorado(row['resultado_elec'], row.get('motivo_elec')), 
+        axis=1
+    )
+    df_filtrado['ventas_gas'] = df_filtrado.apply(
+        lambda row: contar_ventas_resultado_mejorado(row['resultado_gas'], row.get('motivo_gas')), 
+        axis=1
+    )
     df_filtrado['ventas_totales'] = df_filtrado['ventas_elec'] + df_filtrado['ventas_gas']
-    
-    # Llamadas con venta (al menos 1 venta)
     df_filtrado['tiene_venta'] = df_filtrado['ventas_totales'] > 0
-    
     df_filtrado['duracion_minutos'] = df_filtrado['tiempo_conversacion'] / 60
     
     # Llamadas largas (>15 min = 900 segundos)
     df_llamadas_largas = df_filtrado[df_filtrado['tiempo_conversacion'] > 900].copy()
     
-    # Estadísticas
-    st.subheader(f"📊 Análisis: {nombre_analisis}")
+    # Detectar pendientes SMS
+    pendientes_sms_data = []
+    for idx, row in df_filtrado.iterrows():
+        tiene_pendiente, ventas_pendientes = detectar_pendientes_sms_mejorado(row)
+        
+        if tiene_pendiente:
+            pendientes_sms_data.append({
+                'agente': row['agente'],
+                'fecha': row['fecha'],
+                'hora': row['hora'],
+                'resultado_elec': row['resultado_elec'],
+                'resultado_gas': row['resultado_gas'],
+                'motivo_elec': row.get('motivo_elec', ''),
+                'motivo_gas': row.get('motivo_gas', ''),
+                'ventas_pendientes': ventas_pendientes,
+                'tiempo_conversacion': row['tiempo_conversacion'],
+                'duracion_minutos': round(row['duracion_minutos'], 1),
+                'campanya': row['campanya'],
+                'hash': row['hash']
+            })
     
-    # CALCULAR NUEVO KPI: Media de llamadas por agente
+    # Calcular estadísticas
     total_llamadas = len(df_filtrado)
     total_agentes = df_filtrado['agente'].nunique()
     media_llamadas_por_agente = total_llamadas / total_agentes if total_agentes > 0 else 0
-    
-    # Contar llamadas largas
     llamadas_largas = len(df_llamadas_largas)
-    
-    # Calcular ventas totales
     ventas_totales = df_filtrado['ventas_totales'].sum()
-    
-    # Calcular duración promedio
     duracion_promedio = df_filtrado['duracion_minutos'].mean() if not df_filtrado['duracion_minutos'].isnull().all() else 0
     
-    # ACTUALIZAR LAS COLUMNAS: Añadir una quinta columna para el nuevo KPI
-    col1, col2, col3, col4, col5 = st.columns(5)
+    # Mostrar estadísticas
+    st.subheader(f"📊 Análisis: {nombre_analisis}")
+    
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
     with col1:
         st.metric("📞 Llamadas totales", total_llamadas)
     with col2:
@@ -177,8 +246,269 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     with col4:
         st.metric("⏱️ Duración promedio", f"{duracion_promedio:.1f} min")
     with col5:
-        # NUEVO KPI: Media de llamadas por agente
         st.metric("👥 Media llamadas/agente", f"{media_llamadas_por_agente:.1f}")
+    with col6:
+        total_pendientes = len(pendientes_sms_data)
+        ventas_pendientes = sum(item['ventas_pendientes'] for item in pendientes_sms_data)
+        delta = f"{int(ventas_pendientes)} ventas" if ventas_pendientes > 0 else None
+        st.metric("⏳ Pendientes SMS", int(total_pendientes), delta=delta)
+    
+    # Mostrar alerta si hay pendientes SMS
+    if pendientes_sms_data:
+        st.warning(f"⚠️ **{total_pendientes} llamadas con PENDIENTE SMS detectadas ({ventas_pendientes} ventas pendientes)**")
+        
+        # Guardar en session_state para uso posterior
+        st.session_state.pendientes_sms = pendientes_sms_data
+        
+        # Mostrar tabla de pendientes
+        with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
+            df_pendientes = pd.DataFrame(pendientes_sms_data)
+            df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
+                                                   'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
+            df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
+                                             'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
+            st.dataframe(df_pendientes_display, use_container_width=True)
+            
+            st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
+            
+            # ==============================================
+            # FORMULARIO MANUAL PARA PENDIENTES SMS
+            # ==============================================
+            st.divider()
+            st.subheader("📝 Formulario Manual para Pendientes SMS")
+            
+            # Seleccionar cuántas líneas mostrar (1 por cada pendiente SMS detectado)
+            num_lineas = len(pendientes_sms_data)
+            st.write(f"**Se detectaron {num_lineas} llamadas con PENDIENTE SMS**")
+            st.write("Por favor, completa la información para cada una:")
+            
+            # Crear un formulario con las líneas necesarias
+            lineas_formulario = []
+            
+            for i in range(num_lineas):
+                st.markdown(f"---")
+                st.subheader(f"📞 Llamada #{i+1}")
+                
+                # Datos predeterminados de la detección automática
+                datos_auto = pendientes_sms_data[i]
+                
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    agente = st.text_input(
+                        f"Agente #{i+1}",
+                        value=datos_auto['agente'],
+                        key=f"agente_{i}_{nombre_analisis}",
+                        help="ID del agente (ej: TZS0733)"
+                    )
+                
+                with col2:
+                    fecha = st.date_input(
+                        f"Fecha #{i+1}",
+                        value=datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date(),
+                        key=f"fecha_{i}_{nombre_analisis}"
+                    )
+                
+                with col3:
+                    duracion_minutos = st.number_input(
+                        f"Duración (minutos) #{i+1}",
+                        value=float(datos_auto['duracion_minutos']),
+                        min_value=0.0,
+                        max_value=120.0,
+                        step=0.5,
+                        key=f"duracion_{i}_{nombre_analisis}",
+                        help="Duración de la llamada en minutos"
+                    )
+                
+                # Información adicional (solo lectura)
+                col4, col5 = st.columns(2)
+                with col4:
+                    st.info(f"**Hora original:** {datos_auto['hora']}")
+                    st.info(f"**Resultado Elec:** {datos_auto['resultado_elec'][:50]}...")
+                with col5:
+                    st.info(f"**Ventas pendientes:** {datos_auto['ventas_pendientes']}")
+                    st.info(f"**Campaña:** {datos_auto['campanya'][:30]}...")
+                
+                # Opciones de confirmación
+                st.write("**¿Qué pasó con esta llamada?**")
+                opcion = st.radio(
+                    f"Resultado final #{i+1}",
+                    options=["SMS Contestado (contar venta)", "SMS No Contestado (no contar venta)", "Pendiente de revisar"],
+                    index=2,  # Por defecto "Pendiente de revisar"
+                    key=f"resultado_{i}_{nombre_analisis}",
+                    horizontal=True
+                )
+                
+                # Determinar ventas finales según opción
+                if opcion == "SMS Contestado (contar venta)":
+                    ventas_finales = datos_auto['ventas_pendientes']
+                    estado = "confirmado"
+                elif opcion == "SMS No Contestado (no contar venta)":
+                    ventas_finales = 0
+                    estado = "rechazado"
+                else:
+                    ventas_finales = 0
+                    estado = "pendiente"
+                
+                # Guardar datos de la línea
+                lineas_formulario.append({
+                    'agente': agente,
+                    'fecha': fecha.strftime('%Y-%m-%d'),
+                    'hora': datos_auto['hora'],
+                    'duracion_minutos': duracion_minutos,
+                    'duracion_segundos': int(duracion_minutos * 60),
+                    'ventas_pendientes': datos_auto['ventas_pendientes'],
+                    'ventas_finales': ventas_finales,
+                    'resultado_elec': datos_auto['resultado_elec'],
+                    'resultado_gas': datos_auto['resultado_gas'],
+                    'motivo_elec': datos_auto.get('motivo_elec', ''),
+                    'motivo_gas': datos_auto.get('motivo_gas', ''),
+                    'campanya': datos_auto['campanya'],
+                    'hash_original': datos_auto['hash'],
+                    'estado': estado,
+                    'opcion_seleccionada': opcion,
+                    'timestamp_revision': datetime.now().isoformat()
+                })
+            
+            # Botón para guardar todas las líneas
+            if st.button("💾 Guardar Todas las Llamadas Pendientes", type="primary", key=f"guardar_todas_{nombre_analisis}"):
+                if lineas_formulario:
+                    guardar_lineas_formulario(lineas_formulario, pendientes_sms_data)
+                else:
+                    st.error("No hay datos para guardar")
+            
+            # Opción para guardar solo algunas
+            st.write("---")
+            st.write("**O guardar líneas específicas:**")
+            
+            lineas_seleccionadas = st.multiselect(
+                "Selecciona qué líneas guardar:",
+                options=[f"Línea #{i+1} - {linea['agente']} ({linea['fecha']})" for i, linea in enumerate(lineas_formulario)],
+                key=f"seleccion_{nombre_analisis}"
+            )
+            
+            if lineas_seleccionadas and st.button("💾 Guardar Líneas Seleccionadas", type="secondary", key=f"guardar_seleccion_{nombre_analisis}"):
+                # Extraer índices de las líneas seleccionadas
+                indices_seleccionados = []
+                for seleccion in lineas_seleccionadas:
+                    try:
+                        idx = int(seleccion.split('#')[1].split(' ')[0]) - 1
+                        indices_seleccionados.append(idx)
+                    except:
+                        continue
+                
+                lineas_a_guardar = [lineas_formulario[i] for i in indices_seleccionados]
+                if lineas_a_guardar:
+                    guardar_lineas_formulario(lineas_a_guardar, pendientes_sms_data, solo_seleccionadas=True)
+                else:
+                    st.error("No se pudieron identificar las líneas seleccionadas")
+
+    def guardar_lineas_formulario(lineas_formulario, datos_originales, solo_seleccionadas=False):
+        """Guarda las líneas del formulario manual en alertas_sms.json"""
+        
+        try:
+            from database import agregar_varias_alertas_sms, cargar_alertas_sms
+            
+            st.write("### 💾 Guardando información...")
+            
+            # Convertir a formato de alertas
+            alertas = []
+            total_ventas_confirmadas = 0
+            total_ventas_rechazadas = 0
+            total_pendientes = 0
+            
+            for i, linea in enumerate(lineas_formulario):
+                # Crear alerta
+                alerta_id = f"sms_{linea['hash_original']}"
+                
+                alerta = {
+                    'id': alerta_id,
+                    'tipo': 'pendiente_sms',
+                    'agente': linea['agente'],
+                    'fecha': linea['fecha'],
+                    'hora': linea['hora'],
+                    'duracion_minutos': linea['duracion_minutos'],
+                    'duracion_segundos': linea['duracion_segundos'],
+                    'resultado_elec': linea['resultado_elec'],
+                    'resultado_gas': linea['resultado_gas'],
+                    'motivo_elec': linea['motivo_elec'],
+                    'motivo_gas': linea['motivo_gas'],
+                    'ventas_pendientes': linea['ventas_pendientes'],
+                    'ventas_finales': linea['ventas_finales'],
+                    'campanya': linea['campanya'],
+                    'timestamp_deteccion': datos_originales[i]['timestamp'] if i < len(datos_originales) else datetime.now().isoformat(),
+                    'timestamp_revision': linea['timestamp_revision'],
+                    'hash_registro': linea['hash_original'],
+                    'detalles': f"{linea['opcion_seleccionada']} - Originalmente {linea['ventas_pendientes']} venta(s) pendiente(s)",
+                    'estado': linea['estado'],
+                    'opcion_seleccionada': linea['opcion_seleccionada'],
+                    'accion': None,  # Se completará en el panel de Super Users
+                    'confirmado_por': None,
+                    'timestamp_confirmacion': None,
+                    'revisado_manual': True,
+                    'datos_manuales': {
+                        'agente_manual': linea['agente'],
+                        'fecha_manual': linea['fecha'],
+                        'duracion_manual': linea['duracion_minutos']
+                    }
+                }
+                
+                alertas.append(alerta)
+                
+                # Contar estadísticas
+                if linea['estado'] == 'confirmado':
+                    total_ventas_confirmadas += linea['ventas_finales']
+                elif linea['estado'] == 'rechazado':
+                    total_ventas_rechazadas += linea['ventas_pendientes']  # Las que se perdieron
+                else:
+                    total_pendientes += 1
+            
+            # Guardar alertas
+            nuevas_agregadas = agregar_varias_alertas_sms(alertas)
+            
+            if nuevas_agregadas > 0:
+                st.success(f"✅ **¡{nuevas_agregadas} alertas guardadas exitosamente!**")
+                
+                # Mostrar resumen
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric("📊 Total procesadas", len(lineas_formulario))
+                with col2:
+                    st.metric("✅ SMS Contestados", total_ventas_confirmadas, delta=f"{total_ventas_confirmadas} ventas")
+                with col3:
+                    st.metric("❌ SMS No Contestados", total_ventas_rechazadas, delta=f"-{total_ventas_rechazadas} ventas")
+                
+                st.info("📋 Las alertas aparecerán en el sidebar de Super Users para procesamiento final.")
+                
+                # Mostrar qué hacer después
+                with st.expander("📝 ¿Qué pasa ahora?", expanded=True):
+                    st.write("""
+                    1. **Las alertas se guardaron en `alertas_sms.json`**
+                    2. **En el Panel de Super Users podrás:**
+                    - Ver todas las alertas pendientes
+                    - Confirmar definitivamente las ventas
+                    - Actualizar el registro de llamadas
+                    - Marcar como procesadas
+                    3. **Proceso de confirmación final:**
+                    - Cuando confirmes en Super Users, se sumarán al registro
+                    - Se actualizarán las estadísticas de agentes
+                    - Las alertas se marcarán como completadas
+                    """)
+                
+                # Botón para ver archivo
+                if st.button("🔍 Ver archivo de alertas", type="secondary"):
+                    _verificar_archivo_alertas()
+            
+            else:
+                st.info("ℹ️ No se agregaron nuevas alertas (posiblemente ya existían)")
+                
+        except ImportError:
+            st.error("❌ No se pudo importar la función de database.py")
+            st.info("💡 Asegúrate de haber agregado las funciones de alertas SMS a database.py")
+        except Exception as e:
+            st.error(f"❌ Error al guardar alertas: {e}")
+            import traceback
+            st.text(traceback.format_exc())
     
     # Análisis por agente
     st.subheader("👥 Resumen por Agente")
@@ -209,14 +539,13 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         st.dataframe(df_resultados, use_container_width=True)
     
     # Ventas desde llamadas largas
-    df_ventas_largas = df_llamadas_largas[df_llamadas_largas['tiene_venta'] == True]
+    df_ventas_largas = df_llamadas_largas[df_llamadas_largas['tiene_venta']]
     
     if not df_ventas_largas.empty:
         st.subheader(f"✅ Ventas desde Llamadas Largas: {int(df_ventas_largas['ventas_totales'].sum())}")
         
-        # Mostrar detalles
-        columnas_mostrar = ['agente', 'duracion_minutos', 'resultado_elec', 'resultado_gas', 'ventas_totales', 'fecha', 'hora']
-        df_detalle = df_ventas_largas[columnas_mostrar].copy()
+        df_detalle = df_ventas_largas[['agente', 'duracion_minutos', 'resultado_elec', 
+                                       'resultado_gas', 'ventas_totales', 'fecha', 'hora']].copy()
         df_detalle['duracion_minutos'] = df_detalle['duracion_minutos'].round(1)
         df_detalle = df_detalle.sort_values('duracion_minutos', ascending=False)
         df_detalle.columns = ['Agente', 'Duración (min)', 'Resultado Elec', 'Resultado Gas', 'Ventas', 'Fecha', 'Hora']
@@ -225,14 +554,97 @@ def realizar_analisis(df_filtrado, nombre_analisis):
     
     return df_filtrado
 
+
+def _generar_alertas_sms(pendientes_sms_data, nombre_analisis):
+    """Función auxiliar para generar alertas SMS"""
+    st.write("### 🚀 Generando Alertas SMS...")
+    
+    if not pendientes_sms_data:
+        st.error("❌ No hay llamadas con PENDIENTE SMS para generar alertas")
+        return
+    
+    st.write(f"**📊 Datos encontrados:** {len(pendientes_sms_data)} llamadas con PENDIENTE SMS")
+    
+    # Preparar las alertas
+    alertas = []
+    for i, item in enumerate(pendientes_sms_data):
+        alerta = {
+            'id': f"sms_{item['hash']}",
+            'tipo': 'pendiente_sms',
+            'agente': item['agente'],
+            'fecha': item['fecha'],
+            'hora': item['hora'],
+            'duracion': f"{item['duracion_minutos']} min",
+            'resultado_elec': item['resultado_elec'],
+            'resultado_gas': item['resultado_gas'],
+            'motivo_elec': item.get('motivo_elec', ''),
+            'motivo_gas': item.get('motivo_gas', ''),
+            'ventas_pendientes': item['ventas_pendientes'],
+            'campanya': item['campanya'],
+            'timestamp': datetime.now().isoformat(),
+            'hash_registro': item['hash'],
+            'detalles': f"PENDIENTE SMS: {item['ventas_pendientes']} venta(s) pendiente(s)",
+            'estado': 'pendiente',
+            'accion': None,
+            'confirmado_por': None,
+            'timestamp_confirmacion': None
+        }
+        alertas.append(alerta)
+        
+        if i < 3:
+            st.write(f"{i+1}. **{alerta['agente']}** - {alerta['fecha']} {alerta['hora']} - {alerta['ventas_pendientes']} venta(s)")
+    
+    if len(pendientes_sms_data) > 3:
+        st.write(f"... y {len(pendientes_sms_data) - 3} más")
+    
+    st.write(f"**✅ Alertas preparadas:** {len(alertas)}")
+    
+    try:
+        from database import agregar_varias_alertas_sms
+        
+        st.write("---")
+        st.write("**💾 Guardando alertas en el sistema...**")
+        
+        nuevas_agregadas = agregar_varias_alertas_sms(alertas)
+        
+        if nuevas_agregadas > 0:
+            st.balloons()
+            st.success(f"🎉 **¡{nuevas_agregadas} alertas generadas exitosamente!**")
+            st.info("📋 Las alertas aparecerán en el sidebar de Super Users para confirmación")
+            
+            if st.button("🔍 Verificar archivo", type="secondary", key=f"verificar_{nombre_analisis}"):
+                _verificar_archivo_alertas()
+        else:
+            st.info("ℹ️ No se agregaron nuevas alertas (posiblemente ya existían)")
+            
+    except ImportError:
+        st.error("❌ No se pudo importar la función de database.py")
+        st.info("💡 Asegúrate de haber agregado las funciones de alertas SMS a database.py")
+    except Exception as e:
+        st.error(f"❌ Error al guardar alertas: {e}")
+
+
+def _verificar_archivo_alertas():
+    """Función auxiliar para verificar archivo de alertas"""
+    import os
+    if os.path.exists('data/alertas_sms.json'):
+        st.success("✅ Archivo existe")
+        with open('data/alertas_sms.json', 'r', encoding='utf-8') as f:
+            datos = json.load(f)
+            st.write(f"Contiene {len(datos)} alertas")
+            
+            if datos:
+                st.write("**Ejemplo de alerta guardada:**")
+                primera_clave = list(datos.keys())[0]
+                st.json(datos[primera_clave])
+    else:
+        st.error("❌ Archivo NO existe")
+
+
 def importar_datos_a_registro(df_analizado, super_users_config):
     """
     Importa los datos analizados al registro diario
-    CORRECCIÓN: Cuenta TODAS las líneas, no solo las procesadas
     """
-    import streamlit as st
-    from datetime import datetime
-    
     if df_analizado.empty:
         return False, "No hay datos para importar"
     
@@ -242,39 +654,33 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     # Obtener agentes del sistema
     agentes_sistema = super_users_config.get("agentes", {})
     
-    # Contadores REALES
-    total_lineas_csv = len(df_analizado)  # ESTO ES 4239
+    # Contadores
+    total_lineas_csv = len(df_analizado)
     lineas_procesadas = 0
     lineas_no_procesadas = 0
-    llamadas_totales_importadas = 0  # Debería ser 4239 si todo va bien
+    llamadas_totales_importadas = 0
     llamadas_largas_importadas = 0
     ventas_importadas = 0
     
     agentes_encontrados_lista = []
     agentes_no_encontrados_set = set()
-    coincidencias_unicas = set()  # Para evitar duplicados en la lista
+    coincidencias_unicas = set()
     
     # Preparar búsqueda flexible
-    # Crear diccionario de búsqueda por diferentes variantes
     busqueda_agentes = {}
     
     for agent_id in agentes_sistema.keys():
         agent_id_str = str(agent_id).strip().upper()
         
-        # Variante 1: ID completo
+        # Variantes de búsqueda
         busqueda_agentes[agent_id_str] = agent_id
         
-        # Variante 2: Solo últimos dígitos (si tiene al menos 4)
         if len(agent_id_str) >= 4:
-            ultimos_4 = agent_id_str[-4:]
-            busqueda_agentes[ultimos_4] = agent_id
+            busqueda_agentes[agent_id_str[-4:]] = agent_id
         
-        # Variante 3: Sin prefijos comunes
         if agent_id_str.startswith('TZS'):
-            sin_tzs = agent_id_str[3:]
-            busqueda_agentes[sin_tzs] = agent_id
+            busqueda_agentes[agent_id_str[3:]] = agent_id
         
-        # Variante 4: Solo números
         solo_numeros = ''.join(filter(str.isdigit, agent_id_str))
         if solo_numeros and solo_numeros != agent_id_str:
             busqueda_agentes[solo_numeros] = agent_id
@@ -307,7 +713,6 @@ def importar_datos_a_registro(df_analizado, super_users_config):
         
         # 3. Búsqueda por números
         if not agente_encontrado:
-            # Extraer números del agente CSV
             numeros_csv = ''.join(filter(str.isdigit, agente_csv))
             if numeros_csv:
                 for key, agent_id in busqueda_agentes.items():
@@ -332,7 +737,7 @@ def importar_datos_a_registro(df_analizado, super_users_config):
                     'timestamp': datetime.now().isoformat()
                 }
             
-            # CONTAR LLAMADA TOTAL (CADA LÍNEA ES UNA LLAMADA)
+            # CONTAR LLAMADA TOTAL
             registro_llamadas[fecha_str][agente_encontrado]['llamadas_totales'] += 1
             llamadas_totales_importadas += 1
             
@@ -360,10 +765,9 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     # Guardar cambios
     guardar_registro_llamadas(registro_llamadas)
     
-    # PREPARAR MENSAJE CLARO
+    # Preparar mensaje
     mensaje = f"✅ **IMPORTACIÓN - DIAGNÓSTICO DETALLADO**\n"
     mensaje += "=" * 50 + "\n"
-    
     mensaje += f"📊 **TOTAL CSV:** {total_lineas_csv} líneas\n"
     mensaje += f"✅ **Procesadas:** {lineas_procesadas} líneas\n"
     mensaje += f"❌ **NO procesadas:** {lineas_no_procesadas} líneas\n"
@@ -394,18 +798,14 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     # Agentes NO encontrados
     mensaje += f"\n⚠️ **Agentes SIN coincidencia:** {len(agentes_no_encontrados_set)}\n"
     if agentes_no_encontrados_set:
-        # Mostrar algunos ejemplos
-        ejemplos = list(agentes_no_encontrados_set)[:5]
-        for ej in ejemplos:
+        for ej in list(agentes_no_encontrados_set)[:5]:
             mensaje += f"  - '{ej}'\n"
         
-        # Sugerencias
         mensaje += f"\n💡 **¿Por qué no se encuentran?**\n"
         mensaje += f"1. Los IDs no coinciden (ej: '0733' vs 'TZS0733')\n"
         mensaje += f"2. Agentes no están configurados en Super Users\n"
         mensaje += f"3. Errores de formato en el CSV\n"
         
-        # Mostrar agentes disponibles en el sistema
         mensaje += f"\n📋 **Agentes configurados en el sistema ({len(agentes_sistema)}):**\n"
         for i, (agent_id, info) in enumerate(list(agentes_sistema.items())[:10]):
             nombre = info.get('nombre', 'Sin nombre')
@@ -415,64 +815,13 @@ def importar_datos_a_registro(df_analizado, super_users_config):
     
     return True, mensaje
 
-def verificacion_rapida_importacion():
-    """Verificación rápida de qué está pasando en la importación"""
-    
-    st.subheader("🔍 Verificación Rápida de Importación")
-    
-    if 'df_analizado_actual' not in st.session_state:
-        st.warning("No hay datos CSV cargados")
-        return
-    
-    df = st.session_state.df_analizado_actual
-    from database import cargar_super_users
-    super_users_config = cargar_super_users()
-    agentes_sistema = super_users_config.get("agentes", {})
-    
-    st.write(f"### 📊 Datos del CSV:")
-    st.write(f"- Total líneas: {len(df)}")
-    
-    # Contar agentes únicos en CSV
-    agentes_csv = df['agente'].unique()
-    st.write(f"- Agentes únicos en CSV: {len(agentes_csv)}")
-    
-    # Verificar coincidencias rápidas
-    coincidencias = 0
-    no_coincidencias = []
-    
-    for agente_csv in agentes_csv[:50]:  # Revisar primeros 50
-        agente_str = str(agente_csv).strip().upper()
-        encontrado = False
-        
-        for agent_id in agentes_sistema.keys():
-            if (agente_str == str(agent_id).upper() or
-                agente_str in str(agent_id).upper() or
-                str(agent_id).upper() in agente_str):
-                coincidencias += 1
-                encontrado = True
-                break
-        
-        if not encontrado:
-            no_coincidencias.append(agente_str)
-    
-    st.write(f"### 🔗 Coincidencias (primeros 50 agentes):")
-    st.write(f"- Con coincidencia: {coincidencias}")
-    st.write(f"- Sin coincidencia: {len(no_coincidencias)}")
-    
-    if no_coincidencias:
-        st.write("**Ejemplos sin coincidencia:**")
-        for ej in no_coincidencias[:10]:
-            st.write(f"- '{ej}'")
 
 def mostrar_depuracion_agentes(df_analizado, super_users_config):
     """Muestra información de depuración para coincidencia de agentes"""
-    
     st.subheader("🔍 Depuración: Coincidencia de Agentes")
     
-    # Obtener agentes del CSV
+    # Obtener agentes
     agentes_csv = sorted(df_analizado['agente'].astype(str).str.strip().unique())
-    
-    # Obtener agentes del sistema
     agentes_sistema = super_users_config.get("agentes", {})
     
     # Mostrar comparación
@@ -493,9 +842,7 @@ def mostrar_depuracion_agentes(df_analizado, super_users_config):
         if len(agentes_sistema) > 20:
             st.info(f"... y {len(agentes_sistema) - 20} más")
     
-    # Coincidencias directas
-    st.write("### 🔍 Búsqueda de coincidencias")
-    
+    # Coincidencias
     coincidencias_directas = []
     coincidencias_parciales = []
     sin_coincidencia = []
@@ -511,14 +858,13 @@ def mostrar_depuracion_agentes(df_analizado, super_users_config):
                 encontrado = True
                 break
         
+        # Búsqueda parcial
         if not encontrado:
-            # Búsqueda parcial
             for agent_id in agentes_sistema.keys():
                 agent_id_clean = str(agent_id).upper()
-                # Buscar similitudes
                 if (agente_csv_clean in agent_id_clean or 
                     agent_id_clean in agente_csv_clean or
-                    agente_csv_clean[-4:] == agent_id_clean[-4:]):  # Últimos 4 dígitos
+                    agente_csv_clean[-4:] == agent_id_clean[-4:]):
                     coincidencias_parciales.append(f"`{agente_csv}` → `{agent_id}`")
                     encontrado = True
                     break
@@ -542,17 +888,16 @@ def mostrar_depuracion_agentes(df_analizado, super_users_config):
         for agente in sin_coincidencia[:10]:
             st.write(f"- `{agente}`")
 
+
 def verificar_agentes_con_alerta(df_analizado, super_users_config):
     """Verifica agentes que necesitan alerta por baja actividad"""
-    
     st.subheader("🔔 Sistema de Alertas por Baja Actividad")
     
-    # Obtener configuración
     configuracion = super_users_config.get("configuracion", {})
     umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
     minimo_llamadas_dia = configuracion.get("minimo_llamadas_dia", 50)
     
-    # Calcular media de llamadas por agente
+    # Calcular media
     total_llamadas = len(df_analizado)
     total_agentes = df_analizado['agente'].nunique()
     media_llamadas_por_agente = total_llamadas / total_agentes if total_agentes > 0 else 0
@@ -578,7 +923,7 @@ def verificar_agentes_con_alerta(df_analizado, super_users_config):
         # Determinar si necesita alerta
         necesita_alerta = diferencia_porcentaje < -umbral_alerta
         
-        # Verificar si está activo (más del mínimo diario)
+        # Verificar si está activo
         dias_con_datos = df_agente['fecha'].nunique()
         llamadas_por_dia = llamadas_agente / dias_con_datos if dias_con_datos > 0 else 0
         activo = llamadas_por_dia >= minimo_llamadas_dia
@@ -607,7 +952,6 @@ def verificar_agentes_con_alerta(df_analizado, super_users_config):
         df_alerta = df_alerta.sort_values('vs Media (%)')
         st.dataframe(df_alerta, use_container_width=True)
         
-        # Recomendaciones
         st.write("**💡 Recomendaciones:**")
         st.write("1. Revisar actividad de estos agentes")
         st.write("2. Verificar posibles problemas técnicos")
@@ -616,7 +960,7 @@ def verificar_agentes_con_alerta(df_analizado, super_users_config):
     else:
         st.success("🎉 **Todos los agentes están dentro del rango esperado**")
     
-    # Mostrar resumen general
+    # Mostrar resumen
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Agentes Totales", total_agentes)
@@ -625,18 +969,16 @@ def verificar_agentes_con_alerta(df_analizado, super_users_config):
     with col3:
         st.metric("Sin Alerta", len(agentes_ok))
 
+
 def comprobador_actividad_diaria(df_analizado):
     """Comprueba qué agentes están trabajando (mínimo 50 llamadas/día)"""
-    
     st.subheader("📊 Comprobador de Actividad Diaria")
     
-    # Configuración
     MINIMO_LLAMADAS_DIA = 50
     
     # Agrupar por agente y fecha
     actividad = df_analizado.groupby(['agente', 'fecha']).size().reset_index(name='llamadas')
     
-    # Contar días trabajando vs no trabajando
     resumen_agentes = []
     
     for agente in actividad['agente'].unique():
@@ -646,7 +988,6 @@ def comprobador_actividad_diaria(df_analizado):
         dias_trabajando = len(df_agente[df_agente['llamadas'] >= MINIMO_LLAMADAS_DIA])
         dias_no_trabajando = dias_totales - dias_trabajando
         
-        # Calcular porcentaje
         porcentaje_trabajando = (dias_trabajando / dias_totales * 100) if dias_totales > 0 else 0
         
         resumen_agentes.append({
@@ -662,7 +1003,6 @@ def comprobador_actividad_diaria(df_analizado):
         df_resumen = pd.DataFrame(resumen_agentes)
         df_resumen = df_resumen.sort_values('% Trabajando', ascending=False)
         
-        # Mostrar tabla
         st.write(f"**📈 Actividad diaria (mínimo {MINIMO_LLAMADAS_DIA} llamadas/día):**")
         st.dataframe(df_resumen, use_container_width=True)
         
@@ -680,7 +1020,7 @@ def comprobador_actividad_diaria(df_analizado):
         with col3:
             st.metric("❌ Críticos", agentes_critico)
         
-        # Mostrar detalles para agentes críticos
+        # Mostrar agentes críticos
         agentes_criticos_lista = [a for a in resumen_agentes if a['Estado'] == '❌']
         if agentes_criticos_lista:
             st.warning("### 🔴 Agentes con Baja Actividad Crítica")
@@ -691,15 +1031,13 @@ def comprobador_actividad_diaria(df_analizado):
         
         # Gráfico de actividad
         st.write("### 📊 Distribución de Actividad")
+        import plotly.express as px
         
-        # Preparar datos para gráfico
         estados_counts = {
             '✅ Óptimos (>80%)': agentes_ok,
             '⚠️ Atención (50-79%)': agentes_alerta,
             '❌ Críticos (<50%)': agentes_critico
         }
-        
-        import plotly.express as px
         
         fig = px.pie(
             names=list(estados_counts.keys()),
@@ -712,12 +1050,12 @@ def comprobador_actividad_diaria(df_analizado):
     else:
         st.info("No hay datos suficientes para analizar actividad diaria")
 
+
 def interfaz_analisis_llamadas():
     """Interfaz principal del analizador"""
-    
     st.subheader("📊 Analizador de Llamadas Telefónicas - Zelenza")
     
-    # Inicializar session_state si no existe
+    # Inicializar session_state
     if 'analisis_realizado' not in st.session_state:
         st.session_state.analisis_realizado = False
     if 'df_cargado' not in st.session_state:
@@ -732,20 +1070,19 @@ def interfaz_analisis_llamadas():
         help="Archivo separado por tabulaciones con columna 'campanya'"
     )
     
-    # Procesar archivo cuando se sube
+    # Procesar archivo
     if uploaded_file is not None and not st.session_state.analisis_realizado:
         with st.spinner("📂 Cargando y procesando archivo..."):
             df = analizar_csv_llamadas(uploaded_file)
             if df is not None:
                 st.session_state.df_cargado = df
                 st.session_state.analisis_realizado = True
-                st.rerun()  # Forzar rerun para mostrar opciones
+                st.rerun()
     
     # Mostrar opciones de análisis si hay datos cargados
     if st.session_state.df_cargado is not None:
         df = st.session_state.df_cargado
         
-        # Obtener campañas únicas
         if 'campanyas_unicas' not in st.session_state:
             st.session_state.campanyas_unicas = df['campanya'].astype(str).str.strip().unique()
         
@@ -769,7 +1106,7 @@ def interfaz_analisis_llamadas():
                 opciones.append(f"🎯 {camp}")
                 quality_encontrada = True
         
-        # Añadir otras campañas (máximo 5)
+        # Añadir otras campañas
         otras_campanyas = 0
         for camp in campanyas:
             camp_str = str(camp)
@@ -777,25 +1114,19 @@ def interfaz_analisis_llamadas():
                 opciones.append(f"📋 {camp[:40]}..." if len(camp_str) > 40 else f"📋 {camp}")
                 otras_campanyas += 1
         
-        # Si hay al menos 2 campañas, añadir opción de comparar
+        # Opciones adicionales
         if len(campanyas) >= 2:
             opciones.append("🔄 COMPARAR campañas principales")
         
-        # Opciones adicionales de análisis
         opciones.append("🔔 Verificar alertas de actividad")
         opciones.append("📊 Comprobar actividad diaria")
         
-        # Selector que NO causa rerun inmediato
-        seleccion = st.selectbox(
-            "Elige una opción de análisis:",
-            opciones,
-            key="selector_campanya"
-        )
+        # Selector
+        seleccion = st.selectbox("Elige una opción de análisis:", opciones, key="selector_campanya")
         
-        # Botón para aplicar la selección
+        # Botón para aplicar análisis
         if st.button("🔍 Aplicar análisis", type="primary", key="aplicar_analisis"):
             with st.spinner("Analizando datos..."):
-                
                 if "TODAS" in seleccion:
                     df_analizado = realizar_analisis(df, "TODAS las campañas")
                     st.session_state.df_analizado_actual = df_analizado
@@ -803,7 +1134,6 @@ def interfaz_analisis_llamadas():
                 elif "COMPARAR" in seleccion and len(campanyas) >= 2:
                     st.subheader("🔄 Comparativa entre Campañas")
                     
-                    # Comparar las dos primeras campañas encontradas
                     camp1 = campanyas[0] if len(campanyas) > 0 else ""
                     camp2 = campanyas[1] if len(campanyas) > 1 else ""
                     
@@ -840,7 +1170,6 @@ def interfaz_analisis_llamadas():
                                 st.metric("Tasa", f"{(ventas2/llamadas2*100):.1f}%" if llamadas2 > 0 else "0%")
                 
                 elif "🔔 Verificar alertas de actividad" in seleccion:
-                    # Cargar configuración de super users
                     super_users_config = cargar_super_users()
                     verificar_agentes_con_alerta(df, super_users_config)
                 
@@ -848,11 +1177,10 @@ def interfaz_analisis_llamadas():
                     comprobador_actividad_diaria(df)
                 
                 else:
-                    # Extraer el nombre real de la campaña (quitando el emoji)
-                    campanya_seleccionada = seleccion[2:]  # Quitar emoji + espacio
-                    
-                    # Buscar coincidencia exacta o parcial
+                    # Análisis de campaña específica
+                    campanya_seleccionada = seleccion[2:]
                     df_filtrado = None
+                    
                     for camp in campanyas:
                         if str(camp) == campanya_seleccionada or campanya_seleccionada in str(camp):
                             df_filtrado = df[df['campanya'] == camp].copy()
@@ -864,14 +1192,22 @@ def interfaz_analisis_llamadas():
                     else:
                         st.error(f"No se encontró la campaña: {campanya_seleccionada}")
         
-        # Importar datos al sistema de super usuarios
+        # Importar datos al sistema
         if st.session_state.df_analizado_actual is not None and not st.session_state.df_analizado_actual.empty:
             st.subheader("3. 📥 Importar al Sistema de Agentes")
             
-            # Cargar configuración de super usuarios
+            # Mostrar mensaje sobre pendientes SMS
+            if 'pendientes_sms' in st.session_state and st.session_state.pendientes_sms:
+                total_pendientes = len(st.session_state.pendientes_sms)
+                ventas_pendientes = sum(item['ventas_pendientes'] for item in st.session_state.pendientes_sms)
+                
+                st.info(f"💡 **Nota:** Hay {total_pendientes} ventas PENDIENTE SMS ({ventas_pendientes} ventas) que NO se importarán automáticamente. "
+                        f"Aparecerán como alertas en el sidebar de Super Users para confirmación manual.")
+            
+            # Cargar configuración
             super_users_config = cargar_super_users()
             
-            # Mostrar vista previa de lo que se importará
+            # Vista previa
             with st.expander("📋 Vista previa de datos a importar", expanded=True):
                 df_preview = st.session_state.df_analizado_actual[['agente', 'fecha', 'tiempo_conversacion', 'ventas_totales']].copy()
                 df_preview['Llamada >15min'] = df_preview['tiempo_conversacion'] > 900
@@ -887,23 +1223,23 @@ def interfaz_analisis_llamadas():
                 agentes_unicos = st.session_state.df_analizado_actual['agente'].nunique()
                 fechas_unicas = st.session_state.df_analizado_actual['fecha'].nunique()
                 
-                col_stats1, col_stats2, col_stats3, col_stats4 = st.columns(4)
-                with col_stats1:
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
                     st.metric("👥 Agentes", agentes_unicos)
-                with col_stats2:
+                with col2:
                     st.metric("📅 Fechas", fechas_unicas)
-                with col_stats3:
+                with col3:
                     st.metric("📞 Llamadas >15min", llamadas_largas)
-                with col_stats4:
+                with col4:
                     st.metric("💰 Ventas", int(ventas_totales))
             
             # Confirmación de importación
             st.info("💡 **Importará:** Llamadas >15min y ventas al registro diario de agentes")
-            st.warning("⚠️ **Advertencia:** Los datos existentes para las mismas fechas y agentes serán sumados, no reemplazados.")
-            st.info("🔄 **Deduplicación:** Se evitan duplicados mediante sistema de hashes")
+            st.warning("⚠️ Los datos existentes para las mismas fechas y agentes serán sumados, no reemplazados.")
+            st.info("🔄 Se evitan duplicados mediante sistema de hashes")
             
-            col_import1, col_import2, col_import3 = st.columns(3)
-            with col_import1:
+            col1, col2, col3 = st.columns(3)
+            with col1:
                 if st.button("📥 Importar Datos", type="primary", use_container_width=True):
                     with st.spinner("Importando datos al sistema..."):
                         exito, mensaje = importar_datos_a_registro(
@@ -913,19 +1249,15 @@ def interfaz_analisis_llamadas():
                         
                         if exito:
                             st.success("✅ Datos importados exitosamente")
-                            # Mostrar mensaje detallado
                             for linea in mensaje.split('\n'):
                                 if linea.strip():
                                     st.write(linea)
                         else:
                             st.error(f"❌ Error al importar: {mensaje}")
             
-            with col_import2:
+            with col2:
                 if st.button("🧹 Limpiar y Probar", type="secondary", use_container_width=True):
-                    # Probar importación sin guardar
                     registro_actual = cargar_registro_llamadas()
-                    
-                    # Simular importación
                     agentes_sistema = super_users_config.get("agentes", {})
                     agentes_csv = st.session_state.df_analizado_actual['agente'].unique()
                     
@@ -952,13 +1284,13 @@ def interfaz_analisis_llamadas():
                             for i, agente in enumerate(no_coincidentes[:5]):
                                 st.write(f"- {agente}")
             
-            with col_import3:
+            with col3:
                 if st.button("🔍 Depurar agentes", type="secondary", use_container_width=True):
                     mostrar_depuracion_agentes(st.session_state.df_analizado_actual, super_users_config)
         
         # Botones de control
-        col_control1, col_control2 = st.columns(2)
-        with col_control1:
+        col1, col2 = st.columns(2)
+        with col1:
             if st.button("🔄 Cargar nuevo archivo", type="secondary"):
                 st.session_state.analisis_realizado = False
                 st.session_state.df_cargado = None
@@ -967,7 +1299,7 @@ def interfaz_analisis_llamadas():
                     del st.session_state.uploaded_file_data
                 st.rerun()
         
-        with col_control2:
+        with col2:
             if st.button("📊 Ir a Panel Super Users", type="secondary"):
                 st.session_state.mostrar_panel_super_usuario = True
                 st.rerun()

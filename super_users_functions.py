@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from dateutil.relativedelta import relativedelta
 import plotly.graph_objects as go
 import plotly.express as px
@@ -62,10 +62,13 @@ def _mostrar_panel_super_users(super_users_config, usuarios_config):
 
 
 def _mostrar_lista_super_users(super_users_list, usuarios_config):
-    """Muestra la lista de super usuarios actuales"""
+    """Muestra la lista de super usuarios actuales - ORDENADA ALFABÉTICAMENTE"""
     st.write("**Super usuarios actuales:**")
     if super_users_list:
-        for user in super_users_list:
+        # Ordenar alfabéticamente por nombre de usuario
+        super_users_sorted = sorted(super_users_list)
+        
+        for user in super_users_sorted:
             nombre = usuarios_config.get(user, {}).get('nombre', user)
             st.write(f"• **{user}** - {nombre}")
     else:
@@ -147,11 +150,11 @@ def _gestionar_eliminacion_super_user(super_users_list, super_users_config):
 
 
 # ============================================================================
-# GESTIÓN DE AGENTES
+# GESTIÓN DE AGENTES - MODIFICADO CON OBJETIVOS PERSONALIZADOS
 # ============================================================================
 
 def _mostrar_gestion_agentes(super_users_config, usuarios_config):
-    """Muestra la gestión de agentes"""
+    """Muestra la gestión de agentes CON OBJETIVOS PERSONALIZADOS"""
     st.write("### 👥 Gestión de Agentes")
     
     agentes = super_users_config.get("agentes", {})
@@ -171,15 +174,21 @@ def _mostrar_gestion_agentes(super_users_config, usuarios_config):
 
 
 def _mostrar_lista_agentes(agentes):
-    """Muestra la lista de agentes registrados"""
+    """Muestra la lista de agentes registrados CON OBJETIVOS Y ORDEN ALFABÉTICO"""
     st.write("**Agentes registrados:**")
     if agentes:
-        for agent_id, info in agentes.items():
+        # Ordenar agentes alfabéticamente por nombre de usuario (ID)
+        agentes_ordenados = sorted(agentes.items(), key=lambda x: x[0])
+        
+        for agent_id, info in agentes_ordenados:
             estado = "✅ Activo" if info.get('activo', True) else "❌ Inactivo"
             grupo = info.get('grupo', 'Sin grupo')
             supervisor = info.get('supervisor', 'Sin asignar')
+            objetivo_ventas = info.get('objetivo_ventas_mensual', 'No configurado')
+            
             st.write(f"• **{agent_id}** - {info.get('nombre', 'Sin nombre')} ({estado})")
             st.write(f"  Grupo: {grupo} | Supervisor: {supervisor}")
+            st.write(f"  Objetivo Ventas: {objetivo_ventas}")
     else:
         st.info("No hay agentes registrados")
 
@@ -253,6 +262,7 @@ def _gestionar_adicion_agentes(super_users_config, usuarios_config, agentes, sup
                                 'tipo': row['tipo'],
                                 'activo': True,
                                 'supervisor': supervisor_asignado if supervisor_asignado != 'Sin asignar' else '',
+                                'objetivo_ventas_mensual': 10,  # Valor por defecto
                                 'fecha_registro': datetime.now().strftime("%Y-%m-%d")
                             }
                         
@@ -295,7 +305,7 @@ def _gestionar_edicion_agentes(super_users_config, agentes, super_users_list):
 
 
 def _mostrar_formulario_edicion_agente(agent_id, info_agente, agentes, super_users_config, super_users_list):
-    """Muestra el formulario para editar un agente"""
+    """Muestra el formulario para editar un agente CON OBJETIVO DE VENTAS"""
     col_edit1, col_edit2 = st.columns(2)
     
     with col_edit1:
@@ -330,6 +340,17 @@ def _mostrar_formulario_edicion_agente(agent_id, info_agente, agentes, super_use
             key=f"edit_activo_{agent_id}"
         )
         
+        # OBJETIVO DE VENTAS PERSONALIZADO
+        objetivo_actual = info_agente.get('objetivo_ventas_mensual', 10)
+        objetivo_editado = st.number_input(
+            "Objetivo Ventas Mensual:",
+            min_value=0,
+            max_value=500,
+            value=objetivo_actual,
+            key=f"edit_objetivo_{agent_id}",
+            help="Ventas objetivo específicas para este agente"
+        )
+        
         opciones_supervisor = ['Sin asignar'] + super_users_list
         supervisor_actual = info_agente.get('supervisor', '')
         
@@ -358,6 +379,7 @@ def _mostrar_formulario_edicion_agente(agent_id, info_agente, agentes, super_use
                 'tipo': tipo_editado,
                 'activo': activo_editado,
                 'supervisor': supervisor_editado if supervisor_editado != 'Sin asignar' else '',
+                'objetivo_ventas_mensual': objetivo_editado,  # Guardar objetivo personalizado
                 'fecha_registro': info_agente.get('fecha_registro', datetime.now().strftime("%Y-%m-%d")),
                 'fecha_actualizacion': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
@@ -398,6 +420,7 @@ def _gestionar_borrado_agente(super_users_config, agentes):
         st.write(f"• {registros_historicos} día(s) de registro histórico")
         st.write(f"• Grupo: {info_agente.get('grupo', 'Sin grupo')}")
         st.write(f"• Supervisor: {info_agente.get('supervisor', 'Sin asignar')}")
+        st.write(f"• Objetivo ventas: {info_agente.get('objetivo_ventas_mensual', 'No configurado')}")
         
         st.write("**⚠️ ADVERTENCIA:** Al borrar este agente:")
         st.write("1. Se eliminará permanentemente de la lista de agentes")
@@ -436,7 +459,7 @@ def _gestionar_borrado_agente(super_users_config, agentes):
 # ============================================================================
 
 def _mostrar_configuracion_metricas(super_users_config):
-    """Muestra la configuración de métricas"""
+    """Muestra la configuración de métricas CON OBJETIVOS SEPARADOS"""
     st.write("### ⚙️ Configuración de Métricas")
     
     config_actual = super_users_config.get("configuracion", {})
@@ -460,17 +483,20 @@ def _mostrar_configuracion_metricas(super_users_config):
     
     with col_conf2:
         target_llamadas = st.number_input(
-            "Target mensual de llamadas:",
+            "Target mensual de llamadas (por agente):",
             min_value=1,
             max_value=1000,
-            value=config_actual.get("target_llamadas", 50)
+            value=config_actual.get("target_llamadas", 50),
+            help="Cada agente debe hacer X llamadas >15min al mes"
         )
         
-        target_ventas = st.number_input(
-            "Target mensual de ventas:",
+        # 🎯 OBJETIVO GLOBAL DE CAMPAÑA (NO POR AGENTE)
+        target_ventas_global = st.number_input(
+            "🎯 Target mensual VENTAS (Campaña Total):",
             min_value=1,
-            max_value=500,
-            value=config_actual.get("target_ventas", 10)
+            max_value=10000,
+            value=config_actual.get("target_ventas_global", 100),
+            help="Objetivo TOTAL de ventas para toda la campaña/equipo"
         )
     
     metrica = st.selectbox(
@@ -513,7 +539,7 @@ def _mostrar_configuracion_metricas(super_users_config):
             "duracion_minima_llamada": duracion_minima,
             "periodo_mensual": periodo,
             "target_llamadas": target_llamadas,
-            "target_ventas": target_ventas,
+            "target_ventas_global": target_ventas_global,  # ⬅️ CAMBIADO DE 'target_ventas'
             "metrica_eficiencia": metrica,
             "mostrar_solo_mis_agentes": mostrar_solo_mis_agentes,
             "umbral_alertas_llamadas": umbral_alertas_llamadas,
@@ -603,29 +629,24 @@ def exportar_datos_completos():
 
 
 # ============================================================================
-# PANEL DE SUPER USUARIO
+# PANEL DE SUPER USUARIO - CON OBJETIVOS DE VENTAS
 # ============================================================================
 
 def panel_super_usuario():
-    """Panel principal para super usuarios"""
+    """Panel principal para super usuarios CON OBJETIVOS DE VENTAS"""
     
-    # ======================================================================
-    # MANEJO DE PÁGINAS ESPECIALES DE ALERTAS - AÑADE ESTO AL PRINCIPIO
-    # ======================================================================
+    # Manejo de páginas especiales de alertas
     if st.session_state.get('mostrar_gestion_alertas', False):
         mostrar_gestion_alertas_descartadas()
-        return  # IMPORTANTE: return para salir y no ejecutar el resto
+        return
     
     if st.session_state.get('mostrar_todas_alertas', False):
-        # Si tienes esta función, descomenta:
-        # mostrar_todas_las_alertas()
-        # Si no la tienes, muestra algo básico:
         st.header("📋 Todas las Alertas")
         st.warning("Función 'mostrar_todas_las_alertas' no implementada")
         if st.button("← Volver al Panel"):
             st.session_state.mostrar_todas_alertas = False
             st.rerun()
-        return  # IMPORTANTE: return para salir
+        return
     
     st.header("📊 Panel de Super Usuario")
     
@@ -989,11 +1010,11 @@ def filtrar_dias_validos(agente_id, registro_llamadas, fecha_inicio, fecha_fin, 
 
 
 # ============================================================================
-# MÉTRICAS MENSUALES
+# MÉTRICAS MENSUALES - CON OBJETIVOS PERSONALIZADOS
 # ============================================================================
 
 def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
-    """Muestra métricas mensuales de agentes - CON FILTRO POR DÍA VÁLIDO"""
+    """Muestra métricas mensuales de agentes CON OBJETIVOS SEPARADOS"""
     st.subheader("📊 Métricas Mensuales - Días Válidos (>X llamadas/día)")
     
     minimo_llamadas_dia = configuracion.get("minimo_llamadas_dia", 50)
@@ -1014,7 +1035,7 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
     st.write("### 📈 Cálculo con Días Válidos")
     
     datos_agentes, estadisticas = _calcular_metricas_dias_validos(
-        agentes, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia
+        agentes, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia, configuracion
     )
     
     _mostrar_estadisticas_filtrado(estadisticas, minimo_llamadas_dia)
@@ -1023,10 +1044,10 @@ def mostrar_metricas_mensuales(agentes, registro_llamadas, configuracion):
         st.warning(f"⚠️ No hay agentes con días válidos (≥ {minimo_llamadas_dia} llamadas/día) en el período seleccionado")
         return
     
-    _mostrar_estadisticas_globales(estadisticas)
+    _mostrar_estadisticas_globales(estadisticas, configuracion)
     
     metricas_agentes = _calcular_metricas_individuales(
-        datos_agentes, estadisticas, configuracion
+        datos_agentes, estadisticas, configuracion, agentes
     )
     
     if metricas_agentes:
@@ -1052,7 +1073,7 @@ def _obtener_periodo_calendario():
     
     with col_mes:
         meses = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-                "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+                "Julio", "Agusto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
         mes_seleccionado = st.selectbox("Mes:", meses, index=mes_actual - 1, key="selector_mes_metricas")
         mes_numero = meses.index(mes_seleccionado) + 1
     
@@ -1079,24 +1100,29 @@ def _mostrar_configuracion_metricas_panel(configuracion, fecha_inicio, fecha_fin
     """Muestra la configuración de métricas en el panel"""
     st.write("**Configuración:**")
     target_llamadas = configuracion.get('target_llamadas', 50)
-    target_ventas = configuracion.get('target_ventas', 10)
-    st.write(f"• Target llamadas >15min: {target_llamadas}")
-    st.write(f"• Target ventas: {target_ventas}")
+    target_ventas_global = configuracion.get('target_ventas_global', 100)
+    st.write(f"• Target llamadas >15min/agente: {target_llamadas}")
+    st.write(f"• 🎯 Target ventas CAMPAÑA: {target_ventas_global}")
     st.write(f"• Mínimo llamadas/día: {configuracion.get('minimo_llamadas_dia', 50)}")
     
     total_dias_periodo = (fecha_fin - fecha_inicio).days + 1
     st.write(f"• Días en periodo: {total_dias_periodo}")
 
 
-def _calcular_metricas_dias_validos(agentes, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia):
-    """Calcula métricas considerando solo días válidos"""
+def _calcular_metricas_dias_validos(agentes, registro_llamadas, fecha_inicio, fecha_fin, minimo_llamadas_dia, configuracion=None):
+    """Calcula métricas considerando solo días válidos CON OBJETIVOS DESDE JSON"""
     datos_agentes = []
     total_llamadas_totales_periodo = 0
     total_llamadas_15min_periodo = 0
     total_ventas_periodo = 0
+    total_objetivo_individual = 0  # Suma de objetivos individuales desde JSON
     agentes_con_datos_validos = 0
     total_dias_validos = 0
     agentes_sin_dias_validos = []
+    
+    # Cargar objetivos desde JSON
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
     
     for agent_id, info in agentes.items():
         if not info.get('activo', True):
@@ -1135,11 +1161,16 @@ def _calcular_metricas_dias_validos(agentes, registro_llamadas, fecha_inicio, fe
         total_dias_validos += dias_con_datos
         agentes_con_datos_validos += 1
         
+        # Obtener objetivo INDIVIDUAL desde JSON
+        objetivo_individual = objetivos_dict.get(agent_id, 10)
+        total_objetivo_individual += objetivo_individual
+        
         datos_agentes.append({
             'agent_id': agent_id,
             'nombre': nombre,
             'grupo': grupo,
             'supervisor': supervisor,
+            'objetivo_individual': objetivo_individual,
             'llamadas_totales': llamadas_totales_agente,
             'llamadas_15min': llamadas_15min_agente,
             'ventas': ventas_agente,
@@ -1151,6 +1182,7 @@ def _calcular_metricas_dias_validos(agentes, registro_llamadas, fecha_inicio, fe
         'total_llamadas_totales_periodo': total_llamadas_totales_periodo,
         'total_llamadas_15min_periodo': total_llamadas_15min_periodo,
         'total_ventas_periodo': total_ventas_periodo,
+        'total_objetivo_individual': total_objetivo_individual,
         'agentes_con_datos_validos': agentes_con_datos_validos,
         'total_dias_validos': total_dias_validos,
         'agentes_sin_dias_validos': agentes_sin_dias_validos,
@@ -1182,8 +1214,8 @@ def _mostrar_estadisticas_filtrado(estadisticas, minimo_llamadas_dia):
                 st.write(f"- **{agente['id']}** ({agente['nombre']}): {agente['dias_validos']} días válidos")
 
 
-def _mostrar_estadisticas_globales(estadisticas):
-    """Muestra estadísticas globales de métricas"""
+def _mostrar_estadisticas_globales(estadisticas, configuracion):
+    """Muestra estadísticas globales de métricas CON OBJETIVOS SEPARADOS"""
     # Calcular medias globales
     media_llamadas_totales = estadisticas['total_llamadas_totales_periodo'] / estadisticas['agentes_con_datos_validos']
     media_llamadas_15min = estadisticas['total_llamadas_15min_periodo'] / estadisticas['agentes_con_datos_validos']
@@ -1194,6 +1226,15 @@ def _mostrar_estadisticas_globales(estadisticas):
     )
     
     media_dias_validos = estadisticas['total_dias_validos'] / estadisticas['agentes_con_datos_validos']
+    
+    # 🎯 OBJETIVOS DIFERENCIADOS
+    target_global_campana = configuracion.get('target_ventas_global', 100) if configuracion else 100
+    total_objetivo_individual = estadisticas['total_objetivo_individual']
+    total_ventas = estadisticas['total_ventas_periodo']
+    
+    # Progreso vs objetivos
+    progreso_vs_global = (total_ventas / target_global_campana * 100) if target_global_campana > 0 else 0
+    progreso_vs_individual = (total_ventas / total_objetivo_individual * 100) if total_objetivo_individual > 0 else 0
     
     st.write("### 📊 Estadísticas Globales (Solo Días Válidos)")
     
@@ -1210,18 +1251,40 @@ def _mostrar_estadisticas_globales(estadisticas):
     
     with col_glob4:
         st.metric("📊 % Eficiencia global", f"{porcentaje_global_15min:.1f}%")
+    
+    # 🎯 SECCIÓN DE OBJETIVOS
+    st.write("### 🎯 Progreso vs Objetivos")
+    
+    col_obj1, col_obj2 = st.columns(2)
+    
+    with col_obj1:
+        st.metric("🎯 vs Objetivo Campaña", f"{total_ventas}/{target_global_campana}")
+        st.caption(f"{progreso_vs_global:.1f}%")
+        ventas_restantes_global = max(0, target_global_campana - total_ventas)
+        st.caption(f"Faltan: {ventas_restantes_global}")
+    
+    with col_obj2:
+        st.metric("📊 vs Objetivos Individuales", f"{total_ventas}/{total_objetivo_individual}")
+        st.caption(f"{progreso_vs_individual:.1f}%")
+        ventas_restantes_individual = max(0, total_objetivo_individual - total_ventas)
+        st.caption(f"Faltan: {ventas_restantes_individual}")
 
 
-def _calcular_metricas_individuales(datos_agentes, estadisticas, configuracion):
-    """Calcula métricas individuales para cada agente"""
+def _calcular_metricas_individuales(datos_agentes, estadisticas, configuracion, agentes):
+    """Calcula métricas individuales para cada agente CON OBJETIVOS DESDE JSON"""
     metricas_agentes = []
     
+    # 🎯 OBJETIVOS DIFERENCIADOS
     target_llamadas = configuracion.get('target_llamadas', 50)
-    target_ventas = configuracion.get('target_ventas', 10)
-    media_llamadas_totales = estadisticas['total_llamadas_totales_periodo'] / estadisticas['agentes_con_datos_validos']
-    media_llamadas_15min = estadisticas['total_llamadas_15min_periodo'] / estadisticas['agentes_con_datos_validos']
+    target_ventas_global = configuracion.get('target_ventas_global', 100)
     
     for datos in datos_agentes:
+        agent_id = datos['agent_id']
+        info_agente = agentes.get(agent_id, {})
+        
+        # Obtener objetivo individual desde datos (ya cargado desde JSON)
+        objetivo_individual = datos.get('objetivo_individual', 10)
+        
         llamadas_totales = datos['llamadas_totales']
         llamadas_15min = datos['llamadas_15min']
         ventas = datos['ventas']
@@ -1233,12 +1296,13 @@ def _calcular_metricas_individuales(datos_agentes, estadisticas, configuracion):
         
         # Porcentajes
         porcentaje_15min = (llamadas_15min / llamadas_totales * 100) if llamadas_totales > 0 else 0
-        vs_media_total = ((llamadas_totales - media_llamadas_totales) / media_llamadas_totales * 100) if media_llamadas_totales > 0 else 0
-        vs_media_15min = ((llamadas_15min - media_llamadas_15min) / media_llamadas_15min * 100) if media_llamadas_15min > 0 else 0
         
-        # Cumplimiento
+        # Cumplimiento CON OBJETIVOS DIFERENCIADOS
         cumplimiento_llamadas = (llamadas_15min / target_llamadas * 100) if target_llamadas > 0 else 0
-        cumplimiento_ventas = (ventas / target_ventas * 100) if target_ventas > 0 else 0
+        cumplimiento_ventas_individual = (ventas / objetivo_individual * 100) if objetivo_individual > 0 else 0
+        
+        # Contribución al objetivo global
+        contribucion_global = (ventas / target_ventas_global * 100) if target_ventas_global > 0 else 0
         
         # Ratio y eficiencia
         ratio_conversion = (ventas / llamadas_15min * 100) if llamadas_15min > 0 else 0
@@ -1252,20 +1316,14 @@ def _calcular_metricas_individuales(datos_agentes, estadisticas, configuracion):
             eficiencia = ventas * 2 + llamadas_15min
         
         # Estados
-        estado_general = '✅' if cumplimiento_llamadas >= 100 and cumplimiento_ventas >= 100 else '⚠️'
-        
-        umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
-        alerta_media = ''
-        if vs_media_total < -umbral_alerta:
-            alerta_media = '🔔'
-        elif vs_media_total > 0:
-            alerta_media = '📈'
+        estado_general = '✅' if cumplimiento_llamadas >= 100 and cumplimiento_ventas_individual >= 100 else '⚠️'
         
         metricas_agentes.append({
             'ID': datos['agent_id'],
             'Agente': datos['nombre'],
             'Grupo': datos['grupo'],
             'Supervisor': datos['supervisor'],
+            'Objetivo Individual': objetivo_individual,
             'Días Válidos': dias_validos,
             'Llamadas Totales': llamadas_totales,
             'Llamadas >15min': llamadas_15min,
@@ -1273,20 +1331,19 @@ def _calcular_metricas_individuales(datos_agentes, estadisticas, configuracion):
             'Llamadas/Día': f"{llamadas_diarias_promedio:.1f}",
             '>15min/Día': f"{llamadas_15min_diarias_promedio:.1f}",
             '% >15min': f"{porcentaje_15min:.1f}%",
-            'vs Media Total (%)': f"{vs_media_total:+.1f}%",
-            'vs Media >15min (%)': f"{vs_media_15min:+.1f}%",
             'Cump. Llamadas (%)': f"{cumplimiento_llamadas:.1f}%",
-            'Cump. Ventas (%)': f"{cumplimiento_ventas:.1f}%",
+            'Cump. Ventas Ind. (%)': f"{cumplimiento_ventas_individual:.1f}%",
+            'Contrib. Global (%)': f"{contribucion_global:.1f}%",
+            'Ventas Restantes': max(0, objetivo_individual - ventas),
             'Ratio (%)': f"{ratio_conversion:.1f}%",
             'Eficiencia': f"{eficiencia:.1f}",
-            'Alerta Media': alerta_media,
             'Estado': estado_general,
             '_dias_validos': dias_validos,
             '_llamadas_totales': llamadas_totales,
             '_llamadas_15min': llamadas_15min,
             '_ventas': ventas,
+            '_objetivo_individual': objetivo_individual,
             '_porcentaje_15min': porcentaje_15min,
-            '_vs_media_total': vs_media_total,
             '_ratio': ratio_conversion,
             '_eficiencia': eficiencia
         })
@@ -1305,12 +1362,15 @@ def _mostrar_tabla_metricas(metricas_agentes, fecha_inicio, fecha_fin, minimo_ll
             "Ordenar por:",
             [
                 'ID', 
+                'Agente',
                 'Días Válidos',
                 'Llamadas Totales', 
                 'Llamadas >15min', 
                 'Ventas', 
+                'Objetivo Ventas',
+                'Ventas Restantes',
                 '% >15min', 
-                'vs Media Total (%)',
+                'Cump. Ventas (%)',
                 'Ratio (%)',
                 'Eficiencia'
             ],
@@ -1319,25 +1379,33 @@ def _mostrar_tabla_metricas(metricas_agentes, fecha_inicio, fecha_fin, minimo_ll
     
     orden_mapping = {
         'ID': 'ID',
+        'Agente': 'Agente',
         'Días Válidos': '_dias_validos',
         'Llamadas Totales': '_llamadas_totales',
         'Llamadas >15min': '_llamadas_15min',
         'Ventas': '_ventas',
+        'Objetivo Ventas': '_objetivo_individual',
+        'Ventas Restantes': lambda x: x['_objetivo_individual'] - x['_ventas'],
         '% >15min': '_porcentaje_15min',
-        'vs Media Total (%)': '_vs_media_total',
+        'Cump. Ventas (%)': lambda x: (x['_ventas'] / x['_objetivo_individual'] * 100) if x['_objetivo_individual'] > 0 else 0,
         'Ratio (%)': '_ratio',
         'Eficiencia': '_eficiencia'
     }
     
     if orden_seleccionado in orden_mapping:
-        col_orden = orden_mapping[orden_seleccionado]
-        if orden_seleccionado in ['Llamadas Totales', 'Llamadas >15min', 'Ventas', 'Días Válidos']:
-            df_metricas = df_metricas.sort_values(col_orden, ascending=False)
+        if callable(orden_mapping[orden_seleccionado]):
+            df_metricas['_temp_sort'] = df_metricas.apply(orden_mapping[orden_seleccionado], axis=1)
+            df_metricas = df_metricas.sort_values('_temp_sort', ascending=False)
+            df_metricas = df_metricas.drop('_temp_sort', axis=1)
         else:
-            df_metricas = df_metricas.sort_values(col_orden, ascending=False)
+            col_orden = orden_mapping[orden_seleccionado]
+            if orden_seleccionado in ['Llamadas Totales', 'Llamadas >15min', 'Ventas', 'Días Válidos', 'Objetivo Ventas']:
+                df_metricas = df_metricas.sort_values(col_orden, ascending=False)
+            else:
+                df_metricas = df_metricas.sort_values(col_orden, ascending=False)
     
     st.dataframe(df_metricas.drop(columns=['_dias_validos', '_llamadas_totales', '_llamadas_15min', 
-                                         '_ventas', '_porcentaje_15min', '_vs_media_total', 
+                                         '_ventas', '_objetivo_individual', '_porcentaje_15min', 
                                          '_ratio', '_eficiencia']), 
                 use_container_width=True)
     
@@ -1367,11 +1435,11 @@ def _mostrar_opciones_exportacion(df_metricas, fecha_inicio, fecha_fin, minimo_l
 
 
 # ============================================================================
-# DASHBOARD
+# DASHBOARD - MODIFICADO CON OBJETIVOS DE VENTAS
 # ============================================================================
 
 def mostrar_dashboard(agentes, registro_llamadas, configuracion):
-    """Dashboard interactivo de métricas - CORREGIDO COMPLETO"""
+    """Dashboard interactivo de métricas CON OBJETIVOS DE VENTAS"""
     st.subheader("📈 Dashboard de Desempeño")
     
     username = st.session_state.get('username', '')
@@ -1404,20 +1472,25 @@ def mostrar_dashboard(agentes, registro_llamadas, configuracion):
         with col_fecha2:
             fecha_fin = st.date_input("Fecha fin", value=fecha_hoy)
     
-    _mostrar_kpis_dashboard(agentes, registro_llamadas, fecha_inicio, fecha_fin)
+    _mostrar_kpis_dashboard(agentes, registro_llamadas, fecha_inicio, fecha_fin, configuracion)
     _mostrar_tendencia_diaria(agentes, registro_llamadas, fecha_inicio, fecha_fin)
     _mostrar_ranking_agentes(agentes, registro_llamadas, fecha_inicio, fecha_fin, configuracion)
     _mostrar_comparacion_llamadas(agentes, registro_llamadas, fecha_inicio, fecha_fin)
 
 
-def _mostrar_kpis_dashboard(agentes, registro_llamadas, fecha_inicio, fecha_fin):
-    """Muestra los KPIs del dashboard"""
-    st.write("### 📊 Métricas Globales (Llamadas >15min)")
+def _mostrar_kpis_dashboard(agentes, registro_llamadas, fecha_inicio, fecha_fin, configuracion):
+    """Muestra los KPIs del dashboard CON OBJETIVOS INDIVIDUALES DESDE JSON"""
+    st.write("### 📊 Métricas Globales")
     
     total_llamadas_15min = 0
     total_llamadas_totales = 0
     total_ventas = 0
+    total_objetivo_individual = 0  # Suma de objetivos individuales desde JSON
     agentes_activos = sum(1 for a in agentes.values() if a.get('activo', True))
+    
+    # Cargar objetivos individuales desde JSON
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
     
     for fecha_str, datos_dia in registro_llamadas.items():
         fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
@@ -1428,28 +1501,107 @@ def _mostrar_kpis_dashboard(agentes, registro_llamadas, fecha_inicio, fecha_fin)
                     total_llamadas_totales += datos_agente.get("llamadas_totales", 0)
                     total_ventas += datos_agente.get("ventas", 0)
     
+    # 🎯 OBJETIVOS DIFERENCIADOS
+    target_global_campana = configuracion.get('target_ventas_global', 100) if configuracion else 100
+    
+    # Calcular objetivo total individual (suma de objetivos personales desde JSON)
+    for agent_id, info in agentes.items():
+        if info.get('activo', True):
+            # Obtener objetivo desde JSON, si no existe usar 10 por defecto
+            objetivo_individual = objetivos_dict.get(agent_id, 10)
+            total_objetivo_individual += objetivo_individual
+    
+    # Cálculos de métricas
     media_llamadas_agente_15min = total_llamadas_15min / len(agentes) if agentes else 0
     porcentaje_15min = (total_llamadas_15min / total_llamadas_totales * 100) if total_llamadas_totales > 0 else 0
     ratio = (total_ventas / total_llamadas_15min * 100) if total_llamadas_15min > 0 else 0
     
+    # 🎯 PROGRESO vs OBJETIVO GLOBAL DE CAMPAÑA
+    progreso_vs_global = (total_ventas / target_global_campana * 100) if target_global_campana > 0 else 0
+    ventas_restantes_global = max(0, target_global_campana - total_ventas)
+    
+    # 📊 PROGRESO vs OBJETIVOS INDIVIDUALES SUMADOS
+    progreso_vs_individual = (total_ventas / total_objetivo_individual * 100) if total_objetivo_individual > 0 else 0
+    ventas_restantes_individual = max(0, total_objetivo_individual - total_ventas)
+    
+    # Mostrar KPIs
     col_kpi1, col_kpi2, col_kpi3, col_kpi4, col_kpi5 = st.columns(5)
     
     with col_kpi1:
         st.metric("👥 Agentes Activos", agentes_activos)
+        st.caption(f"Target llamadas/agente: {configuracion.get('target_llamadas', 50) if configuracion else 50}")
     
     with col_kpi2:
         st.metric("📞 Llamadas >15min", total_llamadas_15min)
         st.caption(f"({total_llamadas_totales} totales)")
     
     with col_kpi3:
-        st.metric("💰 Ventas Total", total_ventas)
+        # 🎯 OBJETIVO GLOBAL DE CAMPAÑA
+        st.metric("🎯 Ventas / Obj. Campaña", f"{total_ventas} / {target_global_campana}")
+        st.caption(f"{progreso_vs_global:.1f}% - Faltan: {ventas_restantes_global}")
     
     with col_kpi4:
-        st.metric("📈 Ratio Conversión", f"{ratio:.1f}%")
+        # 📊 OBJETIVOS INDIVIDUALES SUMADOS DESDE JSON
+        st.metric("📊 Ventas / Obj. Individual", f"{total_ventas} / {total_objetivo_individual}")
+        st.caption(f"{progreso_vs_individual:.1f}% - Faltan: {ventas_restantes_individual}")
     
     with col_kpi5:
-        st.metric("📊 Media >15min/Agente", f"{media_llamadas_agente_15min:.1f}")
-        st.caption(f"({porcentaje_15min:.1f}% del total)")
+        st.metric("📈 Ratio Conversión", f"{ratio:.1f}%")
+        st.caption(f"{porcentaje_15min:.1f}% llamadas >15min")
+    
+    # 🎯 BARRAS DE PROGRESO DIFERENCIADAS
+    st.write("### 📊 Progreso de Ventas")
+    
+    col_prog1, col_prog2 = st.columns(2)
+    
+    with col_prog1:
+        # Progreso vs Objetivo Global de Campaña
+        st.write("**🎯 vs Objetivo Campaña**")
+        progreso_global = min(progreso_vs_global / 100, 1.0)
+        st.progress(progreso_global)
+        
+        if progreso_vs_global < 50:
+            color_global = "red"
+        elif progreso_vs_global < 80:
+            color_global = "orange"
+        else:
+            color_global = "green"
+        
+        st.markdown(f"""
+        <div style="text-align: center;">
+            <span style="color: {color_global}; font-weight: bold;">{progreso_vs_global:.1f}%</span> 
+            ({total_ventas} de {target_global_campana} ventas)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Promedio por agente para alcanzar objetivo global
+        if agentes_activos > 0:
+            promedio_necesario = ventas_restantes_global / agentes_activos
+            st.caption(f"📊 Cada agente debe vender: {promedio_necesario:.1f} más")
+    
+    with col_prog2:
+        # Progreso vs Objetivos Individuales Sumados DESDE JSON
+        st.write("**📊 vs Objetivos Individuales**")
+        progreso_individual = min(progreso_vs_individual / 100, 1.0)
+        st.progress(progreso_individual)
+        
+        if progreso_vs_individual < 50:
+            color_individual = "red"
+        elif progreso_vs_individual < 80:
+            color_individual = "orange"
+        else:
+            color_individual = "green"
+        
+        st.markdown(f"""
+        <div style="text-align: center;">
+            <span style="color: {color_individual}; font-weight: bold;">{progreso_vs_individual:.1f}%</span> 
+            ({total_ventas} de {total_objetivo_individual} ventas)
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Información sobre objetivos individuales
+        objetivo_promedio = total_objetivo_individual / len(agentes) if agentes else 0
+        st.caption(f"📋 {len(agentes)} agentes | Obj. promedio: {objetivo_promedio:.1f}")
 
 
 def _mostrar_tendencia_diaria(agentes, registro_llamadas, fecha_inicio, fecha_fin):
@@ -1519,12 +1671,16 @@ def _mostrar_tendencia_diaria(agentes, registro_llamadas, fecha_inicio, fecha_fi
 
 
 def _mostrar_ranking_agentes(agentes, registro_llamadas, fecha_inicio, fecha_fin, configuracion):
-    """Muestra el ranking de agentes"""
+    """Muestra el ranking de agentes CON OBJETIVOS INDIVIDUALES DESDE JSON"""
     st.write("### 🏆 Ranking de Agentes (Basado en Llamadas >15min)")
     
     ranking_data = []
     total_llamadas_15min = 0
     agentes_contados = 0
+    
+    # Cargar objetivos individuales desde JSON
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
     
     # Primero calcular la media de llamadas >15min
     for fecha_str, datos_dia in registro_llamadas.items():
@@ -1568,11 +1724,21 @@ def _mostrar_ranking_agentes(agentes, registro_llamadas, fecha_inicio, fecha_fin
                 else:
                     estado_media = "➖"
                 
+                # Obtener objetivo individual desde JSON
+                objetivo_agente = objetivos_dict.get(agent_id, 10)
+                ventas_restantes = max(0, objetivo_agente - ventas_periodo)
+                
+                # Calcular cumplimiento del objetivo individual
+                cumplimiento_objetivo = (ventas_periodo / objetivo_agente * 100) if objetivo_agente > 0 else 0
+                
                 ranking_data.append({
                     'ID': agent_id,
                     'Agente': nombre,
                     'Llamadas >15min': llamadas_periodo_15min,
                     'Ventas': ventas_periodo,
+                    'Objetivo': objetivo_agente,
+                    'Cump. Objetivo': f"{cumplimiento_objetivo:.1f}%",
+                    'Ventas Restantes': ventas_restantes,
                     'Ratio': f"{ratio:.1f}%",
                     'vs Media': f"{diferencia_media:.1f}%",
                     'Estado': estado_media,
@@ -1585,6 +1751,14 @@ def _mostrar_ranking_agentes(agentes, registro_llamadas, fecha_inicio, fecha_fin
         
         st.write("**Top 10 Agentes:**")
         st.dataframe(df_ranking.head(10), use_container_width=True)
+        
+        # Mostrar agentes que superan su objetivo individual
+        agentes_superan_objetivo = df_ranking[df_ranking['Cump. Objetivo'].apply(lambda x: float(x.replace('%', '')) >= 100)]
+        if not agentes_superan_objetivo.empty:
+            st.success("### 🎉 Agentes que Superan su Objetivo Individual")
+            st.write("Estos agentes ya han alcanzado o superado su objetivo personal:")
+            st.dataframe(agentes_superan_objetivo[['ID', 'Agente', 'Ventas', 'Objetivo', 'Cump. Objetivo']], 
+                        use_container_width=True)
         
         agentes_alerta = df_ranking[df_ranking['Estado'] == '⚠️']
         if not agentes_alerta.empty:
@@ -1638,8 +1812,8 @@ def _mostrar_comparacion_llamadas(agentes, registro_llamadas, fecha_inicio, fech
 # ============================================================================
 
 def gestion_agentes_super_usuario(agentes, super_users_config):
-    """Gestión de agentes desde el panel de super usuario"""
-    st.subheader("👥 Gestión de Agentes")
+    """Gestión de agentes desde el panel de super usuario - VERSIÓN MEJORADA"""
+    st.subheader("👥 Gestión de Mis Agentes")
     
     username = st.session_state.get('username', '')
     
@@ -1649,101 +1823,505 @@ def gestion_agentes_super_usuario(agentes, super_users_config):
     agentes_activos = sum(1 for a in agentes.values() if a.get('activo', True))
     agentes_inactivos = len(agentes) - agentes_activos
     
-    col_stats1, col_stats2 = st.columns(2)
+    col_stats1, col_stats2, col_stats3 = st.columns(3)
     with col_stats1:
         st.metric("✅ Agentes Activos", agentes_activos)
     with col_stats2:
         st.metric("❌ Agentes Inactivos", agentes_inactivos)
+    with col_stats3:
+        # Contar agentes con monitorización reciente
+        agentes_con_monitorizacion = contar_agentes_con_monitorizacion_reciente(agentes)
+        st.metric("📊 Con Monitorización", agentes_con_monitorizacion)
     
-    _mostrar_lista_agentes_detallada(agentes, super_users_config)
+    _mostrar_lista_agentes_mejorada(agentes, super_users_config, "supervisor")
 
 
-def _mostrar_lista_agentes_detallada(agentes, super_users_config):
-    """Muestra lista detallada de agentes con opciones"""
+def _mostrar_lista_agentes_mejorada(agentes, super_users_config, context=""):
+    """Muestra lista mejorada de agentes con controles rápidos"""
+    st.write("### 📋 Lista de Agentes")
+    
+    if not agentes:
+        st.info("No hay agentes asignados a tu supervisión")
+        return
+    
+    # Inicializar archivo de objetivos (asegurarse que existe)
+    objetivos_data = inicializar_archivo_objetivos()
+    
+    # Si hay un error, mostrar mensaje
+    if not objetivos_data:
+        st.error("❌ No se pudo cargar el archivo de objetivos. Usando valores por defecto.")
+        objetivos_dict = {}
+    else:
+        objetivos_dict = objetivos_data.get("objetivos", {})
+    
+    # Cargar información de monitorizaciones
+    info_monitorizaciones = obtener_info_monitorizaciones_agentes(agentes.keys())
+    
+    # Crear tabla de datos con objetivos desde JSON
+    datos_tabla = []
+    
     for agent_id, info in agentes.items():
         nombre = info.get('nombre', agent_id)
         grupo = info.get('grupo', 'Sin grupo')
         supervisor = info.get('supervisor', 'Sin asignar')
         activo = info.get('activo', True)
         
-        with st.expander(f"{'✅' if activo else '❌'} {nombre} ({grupo}) - Supervisor: {supervisor}", expanded=False):
-            col_agent1, col_agent2 = st.columns(2)
-            
-            with col_agent1:
-                st.write("**Información:**")
-                st.write(f"• ID: {agent_id}")
-                st.write(f"• Grupo: {grupo}")
-                st.write(f"• Supervisor: {supervisor}")
-                st.write(f"• Estado: {'Activo' if activo else 'Inactivo'}")
-                st.write(f"• Tipo: {info.get('tipo', 'user')}")
-                
-                if 'fecha_registro' in info:
-                    st.write(f"• Registrado: {info['fecha_registro']}")
-            
-            with col_agent2:
-                st.write("**Acciones:**")
-                
-                nuevo_estado = st.checkbox("Activo", value=activo, key=f"activo_{agent_id}")
-                
-                if nuevo_estado != activo:
-                    if st.button("💾 Actualizar Estado", key=f"update_estado_{agent_id}"):
-                        agentes[agent_id]['activo'] = nuevo_estado
-                        super_users_config["agentes"] = agentes
-                        guardar_super_users(super_users_config)
-                        st.success(f"✅ Estado actualizado para {nombre}")
-                        st.rerun()
-                
-                if st.button("📊 Ver Historial", key=f"historial_{agent_id}"):
-                    st.session_state.ver_historial_agente = agent_id
-                    st.rerun()
+        # Obtener objetivo desde JSON, si no existe usar 10 por defecto
+        objetivo_ventas = objetivos_dict.get(agent_id, 10)
+        
+        tipo = info.get('tipo', 'user')
+        
+        # Obtener info de monitorización
+        mon_info = info_monitorizaciones.get(agent_id, {})
+        icono_monitorizacion = mon_info.get('icono', '📭')
+        tooltip_monitorizacion = mon_info.get('tooltip', 'Sin monitorización')
+        fecha_monitorizacion = mon_info.get('fecha', '')
+        nota_monitorizacion = mon_info.get('nota', 0)
+        
+        datos_tabla.append({
+            'ID': agent_id,
+            'Agente': nombre,
+            'Grupo': grupo,
+            'Tipo': tipo,
+            'Estado': activo,
+            'Objetivo Ventas': objetivo_ventas,  # Desde JSON
+            'Monitorización': icono_monitorizacion,
+            'Fecha Monitorización': fecha_monitorizacion,
+            'Nota Monitorización': nota_monitorizacion,
+            'Supervisor': supervisor,
+            '_info_completa': info
+        })
     
-    _mostrar_historial_agente(agentes)
+    # Crear DataFrame
+    df_agentes = pd.DataFrame(datos_tabla)
+    
+    # Configurar columnas para el editor
+    column_config = {
+        'ID': st.column_config.TextColumn('ID', disabled=True),
+        'Agente': st.column_config.TextColumn('Agente', disabled=True),
+        'Grupo': st.column_config.TextColumn('Grupo', disabled=True),
+        'Tipo': st.column_config.TextColumn('Tipo', disabled=True),
+        'Estado': st.column_config.CheckboxColumn(
+            'Activo',
+            help="Activar/desactivar agente",
+            default=True
+        ),
+        'Objetivo Ventas': st.column_config.NumberColumn(
+            'Objetivo Ventas',
+            min_value=0,
+            max_value=500,
+            step=1,
+            help="Ventas objetivo mensuales - Edita y haz clic en Guardar",
+            required=True
+        ),
+        'Monitorización': st.column_config.TextColumn(
+            '📊',
+            help="Última monitorización",
+            disabled=True
+        ),
+        'Fecha Monitorización': st.column_config.TextColumn(
+            'Fecha',
+            disabled=True
+        ),
+        'Nota Monitorización': st.column_config.NumberColumn(
+            'Nota',
+            format="%.1f%%",
+            disabled=True
+        ),
+        'Supervisor': st.column_config.TextColumn('Supervisor', disabled=True)
+    }
+    
+    # Mostrar editor
+    st.write("**📝 Edita el 'Objetivo Ventas' directamente y haz clic en 'Guardar Cambios':**")
+    
+    edited_df = st.data_editor(
+        df_agentes,
+        column_config=column_config,
+        hide_index=True,
+        use_container_width=True,
+        num_rows="dynamic",
+        key=f"editor_lista_agentes_{context}"
+    )
+    
+    # Botones de acción
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    
+    with col_btn1:
+        if st.button("💾 Guardar Cambios", type="primary", use_container_width=True, 
+                    key=f"btn_guardar_{context}"):
+            _guardar_objetivos_desde_tabla(edited_df, context)
+    
+    with col_btn2:
+        if st.button("📊 Ver Detalles Completos", type="secondary", use_container_width=True,
+                    key=f"btn_detalles_{context}"):
+            st.session_state.mostrar_detalles_agentes = True
+            st.rerun()
+    
+    with col_btn3:
+        if st.button("⚙️ Gestionar Objetivos", type="secondary", use_container_width=True,
+                    key=f"btn_gestion_objetivos_{context}"):
+            st.session_state.mostrar_gestion_objetivos = True
+            st.rerun()
+    
+    # Mostrar gestión de objetivos si se solicita
+    if st.session_state.get('mostrar_gestion_objetivos', False):
+        _mostrar_gestion_objetivos_avanzada(agentes, context)
+    
+    # Mostrar detalles si se solicita
+    if st.session_state.get('mostrar_detalles_agentes', False):
+        _mostrar_detalles_completos_agentes(agentes, objetivos_dict)
 
 
-def _mostrar_historial_agente(agentes):
-    """Muestra el historial de un agente específico"""
-    if st.session_state.get('ver_historial_agente'):
-        agent_id = st.session_state.ver_historial_agente
-        info = agentes.get(agent_id, {})
-        nombre = info.get('nombre', agent_id)
+def _guardar_objetivos_desde_tabla(edited_df, context):
+    """Guarda los objetivos editados en la tabla al archivo JSON"""
+    cambios_realizados = False
+    objetivos_a_actualizar = {}
+    cambios_detallados = []
+    
+    username = st.session_state.get('username', 'sistema')
+    
+    # Cargar objetivos actuales para comparar
+    objetivos_actuales = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_actuales.get("objetivos", {})
+    
+    for _, row in edited_df.iterrows():
+        agent_id = row['ID']
+        nuevo_objetivo = int(row['Objetivo Ventas'])
         
-        st.write(f"### 📊 Historial de {nombre}")
+        # Obtener objetivo anterior
+        objetivo_anterior = objetivos_dict.get(agent_id, 10)
         
-        registro_llamadas = cargar_registro_llamadas()
-        datos_agente = []
+        # Verificar si hay cambio
+        if nuevo_objetivo != objetivo_anterior:
+            objetivos_a_actualizar[agent_id] = nuevo_objetivo
+            cambios_detallados.append(f"**{agent_id}**: {objetivo_anterior} → {nuevo_objetivo}")
+            cambios_realizados = True
+    
+    if cambios_realizados:
+        # Actualizar múltiples objetivos
+        if actualizar_multiples_objetivos(objetivos_a_actualizar, username):
+            st.success(f"✅ {len(objetivos_a_actualizar)} objetivos actualizados correctamente")
+            
+            with st.expander("📋 Ver cambios realizados", expanded=True):
+                for detalle in cambios_detallados:
+                    st.write(detalle)
+            
+            # Forzar recarga
+            st.rerun()
+        else:
+            st.error("❌ Error al guardar los objetivos")
+    else:
+        st.info("ℹ️ No se realizaron cambios en los objetivos")
+
+
+def _mostrar_gestion_objetivos_avanzada(agentes, context):
+    """Muestra panel avanzado para gestión de objetivos"""
+    st.write("### ⚙️ Gestión Avanzada de Objetivos")
+    
+    # Cargar datos
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
+    
+    # Estadísticas
+    total_agentes = len(agentes)
+    agentes_con_objetivo = len([a for a in agentes.keys() if a in objetivos_dict])
+    objetivo_promedio = sum(objetivos_dict.values()) / len(objetivos_dict) if objetivos_dict else 0
+    
+    col_stats1, col_stats2, col_stats3 = st.columns(3)
+    with col_stats1:
+        st.metric("Agentes", total_agentes)
+    with col_stats2:
+        st.metric("Con objetivo", agentes_con_objetivo)
+    with col_stats3:
+        st.metric("Promedio", f"{objetivo_promedio:.1f}")
+    
+    # Tabla para edición masiva
+    st.write("#### 📊 Edición Masiva de Objetivos")
+    
+    datos_masivos = []
+    for agent_id, info in agentes.items():
+        datos_masivos.append({
+            'ID': agent_id,
+            'Agente': info.get('nombre', agent_id),
+            'Grupo': info.get('grupo', 'Sin grupo'),
+            'Objetivo Actual': objetivos_dict.get(agent_id, 10),
+            'Nuevo Objetivo': objetivos_dict.get(agent_id, 10)  # Editable
+        })
+    
+    df_masivo = pd.DataFrame(datos_masivos)
+    
+    # Editor masivo
+    edited_masivo = st.data_editor(
+        df_masivo,
+        column_config={
+            'ID': st.column_config.TextColumn('ID', disabled=True),
+            'Agente': st.column_config.TextColumn('Agente', disabled=True),
+            'Grupo': st.column_config.TextColumn('Grupo', disabled=True),
+            'Objetivo Actual': st.column_config.NumberColumn('Actual', disabled=True),
+            'Nuevo Objetivo': st.column_config.NumberColumn(
+                'Nuevo',
+                min_value=0,
+                max_value=500,
+                step=1,
+                help="Nuevo objetivo de ventas"
+            )
+        },
+        hide_index=True,
+        use_container_width=True,
+        key=f"editor_masivo_objetivos_{context}"
+    )
+    
+    # Aplicar cambios masivos
+    if st.button("🚀 Aplicar Cambios Masivos", type="primary", use_container_width=True):
+        cambios_masivos = {}
+        for _, row in edited_masivo.iterrows():
+            agent_id = row['ID']
+            nuevo_objetivo = int(row['Nuevo Objetivo'])
+            objetivo_actual = row['Objetivo Actual']
+            
+            if nuevo_objetivo != objetivo_actual:
+                cambios_masivos[agent_id] = nuevo_objetivo
         
-        for fecha_str, datos_dia in registro_llamadas.items():
-            if agent_id in datos_dia:
-                datos = datos_dia[agent_id]
-                datos_agente.append({
-                    'Fecha': fecha_str,
-                    'Llamadas': datos.get('llamadas', 0),
-                    'Ventas': datos.get('ventas', 0)
+        if cambios_masivos:
+            username = st.session_state.get('username', 'sistema')
+            if actualizar_multiples_objetivos(cambios_masivos, username):
+                st.success(f"✅ {len(cambios_masivos)} objetivos actualizados masivamente")
+                st.rerun()
+            else:
+                st.error("❌ Error al actualizar objetivos")
+        else:
+            st.info("ℹ️ No hay cambios para aplicar")
+    
+    # Exportar/Importar
+    st.write("#### 📥 Exportar/Importar Objetivos")
+    
+    col_exp1, col_exp2 = st.columns(2)
+    
+    with col_exp1:
+        # Exportar a CSV
+        if st.button("📤 Exportar a CSV", use_container_width=True):
+            csv_data = df_masivo.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Descargar CSV",
+                data=csv_data,
+                file_name=f"objetivos_ventas_{datetime.now().strftime('%Y%m%d')}.csv",
+                mime="text/csv"
+            )
+    
+    with col_exp2:
+        # Importar desde CSV
+        uploaded_file = st.file_uploader(
+            "Subir CSV con objetivos",
+            type=['csv'],
+            key=f"upload_objetivos_{context}"
+        )
+        
+        if uploaded_file is not None:
+            try:
+                df_importar = pd.read_csv(uploaded_file)
+                st.write("**Vista previa:**")
+                st.dataframe(df_importar.head(), use_container_width=True)
+                
+                if st.button("📥 Importar Objetivos", type="primary"):
+                    # Procesar importación
+                    cambios_importados = {}
+                    for _, row in df_importar.iterrows():
+                        if 'ID' in row and 'Nuevo Objetivo' in row:
+                            agent_id = str(row['ID'])
+                            nuevo_objetivo = int(row['Nuevo Objetivo'])
+                            cambios_importados[agent_id] = nuevo_objetivo
+                    
+                    if cambios_importados:
+                        username = st.session_state.get('username', 'sistema')
+                        if actualizar_multiples_objetivos(cambios_importados, username):
+                            st.success(f"✅ {len(cambios_importados)} objetivos importados")
+                            st.rerun()
+                        else:
+                            st.error("❌ Error al importar objetivos")
+            except Exception as e:
+                st.error(f"❌ Error al procesar archivo: {e}")
+    
+    # Historial de cambios
+    if objetivos_data.get("historico"):
+        st.write("#### 📜 Historial de Cambios (Últimos 10)")
+        
+        historico_reciente = []
+        for agent_id, cambios in objetivos_data["historico"].items():
+            for cambio in cambios[-5:]:  # Últimos 5 por agente
+                historico_reciente.append({
+                    'Fecha': cambio.get('fecha', ''),
+                    'Agente': agent_id,
+                    'De': cambio.get('objetivo_anterior', 'N/A'),
+                    'A': cambio.get('objetivo_nuevo', 'N/A'),
+                    'Usuario': cambio.get('usuario', 'sistema')
                 })
         
-        if datos_agente:
-            df_historial = pd.DataFrame(datos_agente)
-            df_historial = df_historial.sort_values('Fecha', ascending=False)
-            
-            st.dataframe(df_historial, use_container_width=True)
-            
-            total_llamadas = df_historial['Llamadas'].sum()
-            total_ventas = df_historial['Ventas'].sum()
-            
-            col_tot1, col_tot2, col_tot3 = st.columns(3)
-            with col_tot1:
-                st.metric("Total Llamadas", total_llamadas)
-            with col_tot2:
-                st.metric("Total Ventas", total_ventas)
-            with col_tot3:
-                ratio = (total_ventas / total_llamadas * 100) if total_llamadas > 0 else 0
-                st.metric("Ratio", f"{ratio:.1f}%")
-        else:
-            st.info("No hay datos históricos para este agente")
+        if historico_reciente:
+            # Ordenar por fecha más reciente
+            historico_reciente.sort(key=lambda x: x['Fecha'], reverse=True)
+            df_historico = pd.DataFrame(historico_reciente[:10])  # Solo 10 más recientes
+            st.dataframe(df_historico, use_container_width=True)
+    
+    # Botón para volver
+    if st.button("← Volver a lista", type="secondary", use_container_width=True):
+        st.session_state.mostrar_gestion_objetivos = False
+        st.rerun()
+
+
+def obtener_info_monitorizaciones_agentes(agentes_ids):
+    """Obtiene información de monitorizaciones para una lista de agentes"""
+    try:
+        from database import obtener_ultima_monitorizacion_empleado
         
-        if st.button("← Volver a lista"):
-            st.session_state.ver_historial_agente = None
-            st.rerun()
+        info_monitorizaciones = {}
+        
+        for agent_id in agentes_ids:
+            ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+            
+            if ultima_mon:
+                fecha_mon = ultima_mon.get('fecha_monitorizacion', '')
+                nota = ultima_mon.get('nota_global', 0)
+                objetivo = ultima_mon.get('objetivo', 85)
+                
+                # Determinar icono según nota
+                if nota >= objetivo:
+                    icono = "✅"  # Cumple objetivo
+                elif nota >= objetivo * 0.8:
+                    icono = "⚠️"  # Cerca del objetivo
+                else:
+                    icono = "❌"  # Lejos del objetivo
+                
+                # Calcular días desde la monitorización
+                try:
+                    fecha_mon_dt = datetime.strptime(fecha_mon, '%Y-%m-%d')
+                    dias_desde = (datetime.now() - fecha_mon_dt).days
+                    
+                    if dias_desde < 7:
+                        icono = "🟢"  # Reciente (menos de 7 días)
+                    elif dias_desde < 30:
+                        icono = "🟡"  # Moderado (menos de 30 días)
+                    else:
+                        icono = "🔴"  # Antigua (más de 30 días)
+                        
+                except:
+                    pass
+                
+                info_monitorizaciones[agent_id] = {
+                    'icono': icono,
+                    'tooltip': f"{fecha_mon} - Nota: {nota}% (Objetivo: {objetivo}%)",
+                    'fecha': fecha_mon,
+                    'nota': nota
+                }
+            else:
+                info_monitorizaciones[agent_id] = {
+                    'icono': '📭',
+                    'tooltip': 'Sin monitorización',
+                    'fecha': '',
+                    'nota': 0
+                }
+        
+        return info_monitorizaciones
+        
+    except ImportError:
+        # Si no hay módulo de monitorizaciones, retornar datos vacíos
+        return {agent_id: {'icono': '📭', 'tooltip': 'Módulo no disponible', 'fecha': '', 'nota': 0} 
+                for agent_id in agentes_ids}
+
+
+def contar_agentes_con_monitorizacion_reciente(agentes, dias_reciente=30):
+    """Cuenta agentes con monitorización reciente"""
+    try:
+        from database import obtener_ultima_monitorizacion_empleado
+        
+        contador = 0
+        
+        for agent_id in agentes.keys():
+            ultima_mon = obtener_ultima_monitorizacion_empleado(agent_id)
+            
+            if ultima_mon and ultima_mon.get('fecha_monitorizacion'):
+                try:
+                    fecha_mon = datetime.strptime(ultima_mon['fecha_monitorizacion'], '%Y-%m-%d')
+                    dias_desde = (datetime.now() - fecha_mon).days
+                    
+                    if dias_desde <= dias_reciente:
+                        contador += 1
+                except:
+                    pass
+        
+        return contador
+        
+    except ImportError:
+        return 0
+
+
+def _mostrar_detalles_completos_agentes(agentes, objetivos_dict):
+    """Muestra detalles completos de todos los agentes"""
+    st.write("### 📊 Detalles Completos de Agentes")
+    
+    # Cargar objetivos
+    if objetivos_dict is None:
+        objetivos_data = cargar_objetivos_ventas()
+        objetivos_dict = objetivos_data.get("objetivos", {})
+    
+    # Crear datos para tabla detallada
+    datos_detallados = []
+    
+    for agent_id, info in agentes.items():
+        nombre = info.get('nombre', agent_id)
+        grupo = info.get('grupo', 'Sin grupo')
+        supervisor = info.get('supervisor', 'Sin asignar')
+        activo = info.get('activo', True)
+        
+        # Obtener objetivo desde JSON
+        objetivo_ventas = objetivos_dict.get(agent_id, 10)
+        
+        tipo = info.get('tipo', 'user')
+        
+        # Obtener ventas del mes actual
+        registro_llamadas = cargar_registro_llamadas()
+        fecha_inicio = datetime.now().date().replace(day=1)
+        fecha_fin = datetime.now().date()
+        
+        ventas_mes = 0
+        llamadas_mes = 0
+        
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                if agent_id in datos_dia:
+                    ventas_mes += datos_dia[agent_id].get("ventas", 0)
+                    llamadas_mes += datos_dia[agent_id].get("llamadas_15min", 0)
+        
+        # Calcular progreso
+        progreso = (ventas_mes / objetivo_ventas * 100) if objetivo_ventas > 0 else 0
+        ventas_restantes = max(0, objetivo_ventas - ventas_mes)
+        
+        datos_detallados.append({
+            'ID': agent_id,
+            'Agente': nombre,
+            'Estado': '✅ Activo' if activo else '❌ Inactivo',
+            'Objetivo': objetivo_ventas,
+            'Ventas Mes': ventas_mes,
+            'Progreso': f"{progreso:.1f}%",
+            'Faltan': ventas_restantes,
+            'Llamadas >15min': llamadas_mes,
+            'Grupo': grupo,
+            'Tipo': tipo,
+            'Supervisor': supervisor
+        })
+    
+    df_detallado = pd.DataFrame(datos_detallados)
+    
+    # Ordenar por progreso (descendente)
+    df_detallado = df_detallado.sort_values('Progreso', ascending=False, 
+                                          key=lambda col: pd.to_numeric(col.str.replace('%', ''), errors='coerce'))
+    
+    st.dataframe(df_detallado, use_container_width=True)
+    
+    # Botón para volver
+    if st.button("← Volver a lista simple", type="secondary"):
+        st.session_state.mostrar_detalles_agentes = False
+        st.rerun()
 
 
 # ============================================================================
@@ -1751,7 +2329,7 @@ def _mostrar_historial_agente(agentes):
 # ============================================================================
 
 def gestion_agentes_super_usuario_edicion(agentes, super_users_config, super_user_actual):
-    """Gestión de agentes para super usuarios (edición limitada)"""
+    """Gestión de agentes para super usuarios (edición limitada) - VERSIÓN MEJORADA"""
     st.subheader("🔧 Edición de Mis Agentes")
     
     agentes_asignados = {k: v for k, v in agentes.items() 
@@ -1763,105 +2341,70 @@ def gestion_agentes_super_usuario_edicion(agentes, super_users_config, super_use
     
     st.info(f"👑 **Supervisor:** {super_user_actual} | 👥 **Agentes asignados:** {len(agentes_asignados)}")
     
-    _mostrar_edicion_agente(agentes_asignados, agentes, super_users_config, super_user_actual)
-
-
-def _mostrar_edicion_agente(agentes_asignados, agentes, super_users_config, super_user_actual):
-    """Muestra la interfaz de edición de agentes"""
-    agentes_options = [f"{agent_id} - {info.get('nombre', 'Sin nombre')}" 
-                      for agent_id, info in agentes_asignados.items()]
+    # Usar la misma lista mejorada pero filtrada por supervisor
+    agentes_filtrados = {k: v for k, v in agentes.items() 
+                        if v.get('supervisor', '') == super_user_actual}
     
-    agente_seleccionado = st.selectbox(
-        "Seleccionar agente a editar:",
-        agentes_options,
-        key="select_agente_super_editar"
+    # Reutilizar la función mejorada
+    _mostrar_lista_agentes_mejorada(agentes_filtrados, super_users_config, "edicion")
+    
+    # Agregar opciones adicionales específicas para super usuarios
+    st.write("---")
+    st.write("### ⚙️ Opciones Adicionales")
+    
+    col_opc1, col_opc2 = st.columns(2)
+    
+    with col_opc1:
+        if st.button("📤 Exportar Datos de Mis Agentes", use_container_width=True):
+            exportar_datos_mis_agentes(agentes_asignados)
+    
+    with col_opc2:
+        if st.button("📧 Enviar Recordatorio a Todos", use_container_width=True):
+            st.info("Función de envío de recordatorios en desarrollo")
+
+
+def exportar_datos_mis_agentes(agentes):
+    """Exporta datos de los agentes del super usuario actual"""
+    datos_exportar = []
+    
+    for agent_id, info in agentes.items():
+        nombre = info.get('nombre', agent_id)
+        grupo = info.get('grupo', 'Sin grupo')
+        activo = info.get('activo', True)
+        objetivo_ventas = info.get('objetivo_ventas_mensual', 10)
+        
+        # Obtener ventas del mes
+        registro_llamadas = cargar_registro_llamadas()
+        fecha_inicio = datetime.now().date().replace(day=1)
+        fecha_fin = datetime.now().date()
+        
+        ventas_mes = 0
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                if agent_id in datos_dia:
+                    ventas_mes += datos_dia[agent_id].get("ventas", 0)
+        
+        datos_exportar.append({
+            'ID': agent_id,
+            'Nombre': nombre,
+            'Grupo': grupo,
+            'Estado': 'Activo' if activo else 'Inactivo',
+            'Objetivo Ventas': objetivo_ventas,
+            'Ventas Mes Actual': ventas_mes,
+            'Progreso': f"{(ventas_mes / objetivo_ventas * 100) if objetivo_ventas > 0 else 0:.1f}%",
+            'Ventas Restantes': max(0, objetivo_ventas - ventas_mes)
+        })
+    
+    df_exportar = pd.DataFrame(datos_exportar)
+    csv = df_exportar.to_csv(index=False).encode('utf-8')
+    
+    st.download_button(
+        label="📥 Descargar CSV",
+        data=csv,
+        file_name=f"mis_agentes_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime="text/csv"
     )
-    
-    if agente_seleccionado:
-        agent_id = agente_seleccionado.split(" - ")[0]
-        info_agente = agentes[agent_id]
-        
-        st.write(f"### ✏️ Editar agente: {info_agente.get('nombre', agent_id)}")
-        
-        col_edit1, col_edit2 = st.columns(2)
-        
-        with col_edit1:
-            nombre_editado = st.text_input(
-                "Nombre:",
-                value=info_agente.get('nombre', ''),
-                key=f"super_nombre_{agent_id}"
-            )
-            
-            grupo_editado = st.text_input(
-                "Grupo:",
-                value=info_agente.get('grupo', ''),
-                key=f"super_grupo_{agent_id}"
-            )
-        
-        with col_edit2:
-            activo_editado = st.checkbox(
-                "Activo",
-                value=info_agente.get('activo', True),
-                key=f"super_activo_{agent_id}"
-            )
-            
-            st.info(f"🆔 **Usuario ID:** {agent_id}")
-            st.info(f"👤 **Tipo:** {info_agente.get('tipo', 'user')}")
-            st.info(f"👑 **Supervisor:** {info_agente.get('supervisor', 'Sin asignar')}")
-            
-            if 'fecha_registro' in info_agente:
-                st.caption(f"📅 Registrado: {info_agente['fecha_registro']}")
-        
-        _mostrar_botones_accion_agente(agent_id, nombre_editado, grupo_editado, activo_editado, 
-                                     info_agente, agentes, super_users_config, super_user_actual)
-
-
-def _mostrar_botones_accion_agente(agent_id, nombre_editado, grupo_editado, activo_editado, 
-                                 info_agente, agentes, super_users_config, super_user_actual):
-    """Muestra los botones de acción para edición de agente"""
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
-    
-    with col_btn1:
-        if st.button("💾 Guardar Cambios", type="primary", use_container_width=True):
-            agentes[agent_id]['nombre'] = nombre_editado
-            agentes[agent_id]['grupo'] = grupo_editado
-            agentes[agent_id]['activo'] = activo_editado
-            agentes[agent_id]['fecha_actualizacion'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            super_users_config_completo = cargar_super_users()
-            super_users_config_completo["agentes"] = agentes
-            guardar_super_users(super_users_config_completo)
-            
-            st.success(f"✅ Agente {nombre_editado} actualizado correctamente")
-            st.rerun()
-    
-    with col_btn2:
-        if st.button("📊 Ver Historial Completo", type="secondary", use_container_width=True):
-            st.session_state.ver_historial_agente = agent_id
-            st.rerun()
-    
-    with col_btn3:
-        if st.button("🔄 Reiniciar Métricas", type="secondary", use_container_width=True):
-            st.warning("⚠️ Esta acción reiniciará las métricas del mes actual para este agente")
-            
-            col_conf1, col_conf2 = st.columns(2)
-            with col_conf1:
-                if st.button("✅ Sí, reiniciar"):
-                    registro_llamadas = cargar_registro_llamadas()
-                    fecha_inicio = datetime.now().date().replace(day=1)
-                    
-                    for fecha_str, datos_dia in registro_llamadas.items():
-                        fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-                        if fecha >= fecha_inicio and agent_id in datos_dia:
-                            registro_llamadas[fecha_str][agent_id]['llamadas'] = 0
-                            registro_llamadas[fecha_str][agent_id]['ventas'] = 0
-                    
-                    guardar_registro_llamadas(registro_llamadas)
-                    st.success(f"✅ Métricas de {info_agente.get('nombre', agent_id)} reiniciadas")
-                    st.rerun()
-            with col_conf2:
-                if st.button("❌ No, cancelar"):
-                    st.rerun()
 
 
 # ============================================================================
@@ -1872,6 +2415,7 @@ def mostrar_graficos_metricas(df_metricas):
     """Muestra gráficos de métricas - COMPLETA con ambos tipos de llamadas"""
     st.write("### 📊 Visualización de Datos")
     
+    # Verificar columnas disponibles
     columnas_requeridas = ['Llamadas >15min', 'Llamadas Totales', 'Agente']
     for col in columnas_requeridas:
         if col not in df_metricas.columns:
@@ -1879,10 +2423,33 @@ def mostrar_graficos_metricas(df_metricas):
             st.write("Columnas disponibles:", df_metricas.columns.tolist())
             return
     
+    # Crear columnas numéricas para gráficos
+    df_metricas['Llamadas_15min_num'] = pd.to_numeric(df_metricas['Llamadas >15min'], errors='coerce')
+    df_metricas['Llamadas_totales_num'] = pd.to_numeric(df_metricas['Llamadas Totales'], errors='coerce')
+    
+    # Crear columna de Ventas numérica si existe
+    if 'Ventas' in df_metricas.columns:
+        df_metricas['Ventas_num'] = pd.to_numeric(df_metricas['Ventas'], errors='coerce')
+    
+    # Crear columna de Objetivo numérica si existe
+    columna_objetivo = None
+    if 'Objetivo Individual' in df_metricas.columns:
+        columna_objetivo = 'Objetivo Individual'
+        df_metricas['Objetivo_num'] = pd.to_numeric(df_metricas['Objetivo Individual'], errors='coerce')
+    elif 'Objetivo Ventas' in df_metricas.columns:
+        columna_objetivo = 'Objetivo Ventas'
+        df_metricas['Objetivo_num'] = pd.to_numeric(df_metricas['Objetivo Ventas'], errors='coerce')
+    
     _mostrar_comparacion_llamadas_grafico(df_metricas)
-    _mostrar_vs_media_grafico(df_metricas)
+    
+    if 'Ventas' in df_metricas.columns and columna_objetivo:
+        _mostrar_ventas_objetivo_grafico(df_metricas)
+    
     _mostrar_porcentaje_15min_grafico(df_metricas)
-    _mostrar_ventas_grafico(df_metricas)
+    
+    if 'Ventas' in df_metricas.columns:
+        _mostrar_ventas_grafico(df_metricas)
+    
     _mostrar_resumen_estadistico(df_metricas)
     _mostrar_tabla_resumen(df_metricas)
 
@@ -1936,77 +2503,76 @@ def _mostrar_comparacion_llamadas_grafico(df_metricas):
     st.plotly_chart(fig_comparacion, use_container_width=True)
 
 
-def _mostrar_vs_media_grafico(df_metricas):
-    """Muestra gráfico de diferencia vs media"""
-    if 'vs Media (%)' in df_metricas.columns:
-        st.write("#### 📈 Diferencia vs Media Total (%)")
+def _mostrar_ventas_objetivo_grafico(df_metricas):
+    """Muestra gráfico de ventas vs objetivo - CORREGIDO"""
+    # Verificar qué columnas de objetivo existen
+    columna_objetivo = None
+    if 'Objetivo Individual' in df_metricas.columns:
+        columna_objetivo = 'Objetivo Individual'
+    elif 'Objetivo Ventas' in df_metricas.columns:
+        columna_objetivo = 'Objetivo Ventas'
+    
+    if 'Ventas' in df_metricas.columns and columna_objetivo:
+        st.write("#### 🎯 Ventas vs Objetivo")
         
-        df_metricas['vs_media_clean'] = df_metricas['vs Media (%)'].str.replace('%', '').str.replace(' ', '')
-        df_metricas['vs_media_num'] = pd.to_numeric(df_metricas['vs_media_clean'], errors='coerce')
+        df_metricas['Ventas_num'] = pd.to_numeric(df_metricas['Ventas'], errors='coerce')
+        df_metricas['Objetivo_num'] = pd.to_numeric(df_metricas[columna_objetivo], errors='coerce')
+        df_metricas['Progreso'] = (df_metricas['Ventas_num'] / df_metricas['Objetivo_num'] * 100).round(1)
         
-        df_sorted = df_metricas.sort_values('vs_media_num', ascending=False)
+        df_ventas_objetivo = df_metricas.sort_values('Progreso', ascending=False)
         
-        fig_media = go.Figure()
+        fig_objetivo = go.Figure()
         
-        colores = []
-        for valor in df_sorted['vs_media_num']:
-            if pd.isna(valor):
-                colores.append('gray')
-            elif valor < 0:
-                intensidad = min(abs(valor) / 50, 1)
-                colores.append(f'rgba(255, {int(100*(1-intensidad))}, {int(100*(1-intensidad))}, 0.7)')
-            else:
-                intensidad = min(valor / 50, 1)
-                colores.append(f'rgba({int(100*(1-intensidad))}, 255, {int(100*(1-intensidad))}, 0.7)')
-        
-        fig_media.add_trace(go.Bar(
-            y=df_sorted['Agente'],
-            x=df_sorted['vs_media_num'],
-            orientation='h',
-            name='vs Media',
-            marker_color=colores,
-            text=[f"{x:+.1f}%" for x in df_sorted['vs_media_num']],
+        fig_objetivo.add_trace(go.Bar(
+            x=df_ventas_objetivo['Agente'],
+            y=df_ventas_objetivo['Objetivo_num'],
+            name='Objetivo',
+            marker_color='lightgray',
+            text=df_ventas_objetivo[columna_objetivo],
             textposition='auto'
         ))
         
-        fig_media.add_vline(x=0, line_width=2, line_dash="dash", line_color="black")
+        fig_objetivo.add_trace(go.Bar(
+            x=df_ventas_objetivo['Agente'],
+            y=df_ventas_objetivo['Ventas_num'],
+            name='Ventas Actuales',
+            marker_color='lightgreen',
+            text=df_ventas_objetivo['Ventas'],
+            textposition='auto'
+        ))
         
-        fig_media.update_layout(
-            title='Diferencia vs Media de Llamadas Totales (%)',
-            yaxis_title='Agente',
-            xaxis_title='Diferencia %',
-            xaxis=dict(ticksuffix='%'),
-            height=600
+        for i, row in df_ventas_objetivo.iterrows():
+            fig_objetivo.add_annotation(
+                x=row['Agente'],
+                y=max(row['Objetivo_num'], row['Ventas_num']) + max(df_ventas_objetivo['Objetivo_num']) * 0.05,
+                text=f"{row['Progreso']:.1f}%",
+                showarrow=False,
+                font=dict(size=10)
+            )
+        
+        fig_objetivo.update_layout(
+            title=f'Ventas vs Objetivo por Agente',
+            xaxis_title='Agente',
+            yaxis_title='Ventas',
+            barmode='overlay',
+            xaxis_tickangle=-45,
+            hovermode='x unified'
         )
         
-        st.plotly_chart(fig_media, use_container_width=True)
+        st.plotly_chart(fig_objetivo, use_container_width=True)
         
-        _mostrar_estadisticas_vs_media(df_metricas)
-
-
-def _mostrar_estadisticas_vs_media(df_metricas):
-    """Muestra estadísticas de vs Media"""
-    col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
-    
-    with col_stat1:
-        positivos = len(df_metricas[df_metricas['vs_media_num'] > 0])
-        st.metric("✅ Encima media", positivos)
-    
-    with col_stat2:
-        negativos = len(df_metricas[df_metricas['vs_media_num'] < 0])
-        st.metric("⚠️ Debajo media", negativos)
-    
-    with col_stat3:
-        max_positivo = df_metricas['vs_media_num'].max()
-        agente_max = df_metricas.loc[df_metricas['vs_media_num'].idxmax(), 'Agente']
-        st.metric("Mejor vs Media", f"{max_positivo:+.1f}%")
-        st.caption(f"({agente_max})")
-    
-    with col_stat4:
-        max_negativo = df_metricas['vs_media_num'].min()
-        agente_min = df_metricas.loc[df_metricas['vs_media_num'].idxmin(), 'Agente']
-        st.metric("Peor vs Media", f"{max_negativo:+.1f}%")
-        st.caption(f"({agente_min})")
+        # Mostrar agentes que cumplen objetivo
+        agentes_cumplen = df_metricas[df_metricas['Progreso'] >= 100]
+        if not agentes_cumplen.empty:
+            st.success(f"✅ {len(agentes_cumplen)} agentes cumplen o superan su objetivo")
+            st.dataframe(agentes_cumplen[['Agente', 'Ventas', columna_objetivo, 'Progreso']], 
+                        use_container_width=True)
+    else:
+        st.info("No hay datos de objetivos disponibles para graficar")
+        if 'Ventas' not in df_metricas.columns:
+            st.warning("Falta columna 'Ventas'")
+        if 'Objetivo Individual' not in df_metricas.columns and 'Objetivo Ventas' not in df_metricas.columns:
+            st.warning("Falta columna de objetivos")
 
 
 def _mostrar_porcentaje_15min_grafico(df_metricas):
@@ -2093,7 +2659,7 @@ def _mostrar_ventas_grafico(df_metricas):
 
 
 def _mostrar_resumen_estadistico(df_metricas):
-    """Muestra resumen estadístico"""
+    """Muestra resumen estadístico - CORREGIDO"""
     st.write("#### 📈 Resumen Estadístico")
     
     col_res1, col_res2, col_res3, col_res4 = st.columns(4)
@@ -2120,37 +2686,81 @@ def _mostrar_resumen_estadistico(df_metricas):
             st.caption(f"Ratio: {ratio:.1f}%")
     
     with col_res4:
-        if 'vs_media_num' in df_metricas.columns:
-            media_vs = df_metricas['vs_media_num'].mean()
-            st.metric("📈 Media vs Media", f"{media_vs:+.1f}%")
+        # Verificar qué columna de objetivo usar
+        columna_objetivo_num = None
+        if 'Objetivo_num' in df_metricas.columns:
+            columna_objetivo_num = 'Objetivo_num'
+        elif 'Objetivo_individual_num' in df_metricas.columns:
+            columna_objetivo_num = 'Objetivo_individual_num'
+        
+        if columna_objetivo_num and 'Ventas_num' in df_metricas.columns:
+            total_objetivo = df_metricas[columna_objetivo_num].sum()
+            total_ventas = df_metricas['Ventas_num'].sum()
+            progreso_global = (total_ventas / total_objetivo * 100) if total_objetivo > 0 else 0
+            st.metric("🎯 Progreso Global", f"{progreso_global:.1f}%")
             
-            debajo_media = len(df_metricas[df_metricas['vs_media_num'] < 0])
-            st.caption(f"{debajo_media} agentes debajo")
+            ventas_restantes = max(0, total_objetivo - total_ventas)
+            st.caption(f"Faltan: {ventas_restantes}")
+        else:
+            st.metric("🎯 Progreso", "N/A")
+            st.caption("Sin datos de objetivos")
 
 
 def _mostrar_tabla_resumen(df_metricas):
-    """Muestra tabla resumen de métricas"""
+    """Muestra tabla resumen de métricas - CORREGIDO para usar 'Objetivo Individual'"""
     st.write("#### 📋 Tabla Resumen de Métricas")
     
-    columnas_resumen = ['Agente', 'Llamadas Totales', 'Llamadas >15min', '% >15min']
+    # Verificar qué columnas existen realmente
+    columnas_disponibles = df_metricas.columns.tolist()
     
-    if 'vs Media (%)' in df_metricas.columns:
-        columnas_resumen.append('vs Media (%)')
+    # Columnas básicas que deberían existir
+    columnas_base = ['Agente', 'Llamadas Totales', 'Llamadas >15min', 'Ventas']
     
-    if 'Ventas' in df_metricas.columns:
-        columnas_resumen.append('Ventas')
+    # Añadir columnas condicionalmente
+    columnas_resumen = []
     
-    if 'Ratio (%)' in df_metricas.columns:
-        columnas_resumen.append('Ratio (%)')
+    for col in columnas_base:
+        if col in columnas_disponibles:
+            columnas_resumen.append(col)
     
+    # Añadir % >15min si existe (puede tener diferente nombre)
+    if '% >15min' in columnas_disponibles:
+        columnas_resumen.append('% >15min')
+    elif '%_15min' in columnas_disponibles:
+        columnas_resumen.append('%_15min')
+    
+    # Añadir Objetivo Individual (no Objetivo Ventas)
+    if 'Objetivo Individual' in columnas_disponibles:
+        columnas_resumen.append('Objetivo Individual')
+    elif 'Objetivo Ventas' in columnas_disponibles:
+        columnas_resumen.append('Objetivo Ventas')
+    
+    # Añadir Ventas Restantes
+    if 'Ventas Restantes' in columnas_disponibles:
+        columnas_resumen.append('Ventas Restantes')
+    
+    # Añadir Cump. Ventas (%) si existe
+    if 'Cump. Ventas Ind. (%)' in columnas_disponibles:
+        columnas_resumen.append('Cump. Ventas Ind. (%)')
+    elif 'Cump. Ventas (%)' in columnas_disponibles:
+        columnas_resumen.append('Cump. Ventas (%)')
+    
+    # Crear DataFrame resumen
     df_resumen = df_metricas[columnas_resumen].copy()
     
+    # Formatear porcentajes si existen
     if '% >15min' in df_resumen.columns:
         df_resumen['% >15min'] = df_resumen['% >15min'].apply(
             lambda x: f"{float(str(x).replace('%', '')):.1f}%" if pd.notna(x) else "0.0%"
         )
+    elif '%_15min' in df_resumen.columns:
+        df_resumen['% >15min'] = df_resumen['%_15min'].apply(
+            lambda x: f"{float(x):.1f}%" if pd.notna(x) else "0.0%"
+        )
     
-    df_resumen = df_resumen.sort_values('Llamadas >15min', ascending=False)
+    # Ordenar por Ventas (descendente)
+    if 'Ventas' in df_resumen.columns:
+        df_resumen = df_resumen.sort_values('Ventas', ascending=False)
     
     st.dataframe(df_resumen, use_container_width=True)
 
@@ -2201,7 +2811,6 @@ def panel_monitorizaciones_super_usuario():
         _eliminar_monitorizaciones_agente()
 
 
-# En la función mostrar_formulario_monitorizacion, después de procesar el PDF y antes del formulario manual:
 def mostrar_formulario_monitorizacion(agentes):
     """Formulario para crear nuevas monitorizaciones"""
     
@@ -2285,7 +2894,6 @@ def mostrar_formulario_monitorizacion(agentes):
     
     st.write("#### ✍️ Opción 2: Ingreso Manual")
     
-    # ... (el resto del código del formulario se mantiene igual)
     OPCIONES_PUNTOS_CLAVE = [
         # Puntos clave ya existentes
         "LOPD", "Comunicación", "Cierre de venta", "Argumentación", 
@@ -2359,9 +2967,7 @@ def mostrar_formulario_monitorizacion(agentes):
             # FECHA PRÓXIMA MONITORIZACIÓN
             # ================================================
             # NOTA: Esta fecha NO EXISTE en el PDF de monitorización
-            # Es una fecha que el supervisor debe definir manualmente
-            # para programar la próxima revisión
-            
+            # Es una fecha que el supervisor debe define
             # Usar un valor por defecto razonable: 14 días desde hoy
             # o 14 días desde la fecha de monitorización si está disponible
             fecha_mon = None
@@ -2560,6 +3166,7 @@ def mostrar_formulario_monitorizacion(agentes):
         # **PROCESAR SOLO UNA VEZ**
         _procesar_formulario_monitorizacion(datos_formulario)
 
+
 def _procesar_formulario_monitorizacion(datos_formulario):
     """Procesa los datos del formulario de monitorización"""
     if not datos_formulario or 'agente_id' not in datos_formulario:
@@ -2624,7 +3231,8 @@ def _procesar_formulario_monitorizacion(datos_formulario):
     except Exception as e:
         st.error(f"❌ Error al procesar monitorización: {str(e)}")
         return False
-    
+
+
 def _eliminar_monitorizaciones_agente():
     """Elimina monitorizaciones de un agente específico"""
     st.write("### 🗑️ Eliminar Monitorizaciones de Agente")
@@ -2692,43 +3300,6 @@ def _eliminar_monitorizaciones_agente():
         except Exception as e:
             st.error(f"❌ Error: {str(e)}")
 
-def limpiar_monitorizaciones_duplicadas():
-    """Limpia monitorizaciones duplicadas del sistema"""
-    try:
-        from database import cargar_monitorizaciones, guardar_monitorizaciones
-        
-        monitorizaciones = cargar_monitorizaciones()
-        
-        # Encontrar duplicados (mismo empleado y misma fecha)
-        registros_unicos = {}
-        duplicados = []
-        
-        for mon_id, mon_data in monitorizaciones.items():
-            key = f"{mon_data.get('id_empleado')}_{mon_data.get('fecha_monitorizacion')}"
-            
-            if key in registros_unicos:
-                # Es un duplicado
-                duplicados.append(mon_id)
-            else:
-                # Es único
-                registros_unicos[key] = mon_id
-        
-        # Eliminar duplicados (mantener solo el primero)
-        for duplicado_id in duplicados:
-            del monitorizaciones[duplicado_id]
-        
-        # Guardar cambios
-        if duplicados:
-            guardar_monitorizaciones(monitorizaciones)
-            st.success(f"✅ {len(duplicados)} monitorizaciones duplicadas eliminadas")
-            return len(duplicados)
-        else:
-            st.info("✅ No se encontraron monitorizaciones duplicadas")
-            return 0
-            
-    except Exception as e:
-        st.error(f"❌ Error limpiando duplicados: {str(e)}")
-        return 0
 
 # ============================================================================
 # ALERTAS DE MONITORIZACIÓN
@@ -2815,7 +3386,7 @@ def calcular_alertas_monitorizaciones_pendientes(agentes):
 # ============================================================================
 
 def mostrar_alertas_sidebar():
-    """Muestra alertas de agentes en el sidebar con opción de descartar PERMANENTEMENTE"""
+    """Muestra alertas de agentes en el sidebar SOLO MONITORIZACIONES"""
     
     username = st.session_state.get('username', '')
     if not username:
@@ -2841,20 +3412,12 @@ def mostrar_alertas_sidebar():
         return
     
     # ==============================================
-    # CALCULAR TODOS LOS TIPOS DE ALERTAS
+    # CALCULAR SOLO ALERTAS DE MONITORIZACIONES
     # ==============================================
-    
-    # 1. Alertas por bajo rendimiento en llamadas (media diaria)
-    alertas_llamadas = calcular_alertas_media_llamadas(agentes, configuracion)
-    
-    # 2. Alertas de monitorizaciones pendientes/hoy
     alertas_monitorizaciones = calcular_alertas_monitorizaciones_pendientes(agentes)
     
-    # Combinar todas las alertas
-    todas_alertas = alertas_monitorizaciones + alertas_llamadas
-    
     # Filtrar solo alertas que NO han sido descartadas
-    alertas_activas = [a for a in todas_alertas if a['id'] not in alertas_descartadas]
+    alertas_activas = [a for a in alertas_monitorizaciones if a['id'] not in alertas_descartadas]
     
     if alertas_activas:
         with st.sidebar:
@@ -2874,12 +3437,6 @@ def mostrar_alertas_sidebar():
                     st.error(f"⏰ {alerta['agente_nombre']}")
                     st.caption(f"⚠️ {alerta['mensaje']}")
                     st.caption(f"📅 Fecha programada: {alerta['fecha_proxima']}")
-                    
-                elif alerta['tipo'] == 'bajo_media_diaria_llamadas':
-                    st.warning(f"📞 {alerta['agente_nombre']}")
-                    st.caption(f"📅 Media diaria: {alerta['media_diaria_agente']:.1f} llamadas")
-                    st.caption(f"🌍 vs Media global: {alerta['media_diaria_global']:.1f}")
-                    st.caption(f"📉 {alerta['diferencia_porcentaje']:.1f}% debajo")
                 
                 # Checkbox para descartar
                 col1, col2 = st.columns([4, 1])
@@ -2910,17 +3467,14 @@ def mostrar_alertas_sidebar():
             # Contadores por tipo
             monitorizaciones_hoy = len([a for a in alertas_activas if a['tipo'] == 'monitorizacion_hoy'])
             monitorizaciones_atrasadas = len([a for a in alertas_activas if a['tipo'] == 'monitorizacion_atrasada'])
-            alertas_llamadas_count = len([a for a in alertas_activas if a['tipo'] == 'bajo_media_diaria_llamadas'])
             
             # Mostrar resumen
-            if monitorizaciones_hoy > 0 or monitorizaciones_atrasadas > 0 or alertas_llamadas_count > 0:
+            if monitorizaciones_hoy > 0 or monitorizaciones_atrasadas > 0:
                 with st.expander("📊 Resumen de alertas", expanded=False):
                     if monitorizaciones_hoy > 0:
                         st.write(f"📅 **Monitorizaciones hoy:** {monitorizaciones_hoy}")
                     if monitorizaciones_atrasadas > 0:
                         st.write(f"⏰ **Monitorizaciones atrasadas:** {monitorizaciones_atrasadas}")
-                    if alertas_llamadas_count > 0:
-                        st.write(f"📞 **Bajo rendimiento llamadas:** {alertas_llamadas_count}")
             
             # Si hay más de 8 alertas
             if len(alertas_activas) > 8:
@@ -2945,107 +3499,6 @@ def mostrar_alertas_sidebar():
             if st.button("🗑️ Ver alertas descartadas", use_container_width=True, key="btn_ver_descartadas"):
                 st.session_state.mostrar_gestion_alertas = True
                 st.rerun()
-
-
-def calcular_alertas_media_llamadas(agentes, configuracion):
-    """Calcula alertas por X% debajo de la MEDIA DIARIA de llamadas totales"""
-    from datetime import datetime, timedelta
-    
-    alertas = []
-    registro_llamadas = cargar_registro_llamadas()
-    
-    fecha_fin = datetime.now().date()
-    fecha_inicio = fecha_fin - timedelta(days=7)
-    
-    umbral_alerta = configuracion.get("umbral_alertas_llamadas", 20)
-    
-    # ==============================================
-    # CALCULAR MEDIA DIARIA GLOBAL (no total)
-    # ==============================================
-    total_llamadas_todos = 0
-    total_dias_con_datos = 0
-    agentes_con_datos = 0
-    
-    # Primero calcular media diaria global
-    for agent_id, info in agentes.items():
-        if not info.get('activo', True):
-            continue
-        
-        llamadas_agente = 0
-        dias_agente = 0
-        
-        for fecha_str, datos_dia in registro_llamadas.items():
-            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            if fecha_inicio <= fecha <= fecha_fin:
-                if agent_id in datos_dia:
-                    llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
-                    dias_agente += 1
-        
-        if dias_agente > 0:  # Solo contar agentes con al menos un día de datos
-            total_llamadas_todos += llamadas_agente
-            total_dias_con_datos += dias_agente
-            agentes_con_datos += 1
-    
-    if agentes_con_datos == 0 or total_dias_con_datos == 0:
-        return alertas
-    
-    # Calcular media diaria global
-    media_diaria_global = total_llamadas_todos / total_dias_con_datos
-    
-    # ==============================================
-    # CALCULAR ALERTAS POR AGENTE (comparando medias diarias)
-    # ==============================================
-    for agent_id, info in agentes.items():
-        if not info.get('activo', True):
-            continue
-        
-        llamadas_agente = 0
-        dias_con_datos_agente = 0
-        
-        # Sumar llamadas del agente en el período
-        for fecha_str, datos_dia in registro_llamadas.items():
-            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
-            if fecha_inicio <= fecha <= fecha_fin:
-                if agent_id in datos_dia:
-                    llamadas_agente += datos_dia[agent_id].get('llamadas_totales', 0)
-                    dias_con_datos_agente += 1
-        
-        # Si el agente no tiene datos suficientes, saltar
-        if dias_con_datos_agente < 3:  # Mínimo 3 días para considerar
-            continue
-        
-        # Calcular media diaria del agente
-        media_diaria_agente = llamadas_agente / dias_con_datos_agente
-        
-        # Calcular diferencia porcentual con la media global
-        if media_diaria_global > 0:
-            diferencia_porcentaje = ((media_diaria_agente - media_diaria_global) / media_diaria_global * 100)
-        else:
-            diferencia_porcentaje = 0
-        
-        # Verificar si está por debajo del umbral
-        if diferencia_porcentaje < -umbral_alerta:
-            alerta_id = f"{agent_id}_{fecha_inicio}_{fecha_fin}_{int(abs(diferencia_porcentaje))}_DIARIA"
-            
-            alertas.append({
-                'id': alerta_id,
-                'agente_id': agent_id,
-                'agente_nombre': info.get('nombre', agent_id),
-                'grupo': info.get('grupo', 'Sin grupo'),
-                'llamadas_totales': llamadas_agente,
-                'dias_con_datos': dias_con_datos_agente,
-                'media_diaria_agente': round(media_diaria_agente, 1),
-                'media_diaria_global': round(media_diaria_global, 1),
-                'diferencia_porcentaje': abs(diferencia_porcentaje),
-                'periodo': f"{fecha_inicio.strftime('%d/%m')}-{fecha_fin.strftime('%d/%m')}",
-                'fecha_deteccion': datetime.now().strftime('%Y-%m-%d'),
-                'tipo': 'bajo_media_diaria_llamadas',
-                'explicacion': f"Media diaria: {media_diaria_agente:.1f} vs Global: {media_diaria_global:.1f}"
-            })
-    
-    # Ordenar por diferencia porcentual (las peores primero)
-    alertas.sort(key=lambda x: x['diferencia_porcentaje'], reverse=True)
-    return alertas
 
 
 def cargar_alertas_descartadas(username):
@@ -3399,3 +3852,582 @@ def mostrar_monitorizacion_agente_especifico():
             st.write("##### 🔑 Puntos Clave")
             for punto in ultima_mon.get('puntos_clave'):
                 st.write(f"- {punto}")
+
+
+# ============================================================================
+# FUNCIÓN PARA PANEL DE USUARIO (AGENTE) - OBJETIVOS PERSONALES
+# ============================================================================
+
+def mostrar_panel_usuario_con_objetivos():
+    """Panel de usuario que muestra objetivos personales de ventas DESDE JSON"""
+    username = st.session_state.get('username', '')
+    
+    if not username:
+        return
+    
+    # Verificar si el usuario quiere mostrar/ocultar objetivos
+    mostrar_objetivos_key = f"mostrar_objetivos_{username}"
+    if mostrar_objetivos_key not in st.session_state:
+        st.session_state[mostrar_objetivos_key] = True
+    
+    super_users_config = cargar_super_users()
+    agentes = super_users_config.get("agentes", {})
+    configuracion = super_users_config.get("configuracion", {})
+    
+    # Cargar objetivos desde JSON
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
+    
+    if username in agentes:
+        info_agente = agentes[username]
+        
+        # Obtener objetivo individual desde JSON
+        objetivo_individual = objetivos_dict.get(username, 10)
+        objetivo_global = configuracion.get('target_ventas_global', 100)
+        
+        # Calcular ventas del mes actual
+        registro_llamadas = cargar_registro_llamadas()
+        fecha_inicio = datetime.now().date().replace(day=1)
+        fecha_fin = datetime.now().date()
+        
+        ventas_mes = 0
+        for fecha_str, datos_dia in registro_llamadas.items():
+            fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+            if fecha_inicio <= fecha <= fecha_fin:
+                if username in datos_dia:
+                    ventas_mes += datos_dia[username].get("ventas", 0)
+        
+        # Calcular progreso individual
+        progreso_individual = (ventas_mes / objetivo_individual * 100) if objetivo_individual > 0 else 0
+        ventas_restantes_individual = max(0, objetivo_individual - ventas_mes)
+        
+        # Calcular contribución al objetivo global
+        contribucion_global = (ventas_mes / objetivo_global * 100) if objetivo_global > 0 else 0
+        
+        # Mostrar/ocultar controles
+        col_controles1, col_controles2 = st.columns([3, 1])
+        
+        with col_controles1:
+            st.write(f"### 🎯 Mis Objetivos de Ventas")
+        
+        with col_controles2:
+            mostrar = st.checkbox(
+                "Mostrar",
+                value=st.session_state[mostrar_objetivos_key],
+                key=f"toggle_objetivos_{username}",
+                label_visibility="collapsed"
+            )
+            st.session_state[mostrar_objetivos_key] = mostrar
+        
+        if mostrar:
+            # OBJETIVO INDIVIDUAL DESDE JSON
+            st.write("#### 📊 Mi Objetivo Personal")
+            col_ind1, col_ind2, col_ind3 = st.columns(3)
+            
+            with col_ind1:
+                st.metric("Objetivo Mensual", objetivo_individual)
+            
+            with col_ind2:
+                st.metric("Ventas Actuales", ventas_mes)
+            
+            with col_ind3:
+                st.metric("Faltan", ventas_restantes_individual)
+            
+            # Barra de progreso individual
+            st.progress(min(progreso_individual / 100, 1.0))
+            
+            if progreso_individual < 50:
+                color = "red"
+            elif progreso_individual < 80:
+                color = "orange"
+            else:
+                color = "green"
+            
+            st.markdown(f"""
+            <div style="text-align: center;">
+                <span style="color: {color}; font-weight: bold;">{progreso_individual:.1f}%</span> 
+                ({ventas_mes} de {objetivo_individual} ventas)
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # OBJETIVO GLOBAL (información)
+            st.write("#### 🎯 Objetivo de Campaña")
+            col_glob1, col_glob2 = st.columns(2)
+            
+            with col_glob1:
+                st.metric("Objetivo Campaña", objetivo_global)
+            
+            with col_glob2:
+                st.metric("Mi Contribución", f"{contribucion_global:.1f}%")
+            
+            # Días restantes en el mes
+            dias_en_mes = (fecha_fin - fecha_inicio).days + 1
+            dias_transcurridos = (datetime.now().date() - fecha_inicio).days + 1
+            dias_restantes = dias_en_mes - dias_transcurridos
+            
+            st.caption(f"📅 Días restantes: {dias_restantes} | Ventas/día necesarias: {ventas_restantes_individual / max(dias_restantes, 1):.1f}")
+    else:
+        # Si no es agente, mostrar solo objetivo global
+        objetivo_global = configuracion.get('target_ventas_global', 100)
+        
+        st.write(f"### 🎯 Objetivo Global de Campaña")
+        st.metric("Objetivo Campaña", objetivo_global)
+        st.info("No estás registrado como agente. Contacta con un administrador.")
+
+
+# ============================================================================
+# FUNCIÓN AUXILIAR PARA ALERTAS SIMPLIFICADAS (SOLO MONITORIZACIONES)
+# ============================================================================
+
+def calcular_alertas_media_llamadas(agentes, configuracion):
+    """Función simplificada que retorna lista vacía para compatibilidad"""
+    # Esta función se mantiene por compatibilidad con el código existente
+    # pero siempre retorna lista vacía ya que no queremos alertas de llamadas
+    return []
+
+
+# ============================================================================
+# GESTIÓN DE OBJETIVOS DE VENTAS EN ARCHIVO JSON SEPARADO
+# ============================================================================
+
+def cargar_objetivos_ventas():
+    """Carga los objetivos de ventas desde un archivo JSON separado"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo_objetivos = 'data/objetivos_ventas.json'
+        
+        if os.path.exists(archivo_objetivos):
+            # Verificar si el archivo no está vacío
+            if os.path.getsize(archivo_objetivos) > 0:
+                with open(archivo_objetivos, 'r', encoding='utf-8') as f:
+                    contenido = f.read().strip()
+                    if contenido:  # Verificar que no sea solo espacios en blanco
+                        return json.loads(contenido)
+            
+            # Si el archivo está vacío o tiene solo espacios, crear estructura nueva
+            print(f"Archivo {archivo_objetivos} está vacío, creando estructura nueva")
+            
+        # Crear estructura base si el archivo no existe o está vacío
+        objetivos_base = {
+            "objetivos": {},  # agent_id: objetivo_mensual
+            "historico": {},  # Para guardar cambios históricos
+            "metadata": {
+                "fecha_creacion": datetime.now().isoformat(),
+                "ultima_actualizacion": datetime.now().isoformat()
+            }
+        }
+        
+        # Guardar estructura base
+        with open(archivo_objetivos, 'w', encoding='utf-8') as f:
+            json.dump(objetivos_base, f, indent=4, ensure_ascii=False)
+        
+        return objetivos_base
+        
+    except json.JSONDecodeError as e:
+        st.error(f"Error de JSON en objetivos_ventas.json: {e}")
+        print(f"Error de JSON: {e}")
+        # Si hay error de JSON, crear archivo nuevo
+        return _crear_archivo_objetivos_nuevo()
+    except Exception as e:
+        st.error(f"Error cargando objetivos: {e}")
+        print(f"Error general: {e}")
+        return _crear_archivo_objetivos_nuevo()
+
+
+def _crear_archivo_objetivos_nuevo():
+    """Crea un nuevo archivo de objetivos si hay error"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo_objetivos = 'data/objetivos_ventas.json'
+        
+        objetivos_base = {
+            "objetivos": {},
+            "historico": {},
+            "metadata": {
+                "fecha_creacion": datetime.now().isoformat(),
+                "ultima_actualizacion": datetime.now().isoformat()
+            }
+        }
+        
+        with open(archivo_objetivos, 'w', encoding='utf-8') as f:
+            json.dump(objetivos_base, f, indent=4, ensure_ascii=False)
+        
+        print(f"Archivo {archivo_objetivos} creado exitosamente")
+        return objetivos_base
+    except Exception as e:
+        st.error(f"Error crítico creando archivo de objetivos: {e}")
+        # Retornar estructura mínima en memoria
+        return {
+            "objetivos": {},
+            "historico": {},
+            "metadata": {
+                "fecha_creacion": datetime.now().isoformat(),
+                "ultima_actualizacion": datetime.now().isoformat()
+            }
+        }
+
+
+def inicializar_archivo_objetivos():
+    """Inicializa el archivo de objetivos si no existe o está corrupto"""
+    try:
+        # Primero, intentar cargar para ver si existe y es válido
+        objetivos_data = cargar_objetivos_ventas()
+        
+        # Verificar estructura básica
+        if not isinstance(objetivos_data, dict):
+            print("Estructura de objetivos inválida, recreando...")
+            return _crear_archivo_objetivos_nuevo()
+        
+        # Verificar que tenga las claves básicas
+        claves_requeridas = ["objetivos", "historico", "metadata"]
+        for clave in claves_requeridas:
+            if clave not in objetivos_data:
+                print(f"Falta clave '{clave}' en objetivos, recreando...")
+                return _crear_archivo_objetivos_nuevo()
+        
+        print("Archivo de objetivos cargado correctamente")
+        return objetivos_data
+        
+    except Exception as e:
+        print(f"Error inicializando archivo de objetivos: {e}")
+        return _crear_archivo_objetivos_nuevo()
+
+
+def guardar_objetivos_ventas(objetivos_data):
+    """Guarda los objetivos de ventas en archivo JSON"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo_objetivos = 'data/objetivos_ventas.json'
+        
+        # Actualizar metadata
+        objetivos_data["metadata"]["ultima_actualizacion"] = datetime.now().isoformat()
+        
+        with open(archivo_objetivos, 'w', encoding='utf-8') as f:
+            json.dump(objetivos_data, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        st.error(f"Error guardando objetivos: {e}")
+        return False
+
+
+def obtener_objetivo_agente(agent_id, default=10):
+    """Obtiene el objetivo de ventas de un agente específico"""
+    objetivos_data = cargar_objetivos_ventas()
+    return objetivos_data.get("objetivos", {}).get(agent_id, default)
+
+
+def actualizar_objetivo_agente(agent_id, nuevo_objetivo, usuario_que_modifica=""):
+    """Actualiza el objetivo de un agente y guarda histórico"""
+    objetivos_data = cargar_objetivos_ventas()
+    
+    # Obtener objetivo anterior
+    objetivo_anterior = objetivos_data.get("objetivos", {}).get(agent_id, 10)
+    
+    # Actualizar objetivo
+    objetivos_data.setdefault("objetivos", {})[agent_id] = nuevo_objetivo
+    
+    # Guardar en histórico
+    registro_historico = {
+        "fecha": datetime.now().isoformat(),
+        "agente": agent_id,
+        "objetivo_anterior": objetivo_anterior,
+        "objetivo_nuevo": nuevo_objetivo,
+        "usuario": usuario_que_modifica or "sistema"
+    }
+    
+    # Inicializar histórico si no existe
+    if "historico" not in objetivos_data:
+        objetivos_data["historico"] = {}
+    
+    # Agregar al histórico del agente
+    if agent_id not in objetivos_data["historico"]:
+        objetivos_data["historico"][agent_id] = []
+    
+    objetivos_data["historico"][agent_id].append(registro_historico)
+    
+    # Limitar histórico a últimos 50 cambios
+    if len(objetivos_data["historico"][agent_id]) > 50:
+        objetivos_data["historico"][agent_id] = objetivos_data["historico"][agent_id][-50:]
+    
+    return guardar_objetivos_ventas(objetivos_data)
+
+
+def actualizar_multiples_objetivos(objetivos_dict, usuario_que_modifica=""):
+    """Actualiza múltiples objetivos a la vez"""
+    objetivos_data = cargar_objetivos_ventas()
+    
+    for agent_id, nuevo_objetivo in objetivos_dict.items():
+        # Actualizar objetivo
+        objetivos_data.setdefault("objetivos", {})[agent_id] = nuevo_objetivo
+        
+        # Guardar en histórico (simplificado para batch)
+        registro_historico = {
+            "fecha": datetime.now().isoformat(),
+            "agente": agent_id,
+            "objetivo_nuevo": nuevo_objetivo,
+            "usuario": usuario_que_modifica or "batch_update",
+            "tipo": "batch_update"
+        }
+        
+        if "historico" not in objetivos_data:
+            objetivos_data["historico"] = {}
+        
+        if agent_id not in objetivos_data["historico"]:
+            objetivos_data["historico"][agent_id] = []
+        
+        objetivos_data["historico"][agent_id].append(registro_historico)
+    
+    return guardar_objetivos_ventas(objetivos_data)
+
+
+# ============================================================================
+# FUNCIONES DE DÍAS LABORABLES
+# ============================================================================
+
+def calcular_dias_laborables(fecha_inicio: date, fecha_fin: date, incluir_festivos=True) -> int:
+    """Calcula los días laborables (lunes a viernes) entre dos fechas excluyendo festivos"""
+    from festivos_manager import cargar_festivos, es_festivo
+    
+    dias_totales = (fecha_fin - fecha_inicio).days + 1
+    dias_laborables = 0
+    
+    if incluir_festivos:
+        festivos_data = cargar_festivos()
+    
+    for i in range(dias_totales):
+        fecha_actual = fecha_inicio + timedelta(days=i)
+        
+        # Verificar si es fin de semana
+        if fecha_actual.weekday() >= 5:  # 5=Sábado, 6=Domingo
+            continue
+        
+        # Verificar si es festivo
+        if incluir_festivos and es_festivo(fecha_actual, festivos_data):
+            continue
+        
+        dias_laborables += 1
+    
+    return dias_laborables
+
+
+def obtener_dias_laborables_info(fecha_inicio: date, fecha_fin: date):
+    """Obtiene información detallada sobre días laborables"""
+    from festivos_manager import cargar_festivos, es_festivo
+    
+    festivos_data = cargar_festivos()
+    dias_info = []
+    
+    dias_totales = (fecha_fin - fecha_inicio).days + 1
+    
+    for i in range(dias_totales):
+        fecha_actual = fecha_inicio + timedelta(days=i)
+        dia_semana = fecha_actual.weekday()
+        
+        es_fin_semana = dia_semana >= 5
+        es_festivo_flag = es_festivo(fecha_actual, festivos_data) if not es_fin_semana else False
+        es_laborable = not es_fin_semana and not es_festivo_flag
+        
+        dias_info.append({
+            'fecha': fecha_actual,
+            'dia_semana': dia_semana,
+            'nombre_dia': fecha_actual.strftime('%A'),
+            'es_fin_semana': es_fin_semana,
+            'es_festivo': es_festivo_flag,
+            'es_laborable': es_laborable,
+            'numero_dia': fecha_actual.day
+        })
+    
+    return dias_info
+
+
+def calcular_dias_laborables_transcurridos(fecha_inicio, fecha_hoy):
+    """Calcula días laborables transcurridos desde inicio del mes hasta hoy"""
+    return calcular_dias_laborables(fecha_inicio, fecha_hoy)
+
+
+def calcular_dias_laborables_restantes(fecha_hoy, fecha_fin_mes):
+    """Calcula días laborables restantes desde hoy hasta fin de mes"""
+    # Añadir 1 día para incluir hoy si es laborable
+    fecha_siguiente = fecha_hoy + timedelta(days=1)
+    if fecha_siguiente <= fecha_fin_mes:
+        return calcular_dias_laborables(fecha_siguiente, fecha_fin_mes)
+    return 0
+
+
+def obtener_total_dias_laborables_mes(fecha_inicio, fecha_fin_mes):
+    """Calcula total de días laborables en el mes"""
+    return calcular_dias_laborables(fecha_inicio, fecha_fin_mes)
+
+
+# ============================================================================
+# PANEL DE OBJETIVOS EN SIDEBAR
+# ============================================================================
+
+def mostrar_panel_objetivos_sidebar():
+    """Muestra el panel de objetivos personales en el sidebar CON DÍAS LABORABLES"""
+    username = st.session_state.get('username', '')
+    
+    if not username:
+        return
+    
+    with st.sidebar:
+        st.write("---")
+        st.subheader("🎯 Mi Progreso")
+        
+        # Cargar datos necesarios
+        super_users_config = cargar_super_users()
+        agentes = super_users_config.get("agentes", {})
+        configuracion = super_users_config.get("configuracion", {})
+        
+        # Cargar objetivos desde JSON
+        objetivos_data = cargar_objetivos_ventas()
+        objetivos_dict = objetivos_data.get("objetivos", {})
+        
+        if username in agentes:
+            info_agente = agentes[username]
+            
+            # Obtener objetivo individual desde JSON
+            objetivo_individual = objetivos_dict.get(username, 10)
+            objetivo_global = configuracion.get('target_ventas_global', 100)
+            
+            # Fechas importantes
+            fecha_hoy = datetime.now().date()
+            fecha_inicio_mes = fecha_hoy.replace(day=1)
+            
+            # Calcular fin de mes
+            from dateutil.relativedelta import relativedelta
+            fecha_fin_mes = (fecha_inicio_mes + relativedelta(months=1)) - relativedelta(days=1)
+            
+            # Calcular días laborables
+            dias_laborables_transcurridos = calcular_dias_laborables_transcurridos(fecha_inicio_mes, fecha_hoy)
+            dias_laborables_restantes = calcular_dias_laborables_restantes(fecha_hoy, fecha_fin_mes)
+            total_laborables_mes = obtener_total_dias_laborables_mes(fecha_inicio_mes, fecha_fin_mes)
+            
+            # Calcular ventas del mes actual
+            registro_llamadas = cargar_registro_llamadas()
+            
+            ventas_mes = 0
+            for fecha_str, datos_dia in registro_llamadas.items():
+                fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+                if fecha_inicio_mes <= fecha <= fecha_hoy:
+                    if username in datos_dia:
+                        ventas_mes += datos_dia[username].get("ventas", 0)
+            
+            # Calcular progreso
+            progreso_individual = (ventas_mes / objetivo_individual * 100) if objetivo_individual > 0 else 0
+            ventas_restantes = max(0, objetivo_individual - ventas_mes)
+            
+            # Ventas por día laborable necesarias
+            ventas_dia_laborable_necesarias = ventas_restantes / max(dias_laborables_restantes, 1)
+            
+            # Mostrar métricas principales
+            col_met1, col_met2 = st.columns(2)
+            
+            with col_met1:
+                st.metric(
+                    "Mi Objetivo",
+                    objetivo_individual,
+                    help="Objetivo personal de ventas este mes"
+                )
+            
+            with col_met2:
+                st.metric(
+                    "Ventas Actuales",
+                    ventas_mes,
+                    help="Ventas realizadas este mes"
+                )
+            
+            # Barra de progreso
+            st.write("**Progreso:**")
+            progreso_normalizado = min(progreso_individual / 100, 1.0)
+            st.progress(progreso_normalizado)
+            
+            # Texto de progreso
+            if progreso_individual < 50:
+                emoji = "🔴"
+                color = "red"
+            elif progreso_individual < 80:
+                emoji = "🟡"
+                color = "orange"
+            elif progreso_individual < 100:
+                emoji = "🟢"
+                color = "green"
+            else:
+                emoji = "🎉"
+                color = "darkgreen"
+            
+            st.markdown(f"""
+            <div style="text-align: center;">
+                <span style="color: {color}; font-weight: bold; font-size: 16px;">
+                    {emoji} {progreso_individual:.1f}%
+                </span>
+                <br>
+                <span style="font-size: 12px;">
+                    {ventas_mes} de {objetivo_individual} ventas
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Información de días laborables
+            st.write("**📅 Días laborables:**")
+            col_dias1, col_dias2 = st.columns(2)
+            
+            with col_dias1:
+                st.metric("Trabajados", dias_laborables_transcurridos)
+            
+            with col_dias2:
+                st.metric("Restantes", dias_laborables_restantes)
+            
+            # Información adicional
+            with st.expander("📊 Detalles", expanded=False):
+                # Ventas restantes
+                st.write(f"**Ventas restantes:** {ventas_restantes}")
+                
+                # Días laborables totales
+                st.write(f"**Total días laborables mes:** {total_laborables_mes}")
+                
+                # Ventas por día laborable necesarias
+                st.write(f"**Ventas/día laborable necesarias:** {ventas_dia_laborable_necesarias:.1f}")
+                
+                # Contribución al objetivo global
+                contribucion_global = (ventas_mes / objetivo_global * 100) if objetivo_global > 0 else 0
+                st.write(f"**Contribución campaña:** {contribucion_global:.1f}%")
+                
+                # Hoy es laborable?
+                es_laborable_hoy = fecha_hoy.weekday() < 5
+                st.write(f"**Hoy es laborable:** {'✅ Sí' if es_laborable_hoy else '❌ No'}")
+            
+            # Enlace rápido para ver detalles completos
+            st.write("---")
+            if st.button("📈 Ver mi panel completo", use_container_width=True):
+                st.session_state.mostrar_panel_personal = True
+                st.rerun()
+        
+        else:
+            # Si no es agente, mostrar solo objetivo global
+            objetivo_global = configuracion.get('target_ventas_global', 100)
+            
+            st.metric(
+                "🎯 Objetivo Campaña",
+                objetivo_global,
+                help="Objetivo global de ventas de la campaña"
+            )
+
+
+# ============================================================================
+# MANTENIMIENTO DE FUNCIONES ELIMINADAS
+# ============================================================================
+
+# Las siguientes funciones relacionadas con alertas SMS han sido eliminadas:
+# - cargar_alertas_pendientes_sms()
+# - guardar_alertas_pendientes_sms()
+# - agregar_alertas_sms_nuevas() (versión duplicada)
+# - confirmar_venta_sms() (versión duplicada)
+# - rechazar_venta_sms() (versión duplicada)
+# - actualizar_ventas_agente_confirmadas()
+# - mostrar_alertas_sms_en_sidebar()
+# - panel_alertas_sms_completo()
+# - obtener_alertas_pendientes() (versión duplicada)
+
+# En su lugar, se mantiene la funcionalidad de monitorizaciones y alertas básicas
+# que es lo que realmente necesita el sistema.

@@ -3,6 +3,7 @@ import shutil
 import json
 import pandas as pd
 from datetime import datetime, timedelta
+from pathlib import Path
 from config import (
     PLANES_GAS_ESTRUCTURA, PMG_COSTE, PMG_IVA,
     USUARIOS_DEFAULT, PVD_CONFIG_DEFAULT,
@@ -10,6 +11,7 @@ from config import (
     SUPER_USER_CONFIG_DEFAULT
 )
 from utils import inicializar_directorios
+
 MONITORIZACIONES_FILE = 'data/monitorizaciones.json'
 
 def inicializar_datos():
@@ -28,7 +30,7 @@ def inicializar_datos():
             "config_pmg.json": json.dumps({"coste": PMG_COSTE, "iva": PMG_IVA}, indent=4),
             "usuarios.json": json.dumps(USUARIOS_DEFAULT, indent=4),
             "config_pvd.json": json.dumps(PVD_CONFIG_DEFAULT, indent=4),
-            "cola_pvd.json": json.dumps([], indent=4),
+            "cola_pvd.json": json.dumps([], indent=4),  # Mantener para compatibilidad
             "super_users.json": json.dumps(SUPER_USER_CONFIG_DEFAULT, indent=4),
             "registro_llamadas.json": json.dumps({}, indent=4),
             "config_sistema.json": json.dumps(SISTEMA_CONFIG_DEFAULT, indent=4)
@@ -69,6 +71,25 @@ def inicializar_datos():
             
     except Exception as e:
         print(f"Error crítico en inicialización: {e}")
+    
+    # Inicializar archivo de alertas SMS
+    inicializar_archivo_alertas_sms()
+
+def inicializar_archivo_alertas_sms():
+    """Inicializa el archivo de alertas SMS si no existe"""
+    try:
+        archivo = 'data/alertas_sms.json'
+        
+        if not os.path.exists(archivo):
+            os.makedirs('data', exist_ok=True)
+            with open(archivo, 'w', encoding='utf-8') as f:
+                json.dump({}, f, indent=4, ensure_ascii=False)
+            print("✅ Archivo de alertas SMS creado")
+        
+        return True
+    except Exception as e:
+        print(f"Error inicializando archivo de alertas SMS: {e}")
+        return False
 
 # ==============================================
 # FUNCIONES DE CARGA DE DATOS
@@ -223,38 +244,168 @@ def guardar_config_pvd(config):
         print(f"Error guardando configuración PVD: {e}")
         return False
 
-def cargar_cola_pvd():
-    """Carga la cola actual de PVD"""
-    try:
-        with open('data/cola_pvd.json', 'r', encoding='utf-8') as f:
-            cola = json.load(f)
-        
-        # Asegurar que todas las pausas tienen campo 'grupo'
-        for pausa in cola:
-            if 'grupo' not in pausa:
-                pausa['grupo'] = 'basico'
-            if 'notificado' not in pausa:
-                pausa['notificado'] = False
-            if 'confirmado' not in pausa:
-                pausa['confirmado'] = False
-        
-        return cola
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
+# ==============================================
+# FUNCIONES DE COLAS PVD POR GRUPOS (NUEVO SISTEMA)
+# ==============================================
 
-def guardar_cola_pvd(cola):
-    """Guarda la cola PVD"""
+def cargar_cola_pvd_grupo(grupo_id):
+    """Carga la cola PVD específica de un grupo"""
+    try:
+        file_path = Path(f"data/pvd_cola_{grupo_id}.json")
+        if file_path.exists():
+            with open(file_path, 'r', encoding='utf-8') as f:
+                cola = json.load(f)
+            
+            # Limpiar pausas completadas de días anteriores
+            cola_limpia = _limpiar_cola_antigua(cola)
+            if len(cola_limpia) < len(cola):
+                guardar_cola_pvd_grupo(grupo_id, cola_limpia)
+                return cola_limpia
+            
+            return cola
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+    
+    # Si no existe, crear estructura vacía
+    return []
+
+def guardar_cola_pvd_grupo(grupo_id, cola_data):
+    """Guarda la cola PVD específica de un grupo"""
     try:
         os.makedirs('data', exist_ok=True)
-        with open('data/cola_pvd.json', 'w', encoding='utf-8') as f:
-            json.dump(cola, f, indent=4, ensure_ascii=False)
+        file_path = Path(f"data/pvd_cola_{grupo_id}.json")
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(cola_data, f, indent=4, ensure_ascii=False)
         
+        # Backup
+        backup_path = Path(f"data_backup/pvd_cola_{grupo_id}.json")
         os.makedirs('data_backup', exist_ok=True)
-        shutil.copy('data/cola_pvd.json', 'data_backup/cola_pvd.json')
+        shutil.copy(file_path, backup_path)
         return True
     except Exception as e:
-        print(f"Error guardando cola PVD: {e}")
+        print(f"Error guardando cola PVD grupo {grupo_id}: {e}")
         return False
+
+def obtener_todas_colas_pvd():
+    """Obtiene todas las colas PVD de todos los grupos"""
+    colas = {}
+    data_dir = Path("data")
+    
+    if data_dir.exists():
+        for file_path in data_dir.glob("pvd_cola_*.json"):
+            grupo_id = file_path.stem.replace("pvd_cola_", "")
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    colas[grupo_id] = json.load(f)
+            except:
+                colas[grupo_id] = []
+    
+    # Si no hay colas por grupo, usar la cola consolidada (compatibilidad)
+    if not colas:
+        cola_consolidada = cargar_cola_pvd()
+        if cola_consolidada:
+            colas['basico'] = cola_consolidada
+    
+    return colas
+
+def consolidar_colas_pvd():
+    """Consolida todas las colas en un solo archivo (para compatibilidad)"""
+    todas_colas = obtener_todas_colas_pvd()
+    cola_consolidada = []
+    
+    for grupo_id, cola_grupo in todas_colas.items():
+        for pausa in cola_grupo:
+            pausa_con_grupo = pausa.copy()
+            pausa_con_grupo['grupo'] = grupo_id
+            cola_consolidada.append(pausa_con_grupo)
+    
+    return cola_consolidada
+
+def _limpiar_cola_antigua(cola_data):
+    """Limpia pausas completadas de días anteriores"""
+    from datetime import datetime, timedelta
+    
+    hoy = datetime.now().date()
+    cola_limpia = []
+    
+    for pausa in cola_data:
+        estado = pausa.get('estado', '')
+        
+        # Mantener pausas en curso o esperando
+        if estado in ['EN_CURSO', 'ESPERANDO']:
+            cola_limpia.append(pausa)
+            continue
+        
+        # Para pausas completadas o canceladas, verificar fecha
+        if estado in ['COMPLETADO', 'CANCELADO']:
+            try:
+                fecha_key = 'timestamp_fin' if estado == 'COMPLETADO' else 'timestamp_solicitud'
+                if fecha_key in pausa:
+                    fecha_pausa = datetime.fromisoformat(pausa[fecha_key]).date()
+                    # Mantener solo si es de hoy
+                    if fecha_pausa == hoy:
+                        cola_limpia.append(pausa)
+            except:
+                # Si hay error al parsear fecha, mantener por seguridad
+                cola_limpia.append(pausa)
+                continue
+    
+    return cola_limpia
+
+def limpiar_todas_colas_antiguas():
+    """Limpia todas las colas PVD de datos antiguos"""
+    try:
+        todas_colas = obtener_todas_colas_pvd()
+        for grupo_id, cola_grupo in todas_colas.items():
+            cola_limpia = _limpiar_cola_antigua(cola_grupo)
+            if len(cola_limpia) < len(cola_grupo):
+                guardar_cola_pvd_grupo(grupo_id, cola_limpia)
+                print(f"✅ Cola {grupo_id}: {len(cola_grupo) - len(cola_limpia)} pausas antiguas limpiadas")
+        return True
+    except Exception as e:
+        print(f"Error limpiando colas antiguas: {e}")
+        return False
+
+# Función de compatibilidad (mantener para código existente)
+def cargar_cola_pvd():
+    """Carga la cola actual de PVD (compatibilidad)"""
+    # Usar el sistema de colas por grupos
+    colas_por_grupo = obtener_todas_colas_pvd()
+    
+    # Consolidar todas las colas
+    cola_consolidada = []
+    for grupo_id, cola_grupo in colas_por_grupo.items():
+        for pausa in cola_grupo:
+            pausa_con_grupo = pausa.copy()
+            pausa_con_grupo['grupo'] = grupo_id
+            cola_consolidada.append(pausa_con_grupo)
+    
+    return cola_consolidada
+
+def guardar_cola_pvd(cola):
+    """Guarda la cola PVD (compatibilidad)"""
+    # Separar por grupos y guardar en archivos separados
+    try:
+        colas_por_grupo = {}
+        
+        for pausa in cola:
+            grupo = pausa.get('grupo', 'basico')
+            if grupo not in colas_por_grupo:
+                colas_por_grupo[grupo] = []
+            colas_por_grupo[grupo].append(pausa)
+        
+        # Guardar cada grupo
+        for grupo_id, cola_grupo in colas_por_grupo.items():
+            guardar_cola_pvd_grupo(grupo_id, cola_grupo)
+        
+        return True
+    except Exception as e:
+        print(f"Error guardando cola PVD (compatibilidad): {e}")
+        return False
+
+# ==============================================
+# FUNCIONES DE SUPER USUARIOS
+# ==============================================
 
 def cargar_super_users():
     """Carga la configuración de super usuarios"""
@@ -283,6 +434,10 @@ def guardar_super_users(config):
     except Exception as e:
         print(f"Error guardando super users: {e}")
         return False
+
+# ==============================================
+# FUNCIONES DE REGISTRO DE LLAMADAS
+# ==============================================
 
 def cargar_registro_llamadas():
     """Carga el registro histórico de llamadas"""
@@ -324,7 +479,9 @@ def guardar_registro_llamadas(registro):
         print(f"Error guardando registro llamadas: {e}")
         return False
 
-# database.py (AGREGAR AL FINAL)
+# ==============================================
+# FUNCIONES DE MONITORIZACIONES
+# ==============================================
 
 def crear_tabla_monitorizaciones():
     """Crea la tabla de monitorizaciones si no existe"""
@@ -598,7 +755,9 @@ def obtener_monitorizacion_por_id(monitorizacion_id):
         print(f"Error obteniendo monitorización por ID: {e}")
         return None
 
-# database.py (AGREGAR DESPUÉS DE LAS FUNCIONES EXISTENTES)
+# ==============================================
+# FUNCIONES DE ESTADÍSTICAS Y MÉTRICAS
+# ==============================================
 
 def obtener_estadisticas_llamadas_diarias(fecha_inicio=None, fecha_fin=None):
     """
@@ -890,3 +1049,332 @@ def obtener_resumen_periodo(fecha_inicio, fecha_fin):
     except Exception as e:
         print(f"Error obteniendo resumen del período: {e}")
         return {}
+
+# ==============================================
+# FUNCIONES DE ALERTAS SMS
+# ==============================================
+
+def cargar_alertas_sms():
+    """Carga las alertas SMS pendientes"""
+    try:
+        archivo = 'data/alertas_sms.json'
+        
+        # Crear archivo si no existe
+        if not os.path.exists(archivo):
+            os.makedirs('data', exist_ok=True)
+            with open(archivo, 'w', encoding='utf-8') as f:
+                json.dump({}, f, indent=4, ensure_ascii=False)
+            return {}
+        
+        with open(archivo, 'r', encoding='utf-8') as f:
+            contenido = f.read().strip()
+            if contenido:
+                return json.loads(contenido)
+            else:
+                return {}
+                
+    except Exception as e:
+        print(f"Error cargando alertas SMS: {e}")
+        return {}
+
+def guardar_alertas_sms(alertas):
+    """Guarda las alertas SMS"""
+    try:
+        archivo = 'data/alertas_sms.json'
+        os.makedirs('data', exist_ok=True)
+        
+        with open(archivo, 'w', encoding='utf-8') as f:
+            json.dump(alertas, f, indent=4, ensure_ascii=False)
+        
+        # Backup
+        backup_file = 'data_backup/alertas_sms.json'
+        os.makedirs('data_backup', exist_ok=True)
+        with open(backup_file, 'w', encoding='utf-8') as f:
+            json.dump(alertas, f, indent=4, ensure_ascii=False)
+        
+        return True
+    except Exception as e:
+        print(f"Error guardando alertas SMS: {e}")
+        return False
+
+def agregar_alerta_sms(alerta_data):
+    """Agrega una nueva alerta SMS"""
+    try:
+        alertas = cargar_alertas_sms()
+        
+        # Verificar si ya existe
+        alerta_id = alerta_data.get('id')
+        if alerta_id and alerta_id in alertas:
+            # Actualizar si ya existe
+            alertas[alerta_id].update(alerta_data)
+        else:
+            # Crear ID si no existe
+            if not alerta_id:
+                import hashlib
+                from datetime import datetime
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                data_str = f"{alerta_data.get('agente','')}_{alerta_data.get('fecha','')}_{timestamp}"
+                alerta_id = f"sms_{hashlib.md5(data_str.encode()).hexdigest()[:10]}"
+                alerta_data['id'] = alerta_id
+            
+            # Agregar timestamp si no existe
+            if 'timestamp' not in alerta_data:
+                alerta_data['timestamp'] = datetime.now().isoformat()
+            
+            alertas[alerta_id] = alerta_data
+        
+        guardar_alertas_sms(alertas)
+        return alerta_id
+    except Exception as e:
+        print(f"Error agregando alerta SMS: {e}")
+        return None
+
+def agregar_varias_alertas_sms(lista_alertas):
+    """Agrega múltiples alertas SMS de una vez - VERSIÓN MEJORADA"""
+    try:
+        alertas = cargar_alertas_sms()
+        nuevas = 0
+        actualizadas = 0
+        
+        for alerta_data in lista_alertas:
+            alerta_id = alerta_data.get('id')
+            
+            if alerta_id:
+                if alerta_id in alertas:
+                    # Actualizar si ya existe (preservar datos importantes)
+                    alerta_existente = alertas[alerta_id]
+                    
+                    # Mantener confirmaciones previas si las hay
+                    if alerta_existente.get('estado') == 'completado' and alerta_data.get('estado') != 'completado':
+                        # No sobrescribir alertas ya completadas
+                        continue
+                    
+                    # Combinar datos
+                    alerta_data['timestamp_creacion'] = alerta_existente.get('timestamp_creacion', alerta_data.get('timestamp_revision'))
+                    if 'confirmado_por' in alerta_existente:
+                        alerta_data['confirmado_por'] = alerta_existente['confirmado_por']
+                    if 'timestamp_confirmacion' in alerta_existente:
+                        alerta_data['timestamp_confirmacion'] = alerta_existente['timestamp_confirmacion']
+                    
+                    alertas[alerta_id] = alerta_data
+                    actualizadas += 1
+                else:
+                    # Agregar timestamp de creación
+                    if 'timestamp_creacion' not in alerta_data:
+                        alerta_data['timestamp_creacion'] = datetime.now().isoformat()
+                    
+                    alertas[alerta_id] = alerta_data
+                    nuevas += 1
+        
+        guardar_alertas_sms(alertas)
+        
+        if nuevas > 0 or actualizadas > 0:
+            print(f"✅ Alertas SMS: {nuevas} nuevas, {actualizadas} actualizadas")
+        
+        return nuevas + actualizadas
+    except Exception as e:
+        print(f"❌ Error agregando múltiples alertas SMS: {e}")
+        return 0
+
+def procesar_alerta_sms_completada(alerta_id, ventas_finales, llamadas_totales=1, llamadas_largas=0):
+    """
+    Procesa una alerta SMS completada y la agrega al registro de llamadas
+    
+    Args:
+        alerta_id: ID de la alerta
+        ventas_finales: Número de ventas a contar
+        llamadas_totales: Número de llamadas a agregar (default: 1)
+        llamadas_largas: Número de llamadas largas a agregar (default: 0)
+    
+    Returns:
+        bool: True si se procesó correctamente
+    """
+    try:
+        from datetime import datetime
+        
+        # Cargar la alerta
+        alertas = cargar_alertas_sms()
+        if alerta_id not in alertas:
+            print(f"❌ Alerta {alerta_id} no encontrada")
+            return False
+        
+        alerta = alertas[alerta_id]
+        
+        # Verificar que no esté ya procesada
+        if alerta.get('procesada_registro') == True:
+            print(f"⚠️ Alerta {alerta_id} ya fue procesada anteriormente")
+            return False
+        
+        # Cargar registro de llamadas
+        registro_llamadas = cargar_registro_llamadas()
+        
+        # Obtener datos de la alerta
+        agente = alerta.get('agente')
+        fecha_str = alerta.get('fecha')
+        
+        if not agente or not fecha_str:
+            print(f"❌ Datos incompletos en alerta {alerta_id}")
+            return False
+        
+        # Inicializar estructuras si no existen
+        if fecha_str not in registro_llamadas:
+            registro_llamadas[fecha_str] = {}
+        
+        if agente not in registro_llamadas[fecha_str]:
+            registro_llamadas[fecha_str][agente] = {
+                'llamadas_totales': 0,
+                'llamadas_15min': 0,
+                'ventas': 0,
+                'fecha': fecha_str,
+                'timestamp': datetime.now().isoformat()
+            }
+        
+        # Agregar datos al registro
+        registro_llamadas[fecha_str][agente]['llamadas_totales'] += llamadas_totales
+        registro_llamadas[fecha_str][agente]['llamadas_15min'] += llamadas_largas
+        registro_llamadas[fecha_str][agente]['ventas'] += ventas_finales
+        
+        # Marcar alerta como procesada
+        alerta['procesada_registro'] = True
+        alerta['ventas_registradas'] = ventas_finales
+        alerta['llamadas_registradas'] = llamadas_totales
+        alerta['llamadas_largas_registradas'] = llamadas_largas
+        alerta['timestamp_procesamiento'] = datetime.now().isoformat()
+        
+        # Actualizar estado si aún no estaba completado
+        if alerta.get('estado') != 'completado':
+            alerta['estado'] = 'completado'
+        
+        # Guardar cambios
+        guardar_alertas_sms(alertas)
+        guardar_registro_llamadas(registro_llamadas)
+        
+        print(f"✅ Alerta {alerta_id} procesada: {ventas_finales} ventas registradas")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error procesando alerta SMS: {e}")
+        return False
+
+def obtener_alertas_sms_para_procesar():
+    """
+    Obtiene alertas SMS listas para procesar en el registro
+    
+    Returns:
+        list: Alertas con estado 'confirmado' o 'rechazado' pero no procesadas aún
+    """
+    try:
+        alertas = cargar_alertas_sms()
+        
+        alertas_para_procesar = []
+        
+        for alerta_id, alerta_data in alertas.items():
+            estado = alerta_data.get('estado')
+            procesada = alerta_data.get('procesada_registro', False)
+            
+            # Buscar alertas que estén confirmadas o rechazadas pero no procesadas
+            if estado in ['confirmado', 'rechazado'] and not procesada:
+                alertas_para_procesar.append({
+                    'id': alerta_id,
+                    **alerta_data
+                })
+        
+        # Ordenar por fecha
+        alertas_para_procesar.sort(key=lambda x: x.get('fecha', ''))
+        
+        return alertas_para_procesar
+        
+    except Exception as e:
+        print(f"❌ Error obteniendo alertas para procesar: {e}")
+        return []
+    
+def procesar_multiples_alertas_sms(lista_alerta_ids):
+    """
+    Procesa múltiples alertas SMS de una vez
+    
+    Args:
+        lista_alerta_ids: Lista de IDs de alertas a procesar
+    
+    Returns:
+        dict: Resultados del procesamiento
+    """
+    try:
+        resultados = {
+            'total': len(lista_alerta_ids),
+            'exitosos': 0,
+            'fallidos': 0,
+            'ventas_totales': 0,
+            'llamadas_totales': 0,
+            'detalles': []
+        }
+        
+        for alerta_id in lista_alerta_ids:
+            # Cargar alerta específica
+            alertas = cargar_alertas_sms()
+            if alerta_id not in alertas:
+                resultados['detalles'].append({
+                    'id': alerta_id,
+                    'estado': 'error',
+                    'mensaje': 'Alerta no encontrada'
+                })
+                resultados['fallidos'] += 1
+                continue
+            
+            alerta = alertas[alerta_id]
+            
+            # Determinar parámetros según estado
+            estado = alerta.get('estado')
+            
+            if estado == 'confirmado':
+                ventas_finales = alerta.get('ventas_finales', alerta.get('ventas_pendientes', 0))
+                llamadas_largas = 1 if alerta.get('duracion_segundos', 0) > 900 else 0
+            elif estado == 'rechazado':
+                ventas_finales = 0
+                llamadas_largas = 1 if alerta.get('duracion_segundos', 0) > 900 else 0
+            else:
+                # No procesar alertas en otros estados
+                resultados['detalles'].append({
+                    'id': alerta_id,
+                    'estado': 'omitido',
+                    'mensaje': f'Estado no procesable: {estado}'
+                })
+                continue
+            
+            # Procesar la alerta
+            exito = procesar_alerta_sms_completada(
+                alerta_id=alerta_id,
+                ventas_finales=ventas_finales,
+                llamadas_totales=1,
+                llamadas_largas=llamadas_largas
+            )
+            
+            if exito:
+                resultados['exitosos'] += 1
+                resultados['ventas_totales'] += ventas_finales
+                resultados['llamadas_totales'] += 1
+                resultados['detalles'].append({
+                    'id': alerta_id,
+                    'estado': 'procesado',
+                    'mensaje': f'{ventas_finales} ventas registradas'
+                })
+            else:
+                resultados['fallidos'] += 1
+                resultados['detalles'].append({
+                    'id': alerta_id,
+                    'estado': 'error',
+                    'mensaje': 'Error en procesamiento'
+                })
+        
+        return resultados
+        
+    except Exception as e:
+        print(f"❌ Error procesando múltiples alertas: {e}")
+        return {
+            'total': len(lista_alerta_ids),
+            'exitosos': 0,
+            'fallidos': len(lista_alerta_ids),
+            'ventas_totales': 0,
+            'llamadas_totales': 0,
+            'detalles': [],
+            'error': str(e)
+        }

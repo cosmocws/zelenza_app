@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime
 import pytz
-import json  # <-- AÑADIR ESTA LÍNEA
 
 from config import COMUNIDADES_AUTONOMAS
 from auth import authenticate, identificar_usuario_automatico
@@ -88,6 +87,9 @@ def mostrar_panel_usuario():
     try:
         from monitorizacion_utils import mostrar_monitorizacion_agente
         mostrar_monitorizacion_agente(st.session_state.username)
+    except ImportError:
+        # Si no existe la función de monitorización, continuar sin ella
+        pass
     except Exception as e:
         st.warning(f"No se pudo cargar la monitorización: {e}")
 
@@ -95,7 +97,6 @@ def mostrar_panel_usuario():
     from database import cargar_config_sistema
     config_sistema = cargar_config_sistema()
     secciones_activas = config_sistema.get('secciones_activas', {})
-    from config import SECCIONES_USUARIO
     
     # Si no hay configuración, activar todas por defecto
     if not secciones_activas:
@@ -145,63 +146,8 @@ def mostrar_panel_usuario():
     else:
         st.info("📄 La sección de modelos de factura no está disponible actualmente")
 
-def modo_prueba_rapida_usuario():
-    """Modo de prueba rápida para usuarios normales (oculto)"""
-    if 'modo_prueba_activado' not in st.session_state:
-        st.session_state.modo_prueba_activado = False
-    
-    codigo_prueba = st.text_input("🔐 Código de prueba (dejar vacío para modo normal)", type="password")
-    
-    if codigo_prueba == "testpvd123":
-        st.session_state.modo_prueba_activado = True
-        st.success("✅ Modo prueba activado")
-    
-    if codigo_prueba == "salir":
-        st.session_state.modo_prueba_activado = False
-        st.info("Modo prueba desactivado")
-    
-    if st.session_state.modo_prueba_activado:
-        st.warning("🧪 **MODO PRUEBA ACTIVADO** - Datos de prueba")
-        
-        from database import cargar_config_pvd, cargar_cola_pvd
-        from pvd_system import temporizador_pvd
-        from datetime import datetime, timedelta
-        import pytz
-        
-        config_pvd = cargar_config_pvd()
-        cola_pvd = cargar_cola_pvd()
-        
-        with st.expander("🧪 Panel de Control de Prueba", expanded=True):
-            col_test1, col_test2, col_test3 = st.columns(3)
-            
-            with col_test1:
-                if st.button("🎯 Simular Ser Primero", type="primary", use_container_width=True):
-                    st.success("✅ Ahora eres el primero en la cola")
-            
-            with col_test2:
-                if st.button("⏱️ Simular Tiempo Cumplido", type="secondary", use_container_width=True):
-                    temporizador_pvd.iniciar_temporizador_usuario(st.session_state.username, 0.1)
-                    st.success("✅ Temporizador configurado a 6 segundos")
-            
-            with col_test3:
-                if st.button("🔔 Probar Notificación", type="secondary", use_container_width=True):
-                    st.markdown("""
-                    <script>
-                    setTimeout(function() {
-                        const confirmar = confirm('🎉 [PRUEBA] ¡ES TU TURNO!\\n\\nPrueba de notificación.\\n\\nHaz clic en OK para probar.');
-                        if (confirmar) {
-                            alert('✅ Prueba exitosa');
-                        }
-                    }, 1000);
-                    </script>
-                    """, unsafe_allow_html=True)
-                    st.info("🔔 Notificación de prueba activada")
-        
-        st.write("**Estado simulado:**")
-        st.write(f"- Posición en cola: #1 (simulado)")
-        st.write(f"- Tiempo estimado: 0-2 minutos (simulado)")
-        st.write(f"- Estado: ESPERANDO (simulado)")
-        
-        return True
-    
-    return False
+# NOTA: La función `modo_prueba_rapida_usuario()` ha sido ELIMINADA porque:
+# 1. Ya no se utiliza en la aplicación
+# 2. No aparece en el panel de administración
+# 3. Era una funcionalidad de prueba obsoleta
+# 4. Puede causar confusión si se mantiene

@@ -17,13 +17,14 @@ def start_background_sync():
     """
     Inicia el sync automático en segundo plano (cada 1 hora)
     Solo para admin y si hay credenciales GitHub
+    USANDO github_api_sync.py (EL SISTEMA QUE SÍ FUNCIONA)
     """
     try:
         # Verificar si somos admin y tenemos credenciales
         if (st.session_state.get('user_type') == 'admin' and 
             all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"])):
             
-            from sync_data_to_github import sync_manager
+            from github_api_sync import GitHubSync
             
             def background_worker():
                 """Worker que ejecuta sync cada hora"""
@@ -34,17 +35,19 @@ def start_background_sync():
                         # Esperar 5 minutos al inicio para que la app cargue
                         time.sleep(300)
                         
-                        # Verificar cambios y sync si es necesario
-                        changed_files = sync_manager.check_for_changes()
+                        # Crear instancia del sincronizador
+                        sync = GitHubSync()
                         
-                        if changed_files:
-                            print(f"📁 {len(changed_files)} archivos modificados, auto-sync...")
-                            success_count, total_files, results = sync_manager.sync_all_changed_files()
-                            
-                            if success_count > 0:
-                                print(f"✅ Auto-sync: {success_count}/{total_files} archivos")
-                            else:
-                                print(f"⚠️ Auto-sync falló para {len(changed_files)} archivos")
+                        # Sincronizar TODO
+                        print("🔁 Ejecutando sync automático...")
+                        results = sync.sync_to_github(
+                            commit_message=f"Auto-sync: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        )
+                        
+                        if results["success"] > 0:
+                            print(f"✅ Auto-sync: {results['success']}/{results['total']} archivos")
+                        else:
+                            print(f"⚠️ Auto-sync: {results['failed']} fallos")
                         
                         # Esperar 1 hora
                         time.sleep(3600)
@@ -69,45 +72,28 @@ def load_data_from_github_on_start():
     """
     Carga datos desde GitHub al iniciar la app
     Solo si somos admin y hay credenciales
+    USANDO github_api_sync.py
     """
     try:
         if (st.session_state.get('user_type') == 'admin' and 
             all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"])):
             
-            from github_sync_completo import GitHubSyncCompleto
+            from github_api_sync import GitHubSync
             
-            # Archivos importantes a cargar
-            important_files = [
-                "data/registro_llamadas.json",
-                "data/planes_gas.json",
-                "data/precios_luz.csv",
-                "data/config_excedentes.csv",
-                "data/usuarios.json",
-                "data/super_users.json"
-            ]
+            sync = GitHubSync()
+            print("📥 Intentando cargar datos desde GitHub...")
             
-            sync = GitHubSyncCompleto()
-            loaded_count = 0
+            # Intentar descargar TODO desde GitHub
+            results = sync.sync_from_github()
             
-            for file_path in important_files:
-                # Si no existe o está vacío, cargar de GitHub
-                if not os.path.exists(file_path) or os.path.getsize(file_path) < 100:
-                    try:
-                        # Crear directorio si no existe
-                        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                        
-                        # Intentar descargar
-                        success, message = sync.download_file(file_path, file_path)
-                        if success:
-                            print(f"📥 Cargado de GitHub: {file_path}")
-                            loaded_count += 1
-                    except:
-                        pass  # Continuar con el siguiente archivo
-            
-            if loaded_count > 0:
-                print(f"✅ {loaded_count} archivos cargados desde GitHub")
-            
-            return loaded_count > 0
+            if results.get("success", False) is not False:
+                loaded_count = results.get("success", 0)
+                if loaded_count > 0:
+                    print(f"✅ {loaded_count} archivos cargados desde GitHub")
+                    return True
+                else:
+                    print("ℹ️ No había datos nuevos en GitHub")
+                    return False
             
     except Exception as e:
         print(f"⚠️ No se pudieron cargar datos de GitHub: {e}")
@@ -117,19 +103,239 @@ def load_data_from_github_on_start():
 def sync_all_data_now():
     """
     Sincroniza TODOS los datos ahora mismo (manual)
+    USANDO github_api_sync.py
     """
     try:
-        from sync_data_to_github import sync_now
+        from github_api_sync import GitHubSync
         
-        success_count, total_files, results = sync_now(force=True)
+        sync = GitHubSync()
+        results = sync.sync_to_github(
+            commit_message=f"Sync manual: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
         
-        if success_count > 0:
-            return True, f"✅ {success_count}/{total_files} archivos guardados en GitHub"
+        if results["success"] > 0:
+            return True, f"✅ {results['success']}/{results['total']} archivos guardados en GitHub"
         else:
             return False, "❌ No se pudo sincronizar ningún archivo"
             
     except Exception as e:
         return False, f"❌ Error: {str(e)[:50]}"
+
+def mostrar_panel_reparacion_objetivos():
+    """Panel para reparar el archivo de objetivos"""
+    from super_users_functions import mostrar_panel_reparacion_objetivos as mostrar_reparacion
+    mostrar_reparacion()
+
+def mostrar_todas_las_alertas():
+    """Muestra todas las alertas del sistema"""
+    st.header("📋 Todas las Alertas")
+    st.info("Esta función está en desarrollo. Aquí se mostrarán todas las alertas del sistema.")
+    
+    if st.button("← Volver al Panel", type="secondary", use_container_width=True):
+        st.session_state.mostrar_todas_alertas = False
+        st.rerun()
+
+def mostrar_sidebar_comun():
+    """Configura elementos comunes en el sidebar"""
+    # Logo y título
+    st.sidebar.image("logo.png", width=100) if os.path.exists("logo.png") else None
+    st.sidebar.title("Zelenza")
+    
+    # Información del usuario
+    username = st.session_state.get('username', '')
+    user_type = st.session_state.get('user_type', '')
+    
+    if username:
+        st.sidebar.write(f"👤 **{username}**")
+        st.sidebar.caption(f"Tipo: {user_type}")
+        
+        # Mostrar nombre del usuario si está disponible
+        if user_type == "user" and 'user_config' in st.session_state:
+            nombre_usuario = st.session_state.user_config.get('nombre', '')
+            if nombre_usuario:
+                st.sidebar.write(f"**Nombre:** {nombre_usuario}")
+        
+        # Información de grupo si tiene (IMPORTANTE para PVD)
+        if user_type == "user" and 'user_config' in st.session_state:
+            grupo_usuario = st.session_state.user_config.get('grupo', '')
+            if grupo_usuario:
+                st.sidebar.write(f"**Grupo:** {grupo_usuario}")
+    
+    # ============================================
+    # ✅ EJECUTAR VERIFICACIÓN DE TURNO EN SIDEBAR (solo para usuarios normales)
+    # ============================================
+    if user_type == "user":
+        verificar_turno_sidebar()
+    
+    # ============================================
+    # ALERTAS PENDIENTE SMS EN SIDEBAR
+    # ============================================
+    # Solo para super users y admin
+    if user_type in ["admin", "supervisor", "super_user"]:
+        try:
+            # Importar la función específica para alertas SMS
+            from super_users_functions import mostrar_alertas_sms_en_sidebar
+            mostrar_alertas_sms_en_sidebar()
+        except Exception as e:
+            st.sidebar.error(f"❌ Error al cargar alertas SMS: {e}")
+    
+    # ============================================
+    # PANEL DE OBJETIVOS EN SIDEBAR
+    # ============================================
+    try:
+        from super_users_functions import mostrar_panel_objetivos_sidebar
+        mostrar_panel_objetivos_sidebar()
+    except Exception as e:
+        # Silenciar errores si el módulo no existe
+        pass
+    
+    # ============================================
+    # ALERTAS EN SIDEBAR (regulares)
+    # ============================================
+    try:
+        from super_users_functions import mostrar_alertas_sidebar
+        mostrar_alertas_sidebar()
+    except:
+        pass
+    
+    # ============================================
+    # 🔄 SISTEMA DE SINCRONIZACIÓN AUTOMÁTICA (solo admin)
+    # ============================================
+    if user_type == "admin":
+        st.sidebar.markdown("---")
+        st.sidebar.write("**💾 Sync con GitHub**")
+        
+        # Verificar credenciales GitHub
+        github_configured = all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"])
+        
+        if github_configured:
+            # 1. Iniciar sync automático en segundo plano (solo una vez)
+            if 'background_sync_started' not in st.session_state:
+                if start_background_sync():
+                    st.session_state.background_sync_started = True
+            
+            # 2. Cargar datos desde GitHub al iniciar (solo una vez)
+            if 'github_data_loaded' not in st.session_state:
+                if load_data_from_github_on_start():
+                    st.session_state.github_data_loaded = True
+            
+            # 3. Botón de sync manual
+            col_sync1, col_sync2 = st.sidebar.columns(2)
+            
+            with col_sync1:
+                if st.sidebar.button("💾 Guardar Todo", 
+                                    use_container_width=True,
+                                    type="primary",
+                                    help="Guarda TODOS los datos en GitHub ahora"):
+                    
+                    with st.spinner("Guardando en GitHub..."):
+                        success, message = sync_all_data_now()
+                        
+                        if success:
+                            st.sidebar.success(message)
+                            st.balloons()
+                        else:
+                            st.sidebar.error(message)
+                    
+                    st.rerun()
+            
+            with col_sync2:
+                # Mostrar estado del sync
+                try:
+                    # Verificar última sincronización en logs
+                    log_file = "logs/github_sync.log"
+                    if os.path.exists(log_file):
+                        with open(log_file, "r", encoding="utf-8") as f:
+                            lines = f.readlines()
+                        
+                        if lines:
+                            # Buscar última línea de éxito
+                            last_success = None
+                            for line in reversed(lines):
+                                if "SUCCESS" in line or "✅" in line:
+                                    last_success = line.split(" - ")[0] if " - " in line else "Reciente"
+                                    break
+                            
+                            if last_success:
+                                st.sidebar.success(f"✅ Sincronizado")
+                                st.sidebar.caption(f"Último: {last_success}")
+                            else:
+                                st.sidebar.info("🔧 Pendiente")
+                        else:
+                            st.sidebar.info("📭 Sin sync aún")
+                    else:
+                        st.sidebar.info("🔧 Sync disponible")
+                        
+                except:
+                    st.sidebar.info("🔧 Sync disponible")
+            
+            # 4. Info del próximo auto-sync
+            st.sidebar.caption("🔄 Auto-sync: cada 1 hora")
+            
+            # 5. Enlace a panel de sync avanzado
+            st.sidebar.markdown("---")
+            if st.sidebar.button("⚙️ Panel Sync Avanzado", use_container_width=True):
+                st.session_state.show_sync_panel = True
+                st.rerun()
+        
+        else:
+            # Si no hay credenciales GitHub
+            st.sidebar.warning("⚠️ GitHub no configurado")
+            st.sidebar.caption("Configura GITHUB_TOKEN en secrets.toml")
+    
+    # Navegación
+    st.sidebar.markdown("---")
+    st.sidebar.write("### 📱 Navegación")
+    
+    # Botón para panel personal (si está autenticado)
+    if username and user_type in ["admin", "supervisor", "super_user"]:
+        if st.sidebar.button("👤 Mi Panel Personal", use_container_width=True):
+            st.session_state.mostrar_panel_personal = True
+            st.rerun()
+    
+    # Botón para volver al inicio
+    if st.sidebar.button("🏠 Inicio", use_container_width=True):
+        # Limpiar estados de página especial
+        for key in ['mostrar_panel_personal', 'mostrar_gestion_alertas', 
+                   'mostrar_todas_alertas', 'mostrar_reparacion_objetivos', 'show_sync_panel',
+                   'mostrar_panel_alertas_sms']:
+            if key in st.session_state:
+                st.session_state[key] = False
+        st.rerun()
+    
+    # Cerrar sesión
+    st.sidebar.write("---")
+    if st.sidebar.button("🚪 Cerrar Sesión", type="secondary", use_container_width=True):
+        # Limpiar sesión
+        st.session_state.authenticated = False
+        st.session_state.user_type = None
+        st.session_state.username = ""
+        st.session_state.login_time = None
+        st.session_state.user_config = {}
+        st.session_state.device_id = None
+        
+        # Cancelar temporizador si existe
+        if 'username' in st.session_state:
+            try:
+                temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
+            except:
+                pass
+        
+        st.rerun()
+
+def mostrar_contenido_principal():
+    """Muestra el contenido principal según el tipo de usuario"""
+    user_type = st.session_state.get('user_type', '')
+    
+    if user_type == "admin":
+        mostrar_panel_administrador()
+    elif user_type in ["supervisor", "super_user"]:
+        # Importar aquí para evitar circular imports
+        from super_users_functions import panel_super_usuario
+        panel_super_usuario()
+    else:
+        # Para usuarios normales y agentes
+        mostrar_panel_usuario()
 
 def main():
     """Función principal de la aplicación"""
@@ -145,10 +351,7 @@ def main():
             'About': '# Zelenza CEX v2.0 con PVD Mejorado y Grupos'
         }
     )
-
-    from super_users_functions import mostrar_alertas_sidebar
-    mostrar_alertas_sidebar()
-        
+    
     # Añadir estilos CSS
     st.markdown("""
     <style>
@@ -246,167 +449,122 @@ def main():
     # Si no está autenticado, mostrar login
     if not st.session_state.authenticated:
         mostrar_login()
-    else:
-        # ============================================
-        # ✅ EJECUTAR VERIFICACIÓN DE TURNO EN SIDEBAR
-        # ============================================
-        if st.session_state.user_type == "user":
-            verificar_turno_sidebar()
-
-        # Barra lateral simple
-        st.sidebar.title(f"{'🔧 Admin' if st.session_state.user_type == 'admin' else '👤 Usuario'}")
-        st.sidebar.write(f"**Usuario:** {st.session_state.username}")
-        
-        # Mostrar nombre del usuario si está disponible
-        if st.session_state.user_type == "user" and 'user_config' in st.session_state:
-            nombre_usuario = st.session_state.user_config.get('nombre', '')
-            if nombre_usuario:
-                st.sidebar.write(f"**Nombre:** {nombre_usuario}")
-        
-        # Información de grupo si tiene (IMPORTANTE para PVD)
-        if st.session_state.user_type == "user" and 'user_config' in st.session_state:
-            grupo_usuario = st.session_state.user_config.get('grupo', '')
-            if grupo_usuario:
-                st.sidebar.write(f"**Grupo:** {grupo_usuario}")
-        
-        # ============================================
-        # 🔄 SISTEMA DE SINCRONIZACIÓN AUTOMÁTICA
-        # ============================================
-        
-        # Solo para admin
-        if st.session_state.user_type == "admin":
-            st.sidebar.markdown("---")
-            st.sidebar.write("**💾 Sync con GitHub**")
-            
-            # Verificar credenciales GitHub
-            github_configured = all(key in st.secrets for key in ["GITHUB_TOKEN", "GITHUB_REPO_OWNER", "GITHUB_REPO_NAME"])
-            
-            if github_configured:
-                # 1. Iniciar sync automático en segundo plano (solo una vez)
-                if 'background_sync_started' not in st.session_state:
-                    if start_background_sync():
-                        st.session_state.background_sync_started = True
-                
-                # 2. Cargar datos desde GitHub al iniciar (solo una vez)
-                if 'github_data_loaded' not in st.session_state:
-                    if load_data_from_github_on_start():
-                        st.session_state.github_data_loaded = True
-                
-                # 3. Botón de sync manual
-                col_sync1, col_sync2 = st.sidebar.columns(2)
-                
-                with col_sync1:
-                    if st.sidebar.button("💾 Guardar Todo", 
-                                        use_container_width=True,
-                                        type="primary",
-                                        help="Guarda TODOS los datos en GitHub ahora"):
-                        
-                        with st.spinner("Guardando en GitHub..."):
-                            success, message = sync_all_data_now()
-                            
-                            if success:
-                                st.sidebar.success(message)
-                                st.balloons()
-                            else:
-                                st.sidebar.error(message)
-                        
-                        st.rerun()
-                
-                with col_sync2:
-                    # Estado del sync
-                    try:
-                        from sync_data_to_github import get_status
-                        status = get_status()
-                        
-                        if status["changed_files"]:
-                            changed_count = len(status["changed_files"])
-                            st.sidebar.warning(f"✏️ {changed_count} modificados")
-                        else:
-                            st.sidebar.success("✅ Sincronizado")
-                            
-                    except:
-                        st.sidebar.info("🔧 Sync disponible")
-                
-                # 4. Info del próximo auto-sync
-                try:
-                    from sync_data_to_github import get_status
-                    status = get_status()
-                    
-                    if status.get("next_sync_in"):
-                        st.sidebar.caption(f"⏰ Próximo auto-sync: {status['next_sync_in']}")
-                    else:
-                        st.sidebar.caption("🔄 Auto-sync: cada 1 hora")
-                        
-                except:
-                    pass
-                
-                # 5. Enlace a panel de sync avanzado
-                st.sidebar.markdown("---")
-                if st.sidebar.button("⚙️ Panel Sync Avanzado", use_container_width=True):
-                    st.session_state.show_sync_panel = True
-                    st.rerun()
-                
-            else:
-                # Si no hay credenciales GitHub
-                st.sidebar.warning("⚠️ GitHub no configurado")
-                st.sidebar.caption("Configura GITHUB_TOKEN en secrets.toml")
-        
-        # ============================================
-        # BOTONES GENERALES
-        # ============================================
-        
-        st.sidebar.markdown("---")
-        
-        # Botón para cerrar sesión
-        if st.sidebar.button("🚪 Cerrar Sesión", use_container_width=True):
-            # Limpiar sesión
-            st.session_state.authenticated = False
-            st.session_state.user_type = None
-            st.session_state.username = ""
-            st.session_state.login_time = None
-            st.session_state.user_config = {}
-            st.session_state.device_id = None
-            
-            # Cancelar temporizador si existe
-            if 'username' in st.session_state:
-                temporizador_pvd_mejorado.cancelar_temporizador(st.session_state.username)
-            
+        return
+    
+    # ============================================
+    # MANEJADOR DE PÁGINAS ESPECIALES
+    # ============================================
+    
+    # 1. Panel personal del usuario (solo para admin/super)
+    if st.session_state.get('mostrar_panel_personal', False):
+        try:
+            from super_users_functions import mostrar_panel_personal_completo
+            mostrar_panel_personal_completo()
+            return
+        except ImportError:
+            st.error("Panel personal no disponible")
+            st.session_state.mostrar_panel_personal = False
             st.rerun()
-        
-        # Mostrar información del temporizador automático
-        st.sidebar.markdown("---")
-        st.sidebar.caption(f"⏱️ Temporizador automático: 60s")
-        st.sidebar.caption(f"🔄 Última ejecución: {formatear_hora_madrid(temporizador_pvd_mejorado.ultima_actualizacion)}")
-        
-        # Botón para refrescar manualmente
-        if st.sidebar.button("🔄 Refrescar página", use_container_width=True, key="refresh_manual"):
+    
+    # 2. Gestión de alertas descartadas
+    if st.session_state.get('mostrar_gestion_alertas', False):
+        try:
+            from super_users_functions import mostrar_gestion_alertas_descartadas
+            mostrar_gestion_alertas_descartadas()
+            return
+        except ImportError:
+            st.error("Gestión de alertas no disponible")
+            st.session_state.mostrar_gestion_alertas = False
             st.rerun()
-        
-        # ============================================
-        # MOSTRAR PANEL CORRESPONDIENTE
-        # ============================================
-        
-        # Verificar si hay que mostrar panel de sync avanzado
-        if st.session_state.get('show_sync_panel', False):
-            try:
-                from sync_ui import show_sync_panel
-                show_sync_panel()
-                
-                # Botón para volver
-                if st.button("← Volver al Panel Principal"):
+    
+    # 3. Ver todas las alertas
+    if st.session_state.get('mostrar_todas_alertas', False):
+        mostrar_todas_las_alertas()
+        return
+    
+    # 4. Reparación de objetivos
+    if st.session_state.get('mostrar_reparacion_objetivos', False):
+        mostrar_panel_reparacion_objetivos()
+        return
+    
+    # 5. Panel de alertas SMS
+    if st.session_state.get('mostrar_panel_alertas_sms', False):
+        try:
+            from super_users_functions import panel_alertas_sms_completo
+            panel_alertas_sms_completo()
+            
+            # Botón para volver
+            if st.button("← Volver al Panel", type="secondary", use_container_width=True):
+                st.session_state.mostrar_panel_alertas_sms = False
+                st.rerun()
+            return
+        except ImportError:
+            st.error("Panel de alertas SMS no disponible")
+            st.session_state.mostrar_panel_alertas_sms = False
+            st.rerun()
+    
+    # 6. Panel de sync avanzado
+    if st.session_state.get('show_sync_panel', False):
+        try:
+            from sync_ui_simple import show_sync_panel_simple
+            
+            # Mostrar título y botón de volver arriba
+            col_title, col_back = st.columns([3, 1])
+            with col_title:
+                st.subheader("⚙️ Panel de Sincronización Avanzada")
+            with col_back:
+                if st.button("← Volver", type="secondary"):
                     st.session_state.show_sync_panel = False
                     st.rerun()
-                    
-            except Exception as e:
-                st.error(f"Error cargando panel de sync: {e}")
+            
+            st.markdown("---")
+            
+            # Mostrar el panel
+            show_sync_panel_simple()
+            
+            # Botón para volver abajo también
+            st.markdown("---")
+            if st.button("← Volver al Panel Principal", type="secondary", use_container_width=True):
+                st.session_state.show_sync_panel = False
+                st.rerun()
+                
+        except ImportError as e:
+            st.error("❌ **Panel de sincronización no disponible**")
+            st.info("""
+            **Para solucionar:**
+            1. Asegúrate de que `sync_ui_simple.py` existe en tu repositorio
+            2. Contiene la función `show_sync_panel_simple()`
+            3. Tienes el archivo `github_api_sync.py`
+            
+            **Archivos necesarios para sync:**
+            ```
+            github_api_sync.py     # Motor de sincronización
+            sync_ui_simple.py      # Interfaz de usuario
+            ```
+            """)
+            
+            if st.button("← Volver al Panel Principal", type="secondary", use_container_width=True):
                 st.session_state.show_sync_panel = False
                 st.rerun()
         
-        # Panel normal
-        elif st.session_state.user_type == "admin":
-            mostrar_panel_administrador()
-        else:
-            mostrar_panel_usuario()
+        except Exception as e:
+            st.error(f"❌ Error en panel de sync: {str(e)[:100]}")
+            
+            if st.button("← Volver al Panel Principal", type="secondary", use_container_width=True):
+                st.session_state.show_sync_panel = False
+                st.rerun()
+        
+        return
+    
+    # ============================================
+    # CONFIGURACIÓN DEL SIDEBAR
+    # ============================================
+    mostrar_sidebar_comun()
+    
+    # ============================================
+    # MOSTRAR CONTENIDO PRINCIPAL
+    # ============================================
+    mostrar_contenido_principal()
 
 if __name__ == "__main__":
     main()
