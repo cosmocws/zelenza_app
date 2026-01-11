@@ -1,12 +1,13 @@
 {
-  "timestamp": "2026-01-10T18:16:31.098854",
-  "message": "Sync manual: 2026-01-10 18:15:43",
+  "timestamp": "2026-01-11T01:54:35.973739",
+  "message": "Auto-sync: 2026-01-11 01:53:54",
   "results": {
-    "total": 37,
-    "success": 36,
-    "failed": 1,
+    "total": 40,
+    "success": 40,
+    "failed": 0,
     "skipped": 0,
     "details": [
+      "✅ Subido: data/objetivos_ventas.json",
       "✅ Subido: data/cola_pvd.json",
       "✅ Subido: data/config_sistema.json",
       "✅ Subido: data/seguimiento_agentes.json",
@@ -14,6 +15,7 @@
       "✅ Subido: data/config_excedentes.csv",
       "✅ Subido: data/ventas_agentes.json",
       "✅ Subido: data/precios_luz.csv",
+      "✅ Subido: data/alertas_sms.json",
       "✅ Subido: data/usuarios.json",
       "✅ Subido: data/feedback_agentes.json",
       "✅ Subido: data/monitorizaciones.json",
@@ -23,7 +25,7 @@
       "✅ Subido: data/planes_gas.json",
       "✅ Subido: data/alertas_descartadas_admin.json",
       "✅ Subido: data/super_users.json",
-      "❌ Falló: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg",
+      "✅ Subido: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg",
       "✅ Subido: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg",
       "✅ Subido: modelos_facturas/naturgy/naturgy2.jpg",
       "✅ Subido: modelos_facturas/naturgy/naturgy1.jpg",
@@ -43,7 +45,8 @@
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
-      "✅ Subido: logs/github_sync.log"
+      "✅ Subido: logs/github_sync.log",
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
