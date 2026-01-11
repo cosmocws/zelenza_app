@@ -455,16 +455,52 @@ def main():
     # MANEJADOR DE PÁGINAS ESPECIALES
     # ============================================
     
-    # 1. Panel personal del usuario (solo para admin/super)
+    # 1. Panel personal del agente (para usuarios normales que son agentes)
     if st.session_state.get('mostrar_panel_personal', False):
         try:
-            from super_users_functions import mostrar_panel_personal_completo
-            mostrar_panel_personal_completo()
+            username = st.session_state.username
+            
+            # Importar la función CORRECTA
+            from super_users_functions import mostrar_estadisticas_agente_personal
+            
+            # Verificar que el usuario existe en agentes
+            super_users_config = cargar_super_users()
+            agentes = super_users_config.get("agentes", {})
+            
+            if username in agentes:
+                mostrar_estadisticas_agente_personal(username)
+            else:
+                # Si no es agente, mostrar un mensaje de error
+                st.error("⚠️ No estás registrado como agente. No tienes un panel personal.")
+                
+                col_back1, col_back2 = st.columns(2)
+                with col_back1:
+                    if st.button("← Volver al menú principal", type="primary", use_container_width=True):
+                        st.session_state.mostrar_panel_personal = False
+                        st.rerun()
+                with col_back2:
+                    if st.button("📊 Ver como super usuario", type="secondary", use_container_width=True):
+                        # Limpiar estado y mostrar panel normal
+                        st.session_state.mostrar_panel_personal = False
+                        st.rerun()
+            
+            return  # IMPORTANTE: Salir aquí, no mostrar nada más
+        except Exception as e:
+            st.error(f"No se pudo cargar el panel personal: {e}")
+            st.write("Detalles del error:", str(e))
+            
+            col_back1, col_back2 = st.columns(2)
+            with col_back1:
+                if st.button("← Volver al menú principal", type="primary", use_container_width=True):
+                    st.session_state.mostrar_panel_personal = False
+                    st.rerun()
+            with col_back2:
+                if st.button("🔧 Mostrar error técnico", type="secondary", use_container_width=True):
+                    with st.expander("Detalles del error técnico", expanded=True):
+                        import traceback
+                        st.code(traceback.format_exc())
+            
             return
-        except ImportError:
-            st.error("Panel personal no disponible")
-            st.session_state.mostrar_panel_personal = False
-            st.rerun()
     
     # 2. Gestión de alertas descartadas
     if st.session_state.get('mostrar_gestion_alertas', False):
