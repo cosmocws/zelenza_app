@@ -4263,6 +4263,19 @@ def obtener_total_dias_laborables_mes(fecha_inicio, fecha_fin_mes):
 # PANEL DE OBJETIVOS EN SIDEBAR
 # ============================================================================
 
+def es_usuario_agente(username):
+    """Verifica si el usuario está registrado como agente"""
+    try:
+        super_users_config = cargar_super_users()
+        agentes = super_users_config.get("agentes", {})
+        
+        if username in agentes:
+            info = agentes[username]
+            return info.get('activo', False)
+        return False
+    except:
+        return False
+
 def mostrar_panel_objetivos_sidebar():
     """Muestra el panel de objetivos personales en el sidebar CON DÍAS LABORABLES"""
     username = st.session_state.get('username', '')
@@ -4399,10 +4412,10 @@ def mostrar_panel_objetivos_sidebar():
             
             # Enlace rápido para ver detalles completos
             st.write("---")
-            if st.button("📊 **Ver mi panel completo de estadísticas**", 
+            if st.button("📊 **Ver mi panel completo**", 
                         use_container_width=True, 
-                        type="primary",  # Hacerlo más visible
-                        help="Ver todas tus estadísticas, ventas, días laborables y progreso detallado"):
+                        type="primary",
+                        help="Ver todas tus estadísticas, ventas y objetivos detallados"):
                 st.session_state.mostrar_panel_personal = True
                 st.rerun()
         
@@ -4459,12 +4472,12 @@ def mostrar_estadisticas_agente_personal(username):
     """Muestra panel personal del agente con estadísticas, objetivos y días laborables"""
     from datetime import datetime, date, timedelta
     
-    # Botón para volver (arriba a la derecha)
+    # Título con botón de volver
     col_title, col_back = st.columns([3, 1])
     with col_title:
         st.subheader("📊 Mi Panel Personal")
     with col_back:
-        if st.button("← Volver", type="secondary", use_container_width=True):
+        if st.button("← Volver al menú", type="secondary", use_container_width=True):
             st.session_state.mostrar_panel_personal = False
             st.rerun()
     
