@@ -172,6 +172,9 @@ def contar_ventas_resultado_mejorado(resultado_str, motivo_str=None):
     
     return 0
 
+# ==============================================
+# MODIFICACIONES EN LA FUNCIÓN realizar_analisis()
+# ==============================================
 
 def realizar_analisis(df_filtrado, nombre_analisis):
     """Realiza el análisis sobre datos filtrados"""
@@ -272,53 +275,82 @@ def realizar_analisis(df_filtrado, nombre_analisis):
             st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
             
             # ==============================================
-            # FORMULARIO MANUAL PARA PENDIENTES SMS
+            # FORMULARIO MANUAL PARA PENDIENTES SMS - VERSIÓN MEJORADA
             # ==============================================
             st.divider()
             st.subheader("📝 Formulario Manual para Pendientes SMS")
             
-            # Seleccionar cuántas líneas mostrar (1 por cada pendiente SMS detectado)
-            num_lineas = len(pendientes_sms_data)
-            st.write(f"**Se detectaron {num_lineas} llamadas con PENDIENTE SMS**")
+            # Inicializar session_state para este formulario
+            form_key = f"form_sms_{nombre_analisis}"
+            if form_key not in st.session_state:
+                st.session_state[form_key] = {
+                    'lineas': [],
+                    'guardado': False
+                }
+            
+            # Crear identificador único para este análisis
+            form_id = f"sms_form_{hash(nombre_analisis)}"
+            
+            st.write(f"**Se detectaron {len(pendientes_sms_data)} llamadas con PENDIENTE SMS**")
             st.write("Por favor, completa la información para cada una:")
             
-            # Crear un formulario con las líneas necesarias
+            # Crear formulario persistente
             lineas_formulario = []
             
-            for i in range(num_lineas):
+            for i in range(len(pendientes_sms_data)):
+                datos_auto = pendientes_sms_data[i]
+                
+                # Crear claves únicas para cada campo
+                agente_key = f"{form_id}_agente_{i}"
+                fecha_key = f"{form_id}_fecha_{i}"
+                duracion_key = f"{form_id}_duracion_{i}"
+                resultado_key = f"{form_id}_resultado_{i}"
+                
+                # Inicializar session_state para cada campo si no existe
+                if agente_key not in st.session_state:
+                    st.session_state[agente_key] = datos_auto['agente']
+                if fecha_key not in st.session_state:
+                    st.session_state[fecha_key] = datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date()
+                if duracion_key not in st.session_state:
+                    st.session_state[duracion_key] = float(datos_auto['duracion_minutos'])
+                if resultado_key not in st.session_state:
+                    st.session_state[resultado_key] = "Pendiente de revisar"
+                
                 st.markdown(f"---")
                 st.subheader(f"📞 Llamada #{i+1}")
-                
-                # Datos predeterminados de la detección automática
-                datos_auto = pendientes_sms_data[i]
                 
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
+                    # Usar st.text_input con key y value del session_state
                     agente = st.text_input(
                         f"Agente #{i+1}",
-                        value=datos_auto['agente'],
-                        key=f"agente_{i}_{nombre_analisis}",
+                        value=st.session_state[agente_key],
+                        key=agente_key,
                         help="ID del agente (ej: TZS0733)"
                     )
+                    # Actualizar session_state
+                    st.session_state[agente_key] = agente
                 
                 with col2:
                     fecha = st.date_input(
                         f"Fecha #{i+1}",
-                        value=datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date(),
-                        key=f"fecha_{i}_{nombre_analisis}"
+                        value=st.session_state[fecha_key],
+                        key=fecha_key
                     )
+                    st.session_state[fecha_key] = fecha
                 
                 with col3:
                     duracion_minutos = st.number_input(
                         f"Duración (minutos) #{i+1}",
-                        value=float(datos_auto['duracion_minutos']),
+                        value=st.session_state[duracion_key],
                         min_value=0.0,
                         max_value=120.0,
                         step=0.5,
-                        key=f"duracion_{i}_{nombre_analisis}",
+                        key=duracion_key,
                         help="Duración de la llamada en minutos"
                     )
+                    st.session_state[duracion_key] = duracion_minutos
                 
                 # Información adicional (solo lectura)
                 col4, col5 = st.columns(2)
@@ -335,9 +367,10 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     f"Resultado final #{i+1}",
                     options=["SMS Contestado (contar venta)", "SMS No Contestado (no contar venta)", "Pendiente de revisar"],
                     index=2,  # Por defecto "Pendiente de revisar"
-                    key=f"resultado_{i}_{nombre_analisis}",
+                    key=resultado_key,
                     horizontal=True
                 )
+                st.session_state[resultado_key] = opcion
                 
                 # Determinar ventas finales según opción
                 if opcion == "SMS Contestado (contar venta)":
@@ -352,11 +385,11 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                 
                 # Guardar datos de la línea
                 lineas_formulario.append({
-                    'agente': agente,
-                    'fecha': fecha.strftime('%Y-%m-%d'),
+                    'agente': st.session_state[agente_key],
+                    'fecha': st.session_state[fecha_key].strftime('%Y-%m-%d'),
                     'hora': datos_auto['hora'],
-                    'duracion_minutos': duracion_minutos,
-                    'duracion_segundos': int(duracion_minutos * 60),
+                    'duracion_minutos': st.session_state[duracion_key],
+                    'duracion_segundos': int(st.session_state[duracion_key] * 60),
                     'ventas_pendientes': datos_auto['ventas_pendientes'],
                     'ventas_finales': ventas_finales,
                     'resultado_elec': datos_auto['resultado_elec'],
@@ -366,48 +399,48 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     'campanya': datos_auto['campanya'],
                     'hash_original': datos_auto['hash'],
                     'estado': estado,
-                    'opcion_seleccionada': opcion,
+                    'opcion_seleccionada': st.session_state[resultado_key],
                     'timestamp_revision': datetime.now().isoformat()
                 })
             
             # Botón para guardar todas las líneas
-            if st.button("💾 Guardar Todas las Llamadas Pendientes", type="primary", key=f"guardar_todas_{nombre_analisis}"):
-                if lineas_formulario:
-                    guardar_lineas_formulario(lineas_formulario, pendientes_sms_data)
-                else:
-                    st.error("No hay datos para guardar")
+            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
             
-            # Opción para guardar solo algunas
-            st.write("---")
-            st.write("**O guardar líneas específicas:**")
+            with col_btn1:
+                if st.button("💾 Guardar Todas", type="primary", key=f"guardar_todas_{form_id}"):
+                    if lineas_formulario:
+                        guardar_lineas_formulario(lineas_formulario, pendientes_sms_data)
+                        st.session_state[form_key]['guardado'] = True
+                        st.success("¡Datos guardados exitosamente!")
+                        st.rerun()
+                    else:
+                        st.error("No hay datos para guardar")
             
-            lineas_seleccionadas = st.multiselect(
-                "Selecciona qué líneas guardar:",
-                options=[f"Línea #{i+1} - {linea['agente']} ({linea['fecha']})" for i, linea in enumerate(lineas_formulario)],
-                key=f"seleccion_{nombre_analisis}"
-            )
+            with col_btn2:
+                if st.button("🔄 Reiniciar Formulario", type="secondary", key=f"reiniciar_{form_id}"):
+                    # Limpiar session_state para este formulario
+                    for key in list(st.session_state.keys()):
+                        if key.startswith(form_id):
+                            del st.session_state[key]
+                    st.rerun()
             
-            if lineas_seleccionadas and st.button("💾 Guardar Líneas Seleccionadas", type="secondary", key=f"guardar_seleccion_{nombre_analisis}"):
-                # Extraer índices de las líneas seleccionadas
-                indices_seleccionados = []
-                for seleccion in lineas_seleccionadas:
-                    try:
-                        idx = int(seleccion.split('#')[1].split(' ')[0]) - 1
-                        indices_seleccionados.append(idx)
-                    except:
-                        continue
-                
-                lineas_a_guardar = [lineas_formulario[i] for i in indices_seleccionados]
-                if lineas_a_guardar:
-                    guardar_lineas_formulario(lineas_a_guardar, pendientes_sms_data, solo_seleccionadas=True)
-                else:
-                    st.error("No se pudieron identificar las líneas seleccionadas")
+            with col_btn3:
+                if st.button("📋 Ver Datos Guardados", type="secondary", key=f"ver_guardados_{form_id}"):
+                    _verificar_archivo_alertas()
+            
+            # Mostrar estado actual
+            st.divider()
+            if st.session_state[form_key]['guardado']:
+                st.success("✅ Formulario guardado anteriormente")
+                if st.button("🔍 Ver detalles en Super Users", type="secondary"):
+                    st.session_state.mostrar_panel_super_usuario = True
+                    st.rerun()
 
     def guardar_lineas_formulario(lineas_formulario, datos_originales, solo_seleccionadas=False):
         """Guarda las líneas del formulario manual en alertas_sms.json"""
         
         try:
-            from database import agregar_varias_alertas_sms, cargar_alertas_sms
+            from database import agregar_varias_alertas_sms
             
             st.write("### 💾 Guardando información...")
             
@@ -442,7 +475,7 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     'detalles': f"{linea['opcion_seleccionada']} - Originalmente {linea['ventas_pendientes']} venta(s) pendiente(s)",
                     'estado': linea['estado'],
                     'opcion_seleccionada': linea['opcion_seleccionada'],
-                    'accion': None,  # Se completará en el panel de Super Users
+                    'accion': None,
                     'confirmado_por': None,
                     'timestamp_confirmacion': None,
                     'revisado_manual': True,
@@ -459,7 +492,7 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                 if linea['estado'] == 'confirmado':
                     total_ventas_confirmadas += linea['ventas_finales']
                 elif linea['estado'] == 'rechazado':
-                    total_ventas_rechazadas += linea['ventas_pendientes']  # Las que se perdieron
+                    total_ventas_rechazadas += linea['ventas_pendientes']
                 else:
                     total_pendientes += 1
             
@@ -480,25 +513,6 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                 
                 st.info("📋 Las alertas aparecerán en el sidebar de Super Users para procesamiento final.")
                 
-                # Mostrar qué hacer después
-                with st.expander("📝 ¿Qué pasa ahora?", expanded=True):
-                    st.write("""
-                    1. **Las alertas se guardaron en `alertas_sms.json`**
-                    2. **En el Panel de Super Users podrás:**
-                    - Ver todas las alertas pendientes
-                    - Confirmar definitivamente las ventas
-                    - Actualizar el registro de llamadas
-                    - Marcar como procesadas
-                    3. **Proceso de confirmación final:**
-                    - Cuando confirmes en Super Users, se sumarán al registro
-                    - Se actualizarán las estadísticas de agentes
-                    - Las alertas se marcarán como completadas
-                    """)
-                
-                # Botón para ver archivo
-                if st.button("🔍 Ver archivo de alertas", type="secondary"):
-                    _verificar_archivo_alertas()
-            
             else:
                 st.info("ℹ️ No se agregaron nuevas alertas (posiblemente ya existían)")
                 
