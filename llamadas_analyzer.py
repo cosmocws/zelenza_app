@@ -173,7 +173,7 @@ def contar_ventas_resultado_mejorado(resultado_str, motivo_str=None):
     return 0
 
 # ==============================================
-# MODIFICACIONES EN LA FUNCIÓN realizar_analisis()
+# VERSIÓN CORREGIDA DE LA FUNCIÓN realizar_analisis()
 # ==============================================
 
 def realizar_analisis(df_filtrado, nombre_analisis):
@@ -275,82 +275,63 @@ def realizar_analisis(df_filtrado, nombre_analisis):
             st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
             
             # ==============================================
-            # FORMULARIO MANUAL PARA PENDIENTES SMS - VERSIÓN MEJORADA
+            # FORMULARIO MANUAL MEJORADO - SIN MODIFICAR SESSION_STATE DIRECTAMENTE
             # ==============================================
             st.divider()
             st.subheader("📝 Formulario Manual para Pendientes SMS")
             
-            # Inicializar session_state para este formulario
+            # Inicializar estructura para este formulario
             form_key = f"form_sms_{nombre_analisis}"
             if form_key not in st.session_state:
                 st.session_state[form_key] = {
                     'lineas': [],
-                    'guardado': False
+                    'guardado': False,
+                    'datos_formulario': {}  # Diccionario para almacenar datos
                 }
-            
-            # Crear identificador único para este análisis
-            form_id = f"sms_form_{hash(nombre_analisis)}"
             
             st.write(f"**Se detectaron {len(pendientes_sms_data)} llamadas con PENDIENTE SMS**")
             st.write("Por favor, completa la información para cada una:")
             
-            # Crear formulario persistente
+            # Crear formulario usando callbacks para manejar estado
             lineas_formulario = []
             
             for i in range(len(pendientes_sms_data)):
                 datos_auto = pendientes_sms_data[i]
                 
-                # Crear claves únicas para cada campo
-                agente_key = f"{form_id}_agente_{i}"
-                fecha_key = f"{form_id}_fecha_{i}"
-                duracion_key = f"{form_id}_duracion_{i}"
-                resultado_key = f"{form_id}_resultado_{i}"
-                
-                # Inicializar session_state para cada campo si no existe
-                if agente_key not in st.session_state:
-                    st.session_state[agente_key] = datos_auto['agente']
-                if fecha_key not in st.session_state:
-                    st.session_state[fecha_key] = datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date()
-                if duracion_key not in st.session_state:
-                    st.session_state[duracion_key] = float(datos_auto['duracion_minutos'])
-                if resultado_key not in st.session_state:
-                    st.session_state[resultado_key] = "Pendiente de revisar"
-                
                 st.markdown(f"---")
                 st.subheader(f"📞 Llamada #{i+1}")
+                
+                # Usar claves únicas para cada widget
+                form_id = f"sms_form_{hash(nombre_analisis)}_{i}"
                 
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    # Usar st.text_input con key y value del session_state
+                    # Widget para agente - Streamlit maneja automáticamente el estado
                     agente = st.text_input(
                         f"Agente #{i+1}",
-                        value=st.session_state[agente_key],
-                        key=agente_key,
+                        value=datos_auto['agente'],
+                        key=f"agente_{form_id}",
                         help="ID del agente (ej: TZS0733)"
                     )
-                    # Actualizar session_state
-                    st.session_state[agente_key] = agente
                 
                 with col2:
                     fecha = st.date_input(
                         f"Fecha #{i+1}",
-                        value=st.session_state[fecha_key],
-                        key=fecha_key
+                        value=datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date(),
+                        key=f"fecha_{form_id}"
                     )
-                    st.session_state[fecha_key] = fecha
                 
                 with col3:
                     duracion_minutos = st.number_input(
                         f"Duración (minutos) #{i+1}",
-                        value=st.session_state[duracion_key],
+                        value=float(datos_auto['duracion_minutos']),
                         min_value=0.0,
                         max_value=120.0,
                         step=0.5,
-                        key=duracion_key,
+                        key=f"duracion_{form_id}",
                         help="Duración de la llamada en minutos"
                     )
-                    st.session_state[duracion_key] = duracion_minutos
                 
                 # Información adicional (solo lectura)
                 col4, col5 = st.columns(2)
@@ -367,10 +348,9 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     f"Resultado final #{i+1}",
                     options=["SMS Contestado (contar venta)", "SMS No Contestado (no contar venta)", "Pendiente de revisar"],
                     index=2,  # Por defecto "Pendiente de revisar"
-                    key=resultado_key,
+                    key=f"resultado_{form_id}",
                     horizontal=True
                 )
-                st.session_state[resultado_key] = opcion
                 
                 # Determinar ventas finales según opción
                 if opcion == "SMS Contestado (contar venta)":
@@ -383,13 +363,13 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     ventas_finales = 0
                     estado = "pendiente"
                 
-                # Guardar datos de la línea
+                # Almacenar datos temporalmente (los widgets ya manejan su propio estado)
                 lineas_formulario.append({
-                    'agente': st.session_state[agente_key],
-                    'fecha': st.session_state[fecha_key].strftime('%Y-%m-%d'),
+                    'agente': agente,
+                    'fecha': fecha.strftime('%Y-%m-%d'),
                     'hora': datos_auto['hora'],
-                    'duracion_minutos': st.session_state[duracion_key],
-                    'duracion_segundos': int(st.session_state[duracion_key] * 60),
+                    'duracion_minutos': duracion_minutos,
+                    'duracion_segundos': int(duracion_minutos * 60),
                     'ventas_pendientes': datos_auto['ventas_pendientes'],
                     'ventas_finales': ventas_finales,
                     'resultado_elec': datos_auto['resultado_elec'],
@@ -399,42 +379,70 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     'campanya': datos_auto['campanya'],
                     'hash_original': datos_auto['hash'],
                     'estado': estado,
-                    'opcion_seleccionada': st.session_state[resultado_key],
+                    'opcion_seleccionada': opcion,
                     'timestamp_revision': datetime.now().isoformat()
                 })
             
-            # Botón para guardar todas las líneas
-            col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 2])
+            # Botones de acción
+            st.divider()
+            col_btn1, col_btn2, col_btn3 = st.columns(3)
             
             with col_btn1:
-                if st.button("💾 Guardar Todas", type="primary", key=f"guardar_todas_{form_id}"):
+                if st.button("💾 Guardar Todas las Llamadas", type="primary", 
+                           key=f"guardar_todas_{hash(nombre_analisis)}"):
                     if lineas_formulario:
+                        # Usar función de callback para guardar
                         guardar_lineas_formulario(lineas_formulario, pendientes_sms_data)
                         st.session_state[form_key]['guardado'] = True
-                        st.success("¡Datos guardados exitosamente!")
+                        st.success("✅ Datos guardados exitosamente!")
                         st.rerun()
                     else:
                         st.error("No hay datos para guardar")
             
             with col_btn2:
-                if st.button("🔄 Reiniciar Formulario", type="secondary", key=f"reiniciar_{form_id}"):
-                    # Limpiar session_state para este formulario
-                    for key in list(st.session_state.keys()):
-                        if key.startswith(form_id):
-                            del st.session_state[key]
+                if st.button("🔄 Limpiar Formulario", type="secondary",
+                           key=f"limpiar_{hash(nombre_analisis)}"):
+                    # Streamlit limpiará automáticamente los widgets en el siguiente rerun
+                    st.info("Los campos se limpiarán al recargar")
                     st.rerun()
             
             with col_btn3:
-                if st.button("📋 Ver Datos Guardados", type="secondary", key=f"ver_guardados_{form_id}"):
-                    _verificar_archivo_alertas()
-            
-            # Mostrar estado actual
-            st.divider()
-            if st.session_state[form_key]['guardado']:
-                st.success("✅ Formulario guardado anteriormente")
-                if st.button("🔍 Ver detalles en Super Users", type="secondary"):
+                if st.button("📋 Ir a Super Users", type="secondary",
+                           key=f"ir_super_{hash(nombre_analisis)}"):
                     st.session_state.mostrar_panel_super_usuario = True
                     st.rerun()
+            
+            # Mostrar estado actual
+            if st.session_state[form_key]['guardado']:
+                st.success("✅ Formulario guardado anteriormente. Puedes ver las alertas en el panel de Super Users.")
+                
+                # Mostrar resumen rápido
+                st.info("**Resumen de alertas guardadas:**")
+                
+                try:
+                    from database import cargar_alertas_sms
+                    alertas = cargar_alertas_sms()
+                    
+                    # Contar alertas de este análisis
+                    alertas_este_analisis = []
+                    for alerta_id, alerta_data in alertas.items():
+                        if alerta_data.get('hash_registro') in [p['hash'] for p in pendientes_sms_data]:
+                            alertas_este_analisis.append(alerta_data)
+                    
+                    if alertas_este_analisis:
+                        confirmadas = sum(1 for a in alertas_este_analisis if a.get('estado') == 'confirmado')
+                        rechazadas = sum(1 for a in alertas_este_analisis if a.get('estado') == 'rechazado')
+                        pendientes = sum(1 for a in alertas_este_analisis if a.get('estado') == 'pendiente')
+                        
+                        col_res1, col_res2, col_res3 = st.columns(3)
+                        with col_res1:
+                            st.metric("✅ Confirmadas", confirmadas)
+                        with col_res2:
+                            st.metric("❌ Rechazadas", rechazadas)
+                        with col_res3:
+                            st.metric("⏳ Pendientes", pendientes)
+                except:
+                    pass
 
     def guardar_lineas_formulario(lineas_formulario, datos_originales, solo_seleccionadas=False):
         """Guarda las líneas del formulario manual en alertas_sms.json"""
