@@ -4451,3 +4451,88 @@ def mostrar_alertas_sms_en_sidebar():
     except Exception as e:
         st.sidebar.error(f"Error cargando alertas: {e}")
         return False
+    
+def mostrar_estadisticas_agente_personal(username):
+    """Muestra panel personal del agente con estadísticas, objetivos y días laborables"""
+    from datetime import datetime, date, timedelta
+    
+    st.subheader("📊 Mi Panel Personal")
+    
+    # 1. Cargar objetivos desde JSON (sistema principal)
+    objetivos_data = cargar_objetivos_ventas()
+    objetivos_dict = objetivos_data.get("objetivos", {})
+    objetivo_individual = objetivos_dict.get(username, 10)
+    
+    # 2. Fechas del mes
+    hoy = date.today()
+    inicio_mes = hoy.replace(day=1)
+    fin_mes = (inicio_mes.replace(month=inicio_mes.month+1, day=1) - timedelta(days=1))
+    
+    # 3. Días laborables
+    dias_transcurridos = calcular_dias_laborables_transcurridos(inicio_mes, hoy)
+    dias_restantes = calcular_dias_laborables_restantes(hoy, fin_mes)
+    total_dias = obtener_total_dias_laborables_mes(inicio_mes, fin_mes)
+    
+    # 4. Ventas del mes
+    registro_llamadas = cargar_registro_llamadas()
+    ventas_mes = 0
+    llamadas_mes = 0
+    
+    for fecha_str, datos_dia in registro_llamadas.items():
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d").date()
+        if inicio_mes <= fecha <= hoy:
+            if username in datos_dia:
+                ventas_mes += datos_dia[username].get("ventas", 0)
+                llamadas_mes += datos_dia[username].get("llamadas_15min", 0)
+    
+    # 5. Calcular métricas
+    progreso = (ventas_mes / objetivo_individual * 100) if objetivo_individual > 0 else 0
+    ventas_restantes = max(0, objetivo_individual - ventas_mes)
+    ventas_dia_necesarias = ventas_restantes / max(dias_restantes, 1)
+    ratio_ventas = (ventas_mes / llamadas_mes * 100) if llamadas_mes > 0 else 0
+    
+    # 6. Mostrar KPI principales
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("🎯 Mi Objetivo", objetivo_individual)
+    
+    with col2:
+        st.metric("💰 Ventas Mes", ventas_mes)
+    
+    with col3:
+        st.metric("📞 Llamadas >15min", llamadas_mes)
+    
+    with col4:
+        st.metric("📈 Ratio", f"{ratio_ventas:.1f}%")
+    
+    # 7. Progreso vs objetivo
+    st.write("#### 📊 Progreso del Mes")
+    progreso_normalizado = min(progreso / 100, 1.0)
+    st.progress(progreso_normalizado)
+    
+    col_prog1, col_prog2, col_prog3 = st.columns(3)
+    with col_prog1:
+        st.metric("Progreso", f"{progreso:.1f}%")
+    with col_prog2:
+        st.metric("Ventas Restantes", ventas_restantes)
+    with col_prog3:
+        st.metric("Días Restantes", dias_restantes)
+    
+    # 8. Días laborables
+    st.write("#### 📅 Días Laborables")
+    st.info(f"""
+    - **Días laborables transcurridos:** {dias_transcurridos} de {total_dias}
+    - **Días laborables restantes:** {dias_restantes}
+    - **Ventas necesarias por día laborable:** {ventas_dia_necesarias:.2f}
+    """)
+    
+    # 9. Performance diaria
+    if dias_transcurridos > 0:
+        ventas_por_dia = ventas_mes / dias_transcurridos
+        st.write(f"**📈 Ventas por día laborable:** {ventas_por_dia:.2f}")
+        
+        if ventas_por_dia < ventas_dia_necesarias:
+            st.warning(f"⚠️ Necesitas aumentar el ritmo de {ventas_por_dia:.2f} a {ventas_dia_necesarias:.2f} ventas/día")
+        else:
+            st.success(f"✅ Vas bien! Mantén el ritmo de {ventas_por_dia:.2f} ventas/día")
