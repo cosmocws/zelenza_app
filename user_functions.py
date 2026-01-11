@@ -1011,11 +1011,11 @@ def mostrar_temporizador_pvd_usuario():
         return False
 
 # ==============================================
-# FUNCIÓN PRINCIPAL DE USUARIO
+# FUNCIÓN PRINCIPAL DE USUARIO (VERSIÓN SIMPLIFICADA)
 # ==============================================
 
 def main_usuario():
-    """Función principal para usuarios"""
+    """Función principal para usuarios - VERSIÓN SIMPLIFICADA"""
     if not st.session_state.get('authenticated', False):
         st.warning("⚠️ No estás autenticado")
         return
@@ -1024,35 +1024,13 @@ def main_usuario():
     if mostrar_temporizador_pvd_usuario():
         st.markdown("---")
     
-    # Menú de opciones para usuarios
-    opciones_usuario = [
-        "📊 Modelos de Factura",
-        "⚡ Comparativa EXACTA", 
-        "📅 Comparativa ESTIMADA",
-        "🔥 Calculadora de Gas",
-        "📋 CUPS Naturgy",
-        "👁️ Sistema de Pausas Visuales (PVD)"
-    ]
+    # IMPORTANTE: Esta función ya NO muestra menú propio
+    # El menú se maneja desde ui_components.py con pestañas
+    # Esta función solo se llama individualmente desde cada pestaña
     
-    seleccion = st.selectbox(
-        "Selecciona una opción:",
-        opciones_usuario,
-        key="menu_usuario"
-    )
-    
-    # Ejecutar la función seleccionada
-    if seleccion == "📊 Modelos de Factura":
-        consultar_modelos_factura()
-    elif seleccion == "⚡ Comparativa EXACTA":
-        comparativa_exacta()
-    elif seleccion == "📅 Comparativa ESTIMADA":
-        comparativa_estimada()
-    elif seleccion == "🔥 Calculadora de Gas":
-        calculadora_gas()
-    elif seleccion == "📋 CUPS Naturgy":
-        cups_naturgy()
-    elif seleccion == "👁️ Sistema de Pausas Visuales (PVD)":
-        gestion_pvd_usuario()
+    # Mostrar mensaje informativo si alguien accede directamente
+    st.info("👤 **Panel de Usuario** - Navega usando las pestañas arriba")
+    st.write("Selecciona una pestaña para acceder a las diferentes funcionalidades.")
 
 # ==============================================
 # EJECUCIÓN SI SE EJECUTA DIRECTAMENTE
