@@ -257,192 +257,100 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         st.metric("⏳ Pendientes SMS", int(total_pendientes), delta=delta)
     
     # Mostrar alerta si hay pendientes SMS
-    if pendientes_sms_data:
-        st.warning(f"⚠️ **{total_pendientes} llamadas con PENDIENTE SMS detectadas ({ventas_pendientes} ventas pendientes)**")
-        
-        # Guardar en session_state para uso posterior
-        st.session_state.pendientes_sms = pendientes_sms_data
-        
-        # Mostrar tabla de pendientes
-        with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
-            df_pendientes = pd.DataFrame(pendientes_sms_data)
-            df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
-                                                   'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
-            df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
-                                             'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
-            st.dataframe(df_pendientes_display, use_container_width=True)
+        if pendientes_sms_data:
+            st.warning(f"⚠️ **{total_pendientes} llamadas con PENDIENTE SMS detectadas ({ventas_pendientes} ventas pendientes)**")
             
-            st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
+            # Guardar en session_state
+            st.session_state.pendientes_sms = pendientes_sms_data
             
-            # ==============================================
-            # FORMULARIO MANUAL MEJORADO - SIN MODIFICAR SESSION_STATE DIRECTAMENTE
-            # ==============================================
-            st.divider()
-            st.subheader("📝 Formulario Manual para Pendientes SMS")
-            
-            # Inicializar estructura para este formulario
-            form_key = f"form_sms_{nombre_analisis}"
-            if form_key not in st.session_state:
-                st.session_state[form_key] = {
-                    'lineas': [],
-                    'guardado': False,
-                    'datos_formulario': {}  # Diccionario para almacenar datos
-                }
-            
-            st.write(f"**Se detectaron {len(pendientes_sms_data)} llamadas con PENDIENTE SMS**")
-            st.write("Por favor, completa la información para cada una:")
-            
-            # Crear formulario usando callbacks para manejar estado
-            lineas_formulario = []
-            
-            for i in range(len(pendientes_sms_data)):
-                datos_auto = pendientes_sms_data[i]
+            # Mostrar tabla de pendientes
+            with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
+                df_pendientes = pd.DataFrame(pendientes_sms_data)
+                df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
+                                                    'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
+                df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
+                                                'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
+                st.dataframe(df_pendientes_display, use_container_width=True)
                 
-                st.markdown(f"---")
-                st.subheader(f"📞 Llamada #{i+1}")
+                st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
                 
-                # Usar claves únicas para cada widget
-                form_id = f"sms_form_{hash(nombre_analisis)}_{i}"
+                # ==============================================
+                # FORMULARIO SIMPLIFICADO - SIN COMPLICACIONES DE ESTADO
+                # ==============================================
+                st.divider()
+                st.subheader("📝 Procesar Pendientes SMS")
                 
-                col1, col2, col3 = st.columns(3)
+                # Opción 1: Procesar todas automáticamente
+                st.write("**Opción rápida:**")
+                col1, col2 = st.columns(2)
                 
                 with col1:
-                    # Widget para agente - Streamlit maneja automáticamente el estado
-                    agente = st.text_input(
-                        f"Agente #{i+1}",
-                        value=datos_auto['agente'],
-                        key=f"agente_{form_id}",
-                        help="ID del agente (ej: TZS0733)"
-                    )
+                    if st.button("✅ Todas como Confirmadas", 
+                            help="Marcar todas las SMS como contestadas y contar ventas",
+                            use_container_width=True):
+                        procesar_todas_alertas(pendientes_sms_data, estado="confirmado")
+                        st.success("¡Todas las alertas procesadas como confirmadas!")
+                        st.rerun()
                 
                 with col2:
-                    fecha = st.date_input(
-                        f"Fecha #{i+1}",
-                        value=datetime.strptime(datos_auto['fecha'], '%Y-%m-%d').date() if datos_auto['fecha'] else datetime.now().date(),
-                        key=f"fecha_{form_id}"
-                    )
-                
-                with col3:
-                    duracion_minutos = st.number_input(
-                        f"Duración (minutos) #{i+1}",
-                        value=float(datos_auto['duracion_minutos']),
-                        min_value=0.0,
-                        max_value=120.0,
-                        step=0.5,
-                        key=f"duracion_{form_id}",
-                        help="Duración de la llamada en minutos"
-                    )
-                
-                # Información adicional (solo lectura)
-                col4, col5 = st.columns(2)
-                with col4:
-                    st.info(f"**Hora original:** {datos_auto['hora']}")
-                    st.info(f"**Resultado Elec:** {datos_auto['resultado_elec'][:50]}...")
-                with col5:
-                    st.info(f"**Ventas pendientes:** {datos_auto['ventas_pendientes']}")
-                    st.info(f"**Campaña:** {datos_auto['campanya'][:30]}...")
-                
-                # Opciones de confirmación
-                st.write("**¿Qué pasó con esta llamada?**")
-                opcion = st.radio(
-                    f"Resultado final #{i+1}",
-                    options=["SMS Contestado (contar venta)", "SMS No Contestado (no contar venta)", "Pendiente de revisar"],
-                    index=2,  # Por defecto "Pendiente de revisar"
-                    key=f"resultado_{form_id}",
-                    horizontal=True
-                )
-                
-                # Determinar ventas finales según opción
-                if opcion == "SMS Contestado (contar venta)":
-                    ventas_finales = datos_auto['ventas_pendientes']
-                    estado = "confirmado"
-                elif opcion == "SMS No Contestado (no contar venta)":
-                    ventas_finales = 0
-                    estado = "rechazado"
-                else:
-                    ventas_finales = 0
-                    estado = "pendiente"
-                
-                # Almacenar datos temporalmente (los widgets ya manejan su propio estado)
-                lineas_formulario.append({
-                    'agente': agente,
-                    'fecha': fecha.strftime('%Y-%m-%d'),
-                    'hora': datos_auto['hora'],
-                    'duracion_minutos': duracion_minutos,
-                    'duracion_segundos': int(duracion_minutos * 60),
-                    'ventas_pendientes': datos_auto['ventas_pendientes'],
-                    'ventas_finales': ventas_finales,
-                    'resultado_elec': datos_auto['resultado_elec'],
-                    'resultado_gas': datos_auto['resultado_gas'],
-                    'motivo_elec': datos_auto.get('motivo_elec', ''),
-                    'motivo_gas': datos_auto.get('motivo_gas', ''),
-                    'campanya': datos_auto['campanya'],
-                    'hash_original': datos_auto['hash'],
-                    'estado': estado,
-                    'opcion_seleccionada': opcion,
-                    'timestamp_revision': datetime.now().isoformat()
-                })
-            
-            # Botones de acción
-            st.divider()
-            col_btn1, col_btn2, col_btn3 = st.columns(3)
-            
-            with col_btn1:
-                if st.button("💾 Guardar Todas las Llamadas", type="primary", 
-                           key=f"guardar_todas_{hash(nombre_analisis)}"):
-                    if lineas_formulario:
-                        # Usar función de callback para guardar
-                        guardar_lineas_formulario(lineas_formulario, pendientes_sms_data)
-                        st.session_state[form_key]['guardado'] = True
-                        st.success("✅ Datos guardados exitosamente!")
+                    if st.button("❌ Todas como No Contestadas", 
+                            help="Marcar todas las SMS como no contestadas",
+                            use_container_width=True):
+                        procesar_todas_alertas(pendientes_sms_data, estado="rechazado")
+                        st.success("¡Todas las alertas procesadas como no contestadas!")
                         st.rerun()
-                    else:
-                        st.error("No hay datos para guardar")
-            
-            with col_btn2:
-                if st.button("🔄 Limpiar Formulario", type="secondary",
-                           key=f"limpiar_{hash(nombre_analisis)}"):
-                    # Streamlit limpiará automáticamente los widgets en el siguiente rerun
-                    st.info("Los campos se limpiarán al recargar")
-                    st.rerun()
-            
-            with col_btn3:
-                if st.button("📋 Ir a Super Users", type="secondary",
-                           key=f"ir_super_{hash(nombre_analisis)}"):
-                    st.session_state.mostrar_panel_super_usuario = True
-                    st.rerun()
-            
-            # Mostrar estado actual
-            if st.session_state[form_key]['guardado']:
-                st.success("✅ Formulario guardado anteriormente. Puedes ver las alertas en el panel de Super Users.")
                 
-                # Mostrar resumen rápido
-                st.info("**Resumen de alertas guardadas:**")
+                st.divider()
+                st.write("**Opción detallada:** Procesar una por una")
                 
-                try:
-                    from database import cargar_alertas_sms
-                    alertas = cargar_alertas_sms()
-                    
-                    # Contar alertas de este análisis
-                    alertas_este_analisis = []
-                    for alerta_id, alerta_data in alertas.items():
-                        if alerta_data.get('hash_registro') in [p['hash'] for p in pendientes_sms_data]:
-                            alertas_este_analisis.append(alerta_data)
-                    
-                    if alertas_este_analisis:
-                        confirmadas = sum(1 for a in alertas_este_analisis if a.get('estado') == 'confirmado')
-                        rechazadas = sum(1 for a in alertas_este_analisis if a.get('estado') == 'rechazado')
-                        pendientes = sum(1 for a in alertas_este_analisis if a.get('estado') == 'pendiente')
+                # Formulario simple y directo - SIN estado complejo
+                for i, datos in enumerate(pendientes_sms_data):
+                    with st.container():
+                        st.markdown(f"---")
+                        st.write(f"**Llamada #{i+1}**")
                         
-                        col_res1, col_res2, col_res3 = st.columns(3)
-                        with col_res1:
-                            st.metric("✅ Confirmadas", confirmadas)
-                        with col_res2:
-                            st.metric("❌ Rechazadas", rechazadas)
-                        with col_res3:
-                            st.metric("⏳ Pendientes", pendientes)
-                except:
-                    pass
+                        col_a, col_b, col_c = st.columns(3)
+                        with col_a:
+                            st.write(f"**Agente:** {datos['agente']}")
+                        with col_b:
+                            st.write(f"**Fecha:** {datos['fecha']}")
+                        with col_c:
+                            st.write(f"**Hora:** {datos['hora']}")
+                        
+                        st.write(f"**Ventas pendientes:** {datos['ventas_pendientes']}")
+                        st.write(f"**Duración:** {datos['duracion_minutos']} minutos")
+                        
+                        # Botones de acción para esta llamada específica
+                        col_btn1, col_btn2, col_btn3, col_btn4 = st.columns(4)
+                        
+                        with col_btn1:
+                            if st.button(f"✅ Confirmar #{i+1}", 
+                                    key=f"confirm_{datos['hash']}",
+                                    use_container_width=True):
+                                procesar_alerta_individual(datos, estado="confirmado")
+                                st.success(f"Llamada #{i+1} confirmada")
+                                st.rerun()
+                        
+                        with col_btn2:
+                            if st.button(f"❌ Rechazar #{i+1}", 
+                                    key=f"reject_{datos['hash']}",
+                                    use_container_width=True):
+                                procesar_alerta_individual(datos, estado="rechazado")
+                                st.success(f"Llamada #{i+1} rechazada")
+                                st.rerun()
+                        
+                        with col_btn3:
+                            if st.button(f"📝 Editar #{i+1}", 
+                                    key=f"edit_{datos['hash']}",
+                                    use_container_width=True):
+                                mostrar_modal_edicion(datos, i)
+                        
+                        with col_btn4:
+                            # Verificar si ya está procesada
+                            if verificar_si_procesada(datos['hash']):
+                                st.success("✓ Procesada")
+                            else:
+                                st.info("⏳ Pendiente")
 
     def guardar_lineas_formulario(lineas_formulario, datos_originales, solo_seleccionadas=False):
         """Guarda las líneas del formulario manual en alertas_sms.json"""
@@ -531,6 +439,156 @@ def realizar_analisis(df_filtrado, nombre_analisis):
             st.error(f"❌ Error al guardar alertas: {e}")
             import traceback
             st.text(traceback.format_exc())
+
+    # ==============================================
+    # FUNCIONES AUXILIARES PARA EL FORMULARIO SIMPLE
+    # ==============================================
+
+    def procesar_todas_alertas(pendientes_sms_data, estado="confirmado"):
+        """Procesa todas las alertas de una vez"""
+        try:
+            from database import agregar_varias_alertas_sms
+            
+            alertas = []
+            for datos in pendientes_sms_data:
+                ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
+                
+                alerta = {
+                    'id': f"sms_{datos['hash']}",
+                    'tipo': 'pendiente_sms',
+                    'agente': datos['agente'],
+                    'fecha': datos['fecha'],
+                    'hora': datos['hora'],
+                    'duracion_minutos': datos['duracion_minutos'],
+                    'duracion_segundos': int(datos['duracion_minutos'] * 60),
+                    'resultado_elec': datos['resultado_elec'],
+                    'resultado_gas': datos['resultado_gas'],
+                    'motivo_elec': datos.get('motivo_elec', ''),
+                    'motivo_gas': datos.get('motivo_gas', ''),
+                    'ventas_pendientes': datos['ventas_pendientes'],
+                    'ventas_finales': ventas_finales,
+                    'campanya': datos['campanya'],
+                    'timestamp_deteccion': datetime.now().isoformat(),
+                    'hash_registro': datos['hash'],
+                    'detalles': f"Procesado automáticamente como {estado}",
+                    'estado': estado,
+                    'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
+                    'revisado_manual': False,
+                    'procesamiento_automatico': True
+                }
+                alertas.append(alerta)
+            
+            # Guardar todas las alertas
+            nuevas_agregadas = agregar_varias_alertas_sms(alertas)
+            
+            if nuevas_agregadas > 0:
+                st.session_state[f'procesadas_{estado}'] = len(alertas)
+                return True
+            return False
+            
+        except Exception as e:
+            st.error(f"Error procesando alertas: {e}")
+            return False
+
+
+    def procesar_alerta_individual(datos, estado="confirmado"):
+        """Procesa una alerta individual"""
+        try:
+            from database import agregar_varias_alertas_sms
+            
+            ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
+            
+            alerta = {
+                'id': f"sms_{datos['hash']}",
+                'tipo': 'pendiente_sms',
+                'agente': datos['agente'],
+                'fecha': datos['fecha'],
+                'hora': datos['hora'],
+                'duracion_minutos': datos['duracion_minutos'],
+                'duracion_segundos': int(datos['duracion_minutos'] * 60),
+                'resultado_elec': datos['resultado_elec'],
+                'resultado_gas': datos['resultado_gas'],
+                'motivo_elec': datos.get('motivo_elec', ''),
+                'motivo_gas': datos.get('motivo_gas', ''),
+                'ventas_pendientes': datos['ventas_pendientes'],
+                'ventas_finales': ventas_finales,
+                'campanya': datos['campanya'],
+                'timestamp_deteccion': datetime.now().isoformat(),
+                'hash_registro': datos['hash'],
+                'detalles': f"Procesado manualmente como {estado}",
+                'estado': estado,
+                'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
+                'revisado_manual': True,
+                'timestamp_revision': datetime.now().isoformat()
+            }
+            
+            nuevas_agregadas = agregar_varias_alertas_sms([alerta])
+            return nuevas_agregadas > 0
+            
+        except Exception as e:
+            st.error(f"Error procesando alerta individual: {e}")
+            return False
+
+
+    def verificar_si_procesada(hash_registro):
+        """Verifica si una alerta ya fue procesada"""
+        try:
+            from database import cargar_alertas_sms
+            alertas = cargar_alertas_sms()
+            
+            alerta_id = f"sms_{hash_registro}"
+            return alerta_id in alertas
+            
+        except:
+            return False
+
+
+    def mostrar_modal_edicion(datos, index):
+        """Muestra un modal simple para edición detallada"""
+        with st.expander(f"✏️ Editar detalles de la llamada #{index+1}", expanded=True):
+            st.write("**Edición avanzada:**")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                agente_edit = st.text_input("Agente", value=datos['agente'], key=f"edit_agente_{index}")
+                fecha_edit = st.date_input("Fecha", 
+                                        value=datetime.strptime(datos['fecha'], '%Y-%m-%d').date() 
+                                        if datos['fecha'] else datetime.now().date(),
+                                        key=f"edit_fecha_{index}")
+            
+            with col2:
+                duracion_edit = st.number_input("Duración (min)", 
+                                            value=float(datos['duracion_minutos']),
+                                            min_value=0.0,
+                                            max_value=120.0,
+                                            step=0.5,
+                                            key=f"edit_duracion_{index}")
+                
+                ventas_pendientes_edit = st.number_input("Ventas pendientes",
+                                                    value=int(datos['ventas_pendientes']),
+                                                    min_value=0,
+                                                    max_value=2,
+                                                    key=f"edit_ventas_{index}")
+            
+            # Opciones de estado
+            estado_edit = st.radio("Estado final:",
+                                options=["confirmado", "rechazado", "pendiente"],
+                                index=0 if datos.get('estado') == 'confirmado' else 1 if datos.get('estado') == 'rechazado' else 2,
+                                key=f"edit_estado_{index}",
+                                horizontal=True)
+            
+            # Botón para guardar edición
+            if st.button("💾 Guardar cambios", key=f"save_edit_{index}"):
+                datos_editados = datos.copy()
+                datos_editados['agente'] = agente_edit
+                datos_editados['fecha'] = fecha_edit.strftime('%Y-%m-%d')
+                datos_editados['duracion_minutos'] = duracion_edit
+                datos_editados['ventas_pendientes'] = ventas_pendientes_edit
+                
+                # Procesar con datos editados
+                procesar_alerta_individual(datos_editados, estado=estado_edit)
+                st.success("¡Cambios guardados!")
+                st.rerun()
     
     # Análisis por agente
     st.subheader("👥 Resumen por Agente")
