@@ -83,7 +83,28 @@ def mostrar_panel_usuario():
             st.rerun()
     
     # ============================================
-    # 2. SEGUNDO: Contenido normal (pestañas) - SOLO si no estamos en panel personal
+    # 2. MOSTRAR LA ÚLTIMA MONITORIZACIÓN DEL USUARIO (NUEVO)
+    # ============================================
+    usuario_id = st.session_state.username
+    
+    try:
+        # Importar la función de monitorización
+        from user_functions import mostrar_ultima_monitorizacion_usuario
+        
+        # Mostrar la última monitorización
+        monitorizacion_mostrada = mostrar_ultima_monitorizacion_usuario(usuario_id)
+        
+        # Si se mostró, añadir separador
+        if monitorizacion_mostrada:
+            st.markdown("---")
+    except ImportError:
+        # Si no existe la función, continuar sin mostrar monitorización
+        st.info("ℹ️ La información de monitorizaciones no está disponible en este momento")
+    except Exception as e:
+        st.error(f"Error al cargar monitorización: {e}")
+    
+    # ============================================
+    # 3. TERCERO: Contenido normal (pestañas) - SOLO si no estamos en panel personal
     # ============================================
     
     # IMPORTAR las funciones necesarias aquí
@@ -148,9 +169,3 @@ def mostrar_panel_usuario():
         consultar_modelos_factura()
     else:
         st.info("📄 La sección de modelos de factura no está disponible actualmente")
-
-# NOTA: La función `modo_prueba_rapida_usuario()` ha sido ELIMINADA porque:
-# 1. Ya no se utiliza en la aplicación
-# 2. No aparece en el panel de administración
-# 3. Era una funcionalidad de prueba obsoleta
-# 4. Puede causar confusión si se mantiene

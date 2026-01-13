@@ -1011,6 +1011,99 @@ def mostrar_temporizador_pvd_usuario():
         return False
 
 # ==============================================
+# FUNCIÓN MOSTRAR MONITORIZACIÓN USUARIO
+# ==============================================
+
+def mostrar_ultima_monitorizacion_usuario(usuario_id):
+    """Muestra la última monitorización del usuario actual"""
+    try:
+        # Importar aquí para evitar dependencias circulares
+        from database import obtener_ultima_monitorizacion_empleado
+        
+        ultima_mon = obtener_ultima_monitorizacion_empleado(usuario_id)
+        
+        if not ultima_mon:
+            # Intentar obtener cualquier monitorización del usuario
+            from database import obtener_monitorizaciones_por_empleado
+            todas = obtener_monitorizaciones_por_empleado(usuario_id)
+            
+            if not todas:
+                return False  # No hay monitorizaciones
+            
+            todas.sort(key=lambda x: x.get('fecha_monitorizacion', ''), reverse=True)
+            ultima_mon = todas[0]
+        
+        st.markdown("---")
+        st.subheader("📊 Tu Última Monitorización")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            nota = ultima_mon.get('nota_global', 0)
+            objetivo = ultima_mon.get('objetivo', 85)
+            st.metric("Nota Global", f"{nota}%", 
+                     delta=f"{nota - objetivo:.1f}%" if objetivo else None)
+        
+        with col2:
+            fecha = ultima_mon.get('fecha_monitorizacion', '')
+            st.metric("Fecha", fecha)
+        
+        with col3:
+            fecha_prox = ultima_mon.get('fecha_proxima_monitorizacion', '')
+            if fecha_prox:
+                try:
+                    from datetime import datetime
+                    fecha_prox_dt = datetime.strptime(fecha_prox, '%Y-%m-%d')
+                    hoy = datetime.now().date()
+                    dias_restantes = (fecha_prox_dt.date() - hoy).days
+                    st.metric("Próxima", fecha_prox, delta=f"{dias_restantes} días")
+                except:
+                    st.metric("Próxima", fecha_prox)
+        
+        st.write("#### 📈 Puntuaciones por Área")
+        
+        areas = [
+            ("Experiencia", ultima_mon.get('experiencia')),
+            ("Comunicación", ultima_mon.get('comunicacion')),
+            ("Detección", ultima_mon.get('deteccion')),
+            ("Habilidades de Venta", ultima_mon.get('habilidades_venta')),
+            ("Resolución Objeciones", ultima_mon.get('resolucion_objeciones')),
+            ("Cierre Contacto", ultima_mon.get('cierre_contacto'))
+        ]
+        
+        cols = st.columns(3)
+        for idx, (area, puntaje) in enumerate(areas):
+            if puntaje is not None:
+                with cols[idx % 3]:
+                    progress = puntaje / 100
+                    st.progress(progress)
+                    st.caption(f"{area}: {puntaje}%")
+        
+        feedback = ultima_mon.get('feedback', '')
+        plan_accion = ultima_mon.get('plan_accion', '')
+        puntos_clave = ultima_mon.get('puntos_clave', [])
+        
+        if feedback:
+            with st.expander("📝 Feedback recibido", expanded=True):
+                st.write(feedback)
+        
+        if plan_accion:
+            with st.expander("🎯 Plan de acción", expanded=True):
+                st.write(plan_accion)
+        
+        if puntos_clave:
+            st.write("#### 🔑 Puntos clave a mejorar:")
+            for punto in puntos_clave:
+                st.write(f"- {punto}")
+        
+        return True
+        
+    except Exception as e:
+        # Si hay error, no mostrar nada
+        print(f"Error mostrando monitorización para {usuario_id}: {e}")
+        return False
+
+# ==============================================
 # FUNCIÓN PRINCIPAL DE USUARIO (VERSIÓN SIMPLIFICADA)
 # ==============================================
 
@@ -1022,6 +1115,14 @@ def main_usuario():
     
     # Mostrar temporizador si está disponible
     if mostrar_temporizador_pvd_usuario():
+        st.markdown("---")
+    
+    # IMPORTANTE: Mostrar la última monitorización del usuario
+    usuario_id = st.session_state.username
+    monitorizacion_mostrada = mostrar_ultima_monitorizacion_usuario(usuario_id)
+    
+    # Si se mostró una monitorización, añadir separador
+    if monitorizacion_mostrada:
         st.markdown("---")
     
     # IMPORTANTE: Esta función ya NO muestra menú propio
