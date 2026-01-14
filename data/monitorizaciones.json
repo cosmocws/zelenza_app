@@ -240,5 +240,74 @@
         "fecha_creacion": "2026-01-11T10:57:34.246948",
         "id_monitorizacion": "MON_20260111105734_0753",
         "created_at": "2026-01-11T10:57:34.248705"
+    },
+    "MON_20260114125217_0613": {
+        "id_empleado": "0613",
+        "fecha_monitorizacion": "2026-01-13",
+        "fecha_proxima_monitorizacion": "2026-01-18",
+        "nota_global": 38.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 50.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 100.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS613. LOPD NO. Aquí habría que haberle ofrecido el ahorro automático, hay que tener más escucha activa en ese sentido.",
+        "plan_accion": "LOPD NO SE PUEDE OLVIDAR. Esto es primordial y tenemos que tener más escucha activa.",
+        "puntos_clave": [
+            "LOPD ¡CUIDADO!",
+            "Detección",
+            "Escucha activa"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-01-14T12:52:17.255082",
+        "id_monitorizacion": "MON_20260114125217_0613",
+        "created_at": "2026-01-14T12:52:17.255871"
+    },
+    "MON_20260114125334_0657": {
+        "id_empleado": "0657",
+        "fecha_monitorizacion": "2026-01-13",
+        "fecha_proxima_monitorizacion": "2026-01-18",
+        "nota_global": 40.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 100.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0657. LOPD NO. A parte le dices al cliente que te diga su dirección para comprobar si están en Iberdrola, aplicarle  el descuento \ndirectamente. Eso sabes perfectamente que no podemos hacerlo.",
+        "plan_accion": "LOPD NO SE PUEDE OLVIDAR. Esto es lo más importante, pero sigue siendo muy importante que no engañemos al cliente en ese tipo \nde argumentos.",
+        "puntos_clave": [
+            "LOPD ¡CUIDADO!",
+            "Argumentación ¡CUIDADO!"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-01-14T12:53:34.510860",
+        "id_monitorizacion": "MON_20260114125334_0657",
+        "created_at": "2026-01-14T12:53:34.511230"
+    },
+    "MON_20260114125511_0782": {
+        "id_empleado": "0782",
+        "fecha_monitorizacion": "2026-01-13",
+        "fecha_proxima_monitorizacion": "2026-01-20",
+        "nota_global": 100.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 100.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0782. LOPD SI. Hay que utilizar un mejor rebate sabiendo que se cambió hace poco. Cómo, ¿Te cambiarías porque te mejorarían el \nprecio, cierto?, pues ahora vamos a ver como te queda con nosotros... Por lo demás nada más que objetar.",
+        "plan_accion": "LOPD Sigue así . Buscar rebates más concisos y directos.",
+        "puntos_clave": [
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-01-14T12:55:11.849329",
+        "id_monitorizacion": "MON_20260114125511_0782",
+        "created_at": "2026-01-14T12:55:11.849853"
     }
 }
