@@ -184,12 +184,457 @@ def verificar_si_procesada(hash_registro):
     except:
         return False
 
+def mapear_agente_a_sistema(agente_csv, super_users_config):
+    """
+    Mapea un agente del CSV al sistema usando la misma lógica que la importación
+    """
+    agentes_sistema = super_users_config.get("agentes", {})
+
+    # Preparar búsqueda flexible (igual que en importar_datos_a_registro)
+    busqueda_agentes = {}
+
+    for agent_id in agentes_sistema.keys():
+        agent_id_str = str(agent_id).strip().upper()
+        
+        # Variantes de búsqueda
+        busqueda_agentes[agent_id_str] = agent_id
+        
+        if len(agent_id_str) >= 4:
+            busqueda_agentes[agent_id_str[-4:]] = agent_id
+        
+        if agent_id_str.startswith('TZS'):
+            busqueda_agentes[agent_id_str[3:]] = agent_id
+        
+        solo_numeros = ''.join(filter(str.isdigit, agent_id_str))
+        if solo_numeros and solo_numeros != agent_id_str:
+            busqueda_agentes[solo_numeros] = agent_id
+
+    # También buscar por nombre
+    for agent_id, info in agentes_sistema.items():
+        nombre = str(info.get('nombre', '')).strip().upper()
+        if nombre:
+            busqueda_agentes[nombre] = agent_id
+
+    # Buscar coincidencia FLEXIBLE (igual que en importar_datos_a_registro)
+    agente_csv_upper = str(agente_csv).strip().upper()
+
+    # 1. Búsqueda exacta
+    if agente_csv_upper in busqueda_agentes:
+        return busqueda_agentes[agente_csv_upper], agentes_sistema.get(busqueda_agentes[agente_csv_upper], {}).get('nombre', '')
+
+    # 2. Quitar "TZS" si está presente
+    if agente_csv_upper.startswith('TZS'):
+        agente_sin_tzs = agente_csv_upper[3:]
+        if agente_sin_tzs in busqueda_agentes:
+            return busqueda_agentes[agente_sin_tzs], agentes_sistema.get(busqueda_agentes[agente_sin_tzs], {}).get('nombre', '')
+
+    # 3. Solo números
+    numeros_csv = ''.join(filter(str.isdigit, agente_csv_upper))
+    if numeros_csv:
+        for key, agent_id in busqueda_agentes.items():
+            numeros_key = ''.join(filter(str.isdigit, key))
+            if numeros_key and numeros_csv == numeros_key:
+                return agent_id, agentes_sistema.get(agent_id, {}).get('nombre', '')
+
+    # 4. Búsqueda por contenido
+    for key, agent_id in busqueda_agentes.items():
+        if key in agente_csv_upper or agente_csv_upper in key:
+            return agent_id, agentes_sistema.get(agent_id, {}).get('nombre', '')
+
+    return None, None
+
+def verificar_venta_en_registro(agente_sistema, fecha_str):
+    """Verifica si una venta está en el registro diario"""
+    try:
+        from database import cargar_registro_llamadas
+        
+        registro = cargar_registro_llamadas()
+        
+        if fecha_str in registro and agente_sistema in registro[fecha_str]:
+            ventas = registro[fecha_str][agente_sistema].get('ventas', 0)
+            return ventas, True
+        return 0, False
+    except:
+        return 0, False
 
 def realizar_analisis(df_filtrado, nombre_analisis):
     """Realiza el análisis sobre datos filtrados"""
     if df_filtrado.empty:
         st.warning(f"⚠️ No hay datos para {nombre_analisis}")
         return None
+    
+    # Crear ID único con timestamp
+    import time
+    import random
+    timestamp_ms = int(time.time() * 1000)
+    random_suffix = random.randint(1000, 9999)
+    analisis_id = f"{nombre_analisis.replace(' ', '_')}_{timestamp_ms}_{random_suffix}"
+    
+    # ==============================================
+    # FUNCIÓN LOCAL PARA MAPEAR AGENTES
+    # ==============================================
+    def mapear_agente_a_sistema_local(agente_csv, super_users_config):
+        """Mapea un agente del CSV al sistema (versión local)"""
+        agentes_sistema = super_users_config.get("agentes", {})
+        
+        # Preparar búsqueda flexible
+        busqueda_agentes = {}
+        
+        for agent_id in agentes_sistema.keys():
+            agent_id_str = str(agent_id).strip().upper()
+            
+            busqueda_agentes[agent_id_str] = agent_id
+            
+            if len(agent_id_str) >= 4:
+                busqueda_agentes[agent_id_str[-4:]] = agent_id
+            
+            if agent_id_str.startswith('TZS'):
+                busqueda_agentes[agent_id_str[3:]] = agent_id
+            
+            solo_numeros = ''.join(filter(str.isdigit, agent_id_str))
+            if solo_numeros and solo_numeros != agent_id_str:
+                busqueda_agentes[solo_numeros] = agent_id
+        
+        # También buscar por nombre
+        for agent_id, info in agentes_sistema.items():
+            nombre = str(info.get('nombre', '')).strip().upper()
+            if nombre:
+                busqueda_agentes[nombre] = agent_id
+        
+        # Buscar coincidencia
+        agente_csv_upper = str(agente_csv).strip().upper()
+        
+        # 1. Búsqueda exacta
+        if agente_csv_upper in busqueda_agentes:
+            return busqueda_agentes[agente_csv_upper], agentes_sistema.get(busqueda_agentes[agente_csv_upper], {}).get('nombre', '')
+        
+        # 2. Quitar "TZS"
+        if agente_csv_upper.startswith('TZS'):
+            agente_sin_tzs = agente_csv_upper[3:]
+            if agente_sin_tzs in busqueda_agentes:
+                return busqueda_agentes[agente_sin_tzs], agentes_sistema.get(busqueda_agentes[agente_sin_tzs], {}).get('nombre', '')
+        
+        # 3. Solo números
+        numeros_csv = ''.join(filter(str.isdigit, agente_csv_upper))
+        if numeros_csv:
+            for key, agent_id in busqueda_agentes.items():
+                numeros_key = ''.join(filter(str.isdigit, key))
+                if numeros_key and numeros_csv == numeros_key:
+                    return agent_id, agentes_sistema.get(agent_id, {}).get('nombre', '')
+        
+        # 4. Búsqueda por contenido
+        for key, agent_id in busqueda_agentes.items():
+            if key in agente_csv_upper or agente_csv_upper in key:
+                return agent_id, agentes_sistema.get(agent_id, {}).get('nombre', '')
+        
+        return None, None
+    
+    # ==============================================
+    # FUNCIÓN PARA PROCESAR ALERTA INDIVIDUAL
+    # ==============================================
+    def procesar_alerta_individual(datos, estado="confirmado"):
+        """Procesa una alerta individual con mapeo correcto de agente Y actualiza registro diario"""
+        try:
+            from database import agregar_varias_alertas_sms, cargar_super_users, cargar_registro_llamadas, guardar_registro_llamadas
+            
+            # Cargar configuración para mapear agente
+            super_users_config = cargar_super_users()
+            
+            # Mapear agente del CSV al sistema
+            agente_sistema, nombre_agente = mapear_agente_a_sistema_local(datos['agente'], super_users_config)
+            
+            if agente_sistema is None:
+                agente_sistema = datos['agente']
+                nombre_agente = "No encontrado en sistema"
+                st.warning(f"⚠️ Agente '{datos['agente']}' no encontrado en el sistema")
+            
+            ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
+            
+            # ==============================================
+            # 1. ACTUALIZAR REGISTRO DIARIO si se confirma
+            # ==============================================
+            if estado == "confirmado" and ventas_finales > 0 and agente_sistema:
+                try:
+                    registro_llamadas = cargar_registro_llamadas()
+                    fecha_str = datos['fecha']
+                    
+                    # Inicializar estructuras si no existen
+                    if fecha_str not in registro_llamadas:
+                        registro_llamadas[fecha_str] = {}
+                    
+                    if agente_sistema not in registro_llamadas[fecha_str]:
+                        registro_llamadas[fecha_str][agente_sistema] = {
+                            'llamadas_totales': 0,
+                            'llamadas_15min': 0,
+                            'ventas': 0,
+                            'fecha': fecha_str,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                    
+                    # SUMAR VENTAS al registro
+                    registro_llamadas[fecha_str][agente_sistema]['ventas'] += ventas_finales
+                    
+                    # Contar como llamada larga si la duración > 15 min
+                    if datos.get('duracion_minutos', 0) > 15:
+                        registro_llamadas[fecha_str][agente_sistema]['llamadas_15min'] += 1
+                    
+                    # Guardar registro actualizado
+                    guardar_registro_llamadas(registro_llamadas)
+                    
+                    st.info(f"📈 {ventas_finales} venta(s) agregada(s) al registro diario de {agente_sistema} ({fecha_str})")
+                    
+                except Exception as e:
+                    st.error(f"Error actualizando registro diario: {e}")
+            
+            # ==============================================
+            # 2. CREAR ALERTA SMS
+            # ==============================================
+            alerta = {
+                'id': f"sms_{datos['hash']}",
+                'tipo': 'pendiente_sms',
+                'agente_csv': datos['agente'],
+                'agente_sistema': agente_sistema,
+                'nombre_agente': nombre_agente,
+                'fecha': datos['fecha'],
+                'hora': datos['hora'],
+                'duracion_minutos': datos['duracion_minutos'],
+                'duracion_segundos': int(datos['duracion_minutos'] * 60),
+                'resultado_elec': datos['resultado_elec'],
+                'resultado_gas': datos['resultado_gas'],
+                'motivo_elec': datos.get('motivo_elec', ''),
+                'motivo_gas': datos.get('motivo_gas', ''),
+                'ventas_pendientes': datos['ventas_pendientes'],
+                'ventas_finales': ventas_finales,
+                'campanya': datos['campanya'],
+                'timestamp_deteccion': datetime.now().isoformat(),
+                'hash_registro': datos['hash'],
+                'detalles': f"Procesado manualmente como {estado}",
+                'estado': estado,
+                'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
+                'revisado_manual': True,
+                'timestamp_revision': datetime.now().isoformat(),
+                'mapeo_correcto': agente_sistema != datos['agente'],
+                'actualizado_registro': estado == "confirmado" and ventas_finales > 0
+            }
+            
+            nuevas_agregadas = agregar_varias_alertas_sms([alerta])
+            
+            if nuevas_agregadas > 0:
+                st.success(f"✅ Alerta procesada: {datos['agente']} → {agente_sistema} ({nombre_agente})")
+                st.success(f"💰 {ventas_finales} venta(s) {'confirmada(s)' if estado == 'confirmado' else 'rechazada(s)'}")
+            return nuevas_agregadas > 0
+            
+        except Exception as e:
+            st.error(f"Error procesando alerta individual: {e}")
+            return False
+    
+    # ==============================================
+    # FUNCIÓN PARA PROCESAR TODAS LAS ALERTAS
+    # ==============================================
+    def procesar_todas_alertas(pendientes_sms_data, estado="confirmado"):
+        """Procesa todas las alertas de una vez con mapeo correcto Y actualiza registro diario"""
+        try:
+            from database import agregar_varias_alertas_sms, cargar_super_users, cargar_registro_llamadas, guardar_registro_llamadas
+            
+            super_users_config = cargar_super_users()
+            
+            alertas = []
+            mapeos_realizados = []
+            ventas_totales_confirmadas = 0
+            actualizaciones_registro = []
+            
+            # Cargar registro una sola vez para optimizar
+            if estado == "confirmado":
+                registro_llamadas = cargar_registro_llamadas()
+            
+            for datos in pendientes_sms_data:
+                agente_sistema, nombre_agente = mapear_agente_a_sistema_local(datos['agente'], super_users_config)
+                
+                if agente_sistema is None:
+                    agente_sistema = datos['agente']
+                    nombre_agente = "No encontrado"
+                
+                ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
+                
+                # ==============================================
+                # ACTUALIZAR REGISTRO DIARIO si se confirma
+                # ==============================================
+                if estado == "confirmado" and ventas_finales > 0 and agente_sistema:
+                    try:
+                        fecha_str = datos['fecha']
+                        
+                        # Inicializar estructuras si no existen
+                        if fecha_str not in registro_llamadas:
+                            registro_llamadas[fecha_str] = {}
+                        
+                        if agente_sistema not in registro_llamadas[fecha_str]:
+                            registro_llamadas[fecha_str][agente_sistema] = {
+                                'llamadas_totales': 0,
+                                'llamadas_15min': 0,
+                                'ventas': 0,
+                                'fecha': fecha_str,
+                                'timestamp': datetime.now().isoformat()
+                            }
+                        
+                        # SUMAR VENTAS al registro
+                        registro_llamadas[fecha_str][agente_sistema]['ventas'] += ventas_finales
+                        ventas_totales_confirmadas += ventas_finales
+                        
+                        # Contar como llamada larga si la duración > 15 min
+                        if datos.get('duracion_minutos', 0) > 15:
+                            registro_llamadas[fecha_str][agente_sistema]['llamadas_15min'] += 1
+                        
+                        actualizaciones_registro.append(f"{agente_sistema} ({fecha_str}): +{ventas_finales} venta(s)")
+                        
+                    except Exception as e:
+                        st.error(f"Error actualizando registro para {agente_sistema}: {e}")
+                
+                # Crear alerta
+                alerta = {
+                    'id': f"sms_{datos['hash']}",
+                    'tipo': 'pendiente_sms',
+                    'agente_csv': datos['agente'],
+                    'agente_sistema': agente_sistema,
+                    'nombre_agente': nombre_agente,
+                    'fecha': datos['fecha'],
+                    'hora': datos['hora'],
+                    'duracion_minutos': datos['duracion_minutos'],
+                    'duracion_segundos': int(datos['duracion_minutos'] * 60),
+                    'resultado_elec': datos['resultado_elec'],
+                    'resultado_gas': datos['resultado_gas'],
+                    'motivo_elec': datos.get('motivo_elec', ''),
+                    'motivo_gas': datos.get('motivo_gas', ''),
+                    'ventas_pendientes': datos['ventas_pendientes'],
+                    'ventas_finales': ventas_finales,
+                    'campanya': datos['campanya'],
+                    'timestamp_deteccion': datetime.now().isoformat(),
+                    'hash_registro': datos['hash'],
+                    'detalles': f"Procesado automáticamente como {estado}",
+                    'estado': estado,
+                    'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
+                    'revisado_manual': False,
+                    'procesamiento_automatico': True,
+                    'mapeo_correcto': agente_sistema != datos['agente'],
+                    'actualizado_registro': estado == "confirmado" and ventas_finales > 0
+                }
+                alertas.append(alerta)
+                
+                if agente_sistema != datos['agente']:
+                    mapeos_realizados.append(f"{datos['agente']} → {agente_sistema}")
+            
+            # Guardar registro actualizado si hubo cambios
+            if estado == "confirmado" and actualizaciones_registro:
+                guardar_registro_llamadas(registro_llamadas)
+                st.success(f"📈 Registro diario actualizado: {ventas_totales_confirmadas} venta(s) totales")
+                
+                # Mostrar resumen de actualizaciones
+                with st.expander("📋 Ver detalles de actualización", expanded=False):
+                    for actualizacion in actualizaciones_registro[:10]:
+                        st.write(f"- {actualizacion}")
+                    if len(actualizaciones_registro) > 10:
+                        st.write(f"... y {len(actualizaciones_registro) - 10} más")
+            
+            # Guardar alertas
+            nuevas_agregadas = agregar_varias_alertas_sms(alertas)
+            
+            if nuevas_agregadas > 0:
+                st.session_state[f'procesadas_{estado}'] = len(alertas)
+                
+                # Mostrar resumen
+                st.success(f"✅ Procesadas {len(alertas)} alertas SMS")
+                if estado == "confirmado":
+                    st.success(f"💰 {ventas_totales_confirmadas} venta(s) confirmada(s) y agregada(s) al registro")
+                else:
+                    st.info(f"❌ {len(alertas)} alertas marcadas como no contestadas")
+                
+                # Mostrar mapeos
+                if mapeos_realizados:
+                    st.info(f"📋 **Mapeos realizados ({len(mapeos_realizados)}):**")
+                    for mapeo in mapeos_realizados[:5]:
+                        st.write(f"- {mapeo}")
+                    if len(mapeos_realizados) > 5:
+                        st.write(f"... y {len(mapeos_realizados) - 5} más")
+                
+                return True
+            return False
+            
+        except Exception as e:
+            st.error(f"Error procesando alertas: {e}")
+            return False
+    
+    # ==============================================
+    # FUNCIÓN PARA MOSTRAR MODAL DE EDICIÓN
+    # ==============================================
+    def mostrar_modal_edicion(datos, index, analisis_id_local):
+        """Muestra un modal simple para edición detallada"""
+        with st.expander(f"✏️ Editar detalles de la llamada #{index+1}", expanded=True):
+            st.write("**Edición avanzada:**")
+            
+            from database import cargar_super_users
+            super_users_config = cargar_super_users()
+            
+            agente_sistema, nombre_agente = mapear_agente_a_sistema_local(datos['agente'], super_users_config)
+            
+            col_info1, col_info2 = st.columns(2)
+            with col_info1:
+                st.write(f"**Agente CSV:** `{datos['agente']}`")
+            with col_info2:
+                if agente_sistema and agente_sistema != datos['agente']:
+                    st.success(f"**→ Sistema:** `{agente_sistema}` ({nombre_agente})")
+                elif agente_sistema:
+                    st.info(f"**→ Sistema:** `{agente_sistema}` (sin cambio)")
+                else:
+                    st.warning("**→ Sistema:** No encontrado")
+            
+            st.divider()
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                agente_edit = st.text_input("Agente (CSV)", 
+                                          value=datos['agente'],
+                                          key=f"edit_agente_{analisis_id_local}_{index}")
+                
+                fecha_edit = st.date_input("Fecha", 
+                                        value=datetime.strptime(datos['fecha'], '%Y-%m-%d').date() 
+                                        if datos['fecha'] else datetime.now().date(),
+                                        key=f"edit_fecha_{analisis_id_local}_{index}")
+            
+            with col2:
+                duracion_edit = st.number_input("Duración (min)", 
+                                            value=float(datos['duracion_minutos']),
+                                            min_value=0.0,
+                                            max_value=120.0,
+                                            step=0.5,
+                                            key=f"edit_duracion_{analisis_id_local}_{index}")
+                
+                ventas_pendientes_edit = st.number_input("Ventas pendientes",
+                                                    value=int(datos['ventas_pendientes']),
+                                                    min_value=0,
+                                                    max_value=2,
+                                                    key=f"edit_ventas_{analisis_id_local}_{index}")
+            
+            estado_edit = st.radio("Estado final:",
+                                options=["confirmado", "rechazado", "pendiente"],
+                                index=0 if datos.get('estado') == 'confirmado' else 1 if datos.get('estado') == 'rechazado' else 2,
+                                key=f"edit_estado_{analisis_id_local}_{index}",
+                                horizontal=True)
+            
+            if st.button("💾 Guardar cambios", 
+                       key=f"save_edit_{analisis_id_local}_{index}",
+                       use_container_width=True):
+                datos_editados = datos.copy()
+                datos_editados['agente'] = agente_edit
+                datos_editados['fecha'] = fecha_edit.strftime('%Y-%m-%d')
+                datos_editados['duracion_minutos'] = duracion_edit
+                datos_editados['ventas_pendientes'] = ventas_pendientes_edit
+                
+                procesar_alerta_individual(datos_editados, estado=estado_edit)
+                st.success("¡Cambios guardados!")
+                st.rerun()
+    
+    # ==============================================
+    # CÓDIGO PRINCIPAL DE ANÁLISIS
+    # ==============================================
     
     # Limpiar datos
     df_filtrado['tiempo_conversacion'] = pd.to_numeric(df_filtrado['tiempo_conversacion'], errors='coerce')
@@ -272,19 +717,77 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         # Guardar en session_state para uso posterior
         st.session_state.pendientes_sms = pendientes_sms_data
         
+        # Inicializar set de alertas procesadas si no existe
+        if 'alertas_procesadas' not in st.session_state:
+            st.session_state.alertas_procesadas = set()
+        
         # Mostrar tabla de pendientes
         with st.expander("📋 Ver detalles de pendientes SMS", expanded=False):
+            # Crear DataFrame con información de mapeo
             df_pendientes = pd.DataFrame(pendientes_sms_data)
-            df_pendientes_display = df_pendientes[['agente', 'fecha', 'hora', 'duracion_minutos', 
+            
+            # Cargar configuración para mapear
+            from database import cargar_super_users
+            super_users_config = cargar_super_users()
+            
+            # Añadir columna de mapeo
+            mapeos = []
+            for _, row in df_pendientes.iterrows():
+                agente_sistema, nombre_agente = mapear_agente_a_sistema_local(row['agente'], super_users_config)
+                if agente_sistema and agente_sistema != row['agente']:
+                    mapeos.append(f"→ {agente_sistema}")
+                else:
+                    mapeos.append("")
+            
+            df_pendientes['Mapeo'] = mapeos
+            
+            # Añadir columna de estado actual
+            estados = []
+            for _, row in df_pendientes.iterrows():
+                alerta_id = f"sms_{row['hash']}"
+                
+                # Verificar si ya fue procesada en esta sesión
+                if alerta_id in st.session_state.alertas_procesadas:
+                    estados.append("✅ Confirmada")
+                # Verificar si ya está en el sistema
+                elif verificar_si_procesada(row['hash']):
+                    estados.append("✓ Procesada")
+                else:
+                    estados.append("⏳ Pendiente")
+            
+            df_pendientes['Estado Actual'] = estados
+            
+            df_pendientes_display = df_pendientes[['agente', 'Mapeo', 'Estado Actual', 'fecha', 'hora', 'duracion_minutos', 
                                                    'resultado_elec', 'resultado_gas', 'ventas_pendientes']].copy()
-            df_pendientes_display.columns = ['Agente', 'Fecha', 'Hora', 'Duración (min)', 
+            df_pendientes_display.columns = ['Agente (CSV)', '→ Sistema', 'Estado', 'Fecha', 'Hora', 'Duración (min)', 
                                              'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
-            st.dataframe(df_pendientes_display, use_container_width=True)
+            
+            # Resaltar filas según estado
+            def highlight_estado(row):
+                """
+                Resalta filas según su estado
+                row es una fila de df_pendientes_display, que tiene estas columnas:
+                ['Agente (CSV)', '→ Sistema', 'Estado', 'Fecha', 'Hora', 'Duración (min)', 
+                'Resultado Elec', 'Resultado Gas', 'Ventas Pendientes']
+                """
+                # Verificar si la fila tiene mapeo (columna '→ Sistema' no vacía)
+                tiene_mapeo = row['→ Sistema'] and str(row['→ Sistema']).strip() != ''
+                
+                if row['Estado'] == "✅ Confirmada":
+                    return ['background-color: #d4edda'] * len(row)  # Verde claro
+                elif tiene_mapeo:
+                    return ['background-color: #fff3cd'] * len(row)  # Amarillo claro para mapeo
+                return [''] * len(row)
+            
+            st.dataframe(
+                df_pendientes_display.style.apply(highlight_estado, axis=1), 
+                use_container_width=True
+            )
             
             st.info("💡 **Nota:** Estas ventas NO se importarán automáticamente. Requieren confirmación manual.")
             
             # ==============================================
-            # VERSIÓN SIMPLE Y FUNCIONAL - SIN ESTADO COMPLEJO
+            # PROCESAMIENTO DE PENDIENTES SMS
             # ==============================================
             st.divider()
             st.subheader("📝 Procesar Pendientes SMS")
@@ -297,19 +800,23 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                 if st.button("✅ Todas como Confirmadas", 
                            help="Marcar todas las SMS como contestadas y contar ventas",
                            use_container_width=True,
-                           key=f"confirm_all_{nombre_analisis}"):
-                    procesar_todas_alertas(pendientes_sms_data, estado="confirmado")
-                    st.success("¡Todas las alertas procesadas como confirmadas!")
-                    st.rerun()
+                           key=f"confirm_all_{analisis_id}"):
+                    if procesar_todas_alertas(pendientes_sms_data, estado="confirmado"):
+                        # Marcar todas como procesadas en session_state
+                        for datos in pendientes_sms_data:
+                            alerta_id = f"sms_{datos['hash']}"
+                            st.session_state.alertas_procesadas.add(alerta_id)
+                        st.success("¡Todas las alertas procesadas como confirmadas!")
+                        st.rerun()
             
             with col2:
                 if st.button("❌ Todas como No Contestadas", 
                            help="Marcar todas las SMS como no contestadas",
                            use_container_width=True,
-                           key=f"reject_all_{nombre_analisis}"):
-                    procesar_todas_alertas(pendientes_sms_data, estado="rechazado")
-                    st.success("¡Todas las alertas procesadas como no contestadas!")
-                    st.rerun()
+                           key=f"reject_all_{analisis_id}"):
+                    if procesar_todas_alertas(pendientes_sms_data, estado="rechazado"):
+                        st.success("¡Todas las alertas procesadas como no contestadas!")
+                        st.rerun()
             
             st.divider()
             st.write("**Opción detallada:** Procesar una por una")
@@ -332,177 +839,51 @@ def realizar_analisis(df_filtrado, nombre_analisis):
                     st.write(f"**Duración:** {datos['duracion_minutos']} minutos")
                     
                     # Verificar si ya está procesada
-                    procesada = verificar_si_procesada(datos['hash'])
+                    alerta_id = f"sms_{datos['hash']}"
+                    procesada_en_sistema = verificar_si_procesada(datos['hash'])
+                    procesada_en_sesion = alerta_id in st.session_state.alertas_procesadas
+                    ya_procesada = procesada_en_sistema or procesada_en_sesion
                     
                     # Botones de acción
                     col_btn1, col_btn2, col_btn3 = st.columns(3)
                     
                     with col_btn1:
-                        if not procesada:
+                        if not ya_procesada:
                             if st.button(f"✅ Confirmar", 
-                                       key=f"confirm_{datos['hash']}",
+                                       key=f"confirm_{analisis_id}_{i}_{datos['hash']}",
                                        use_container_width=True):
-                                procesar_alerta_individual(datos, estado="confirmado")
-                                st.success(f"Llamada #{i+1} confirmada")
-                                st.rerun()
+                                if procesar_alerta_individual(datos, estado="confirmado"):
+                                    st.session_state.alertas_procesadas.add(alerta_id)
+                                    st.success(f"Llamada #{i+1} confirmada")
+                                    st.rerun()
                         else:
-                            st.success("✓ Confirmada")
+                            if procesada_en_sesion:
+                                st.success("✅ Confirmada en esta sesión")
+                            else:
+                                st.success("✓ Ya procesada")
                     
                     with col_btn2:
-                        if not procesada:
+                        if not ya_procesada:
                             if st.button(f"❌ Rechazar", 
-                                       key=f"reject_{datos['hash']}",
+                                       key=f"reject_{analisis_id}_{i}_{datos['hash']}",
                                        use_container_width=True):
-                                procesar_alerta_individual(datos, estado="rechazado")
-                                st.success(f"Llamada #{i+1} rechazada")
-                                st.rerun()
+                                if procesar_alerta_individual(datos, estado="rechazado"):
+                                    st.session_state.alertas_procesadas.add(alerta_id)
+                                    st.success(f"Llamada #{i+1} rechazada")
+                                    st.rerun()
                         else:
-                            st.info("✓ Procesada")
+                            st.info("✓ Ya procesada")
                     
                     with col_btn3:
-                        # Botón para editar (opcional)
+                        # Botón para editar
                         if st.button(f"📝 Editar", 
-                                   key=f"edit_{datos['hash']}",
+                                   key=f"edit_{analisis_id}_{i}_{datos['hash']}",
                                    use_container_width=True):
-                            mostrar_modal_edicion(datos, i, nombre_analisis)
-
-    # ==============================================
-    # FUNCIONES AUXILIARES PARA EL FORMULARIO SIMPLE
-    # ==============================================
-
-    def procesar_todas_alertas(pendientes_sms_data, estado="confirmado"):
-        """Procesa todas las alertas de una vez"""
-        try:
-            from database import agregar_varias_alertas_sms
-            
-            alertas = []
-            for datos in pendientes_sms_data:
-                ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
-                
-                alerta = {
-                    'id': f"sms_{datos['hash']}",
-                    'tipo': 'pendiente_sms',
-                    'agente': datos['agente'],
-                    'fecha': datos['fecha'],
-                    'hora': datos['hora'],
-                    'duracion_minutos': datos['duracion_minutos'],
-                    'duracion_segundos': int(datos['duracion_minutos'] * 60),
-                    'resultado_elec': datos['resultado_elec'],
-                    'resultado_gas': datos['resultado_gas'],
-                    'motivo_elec': datos.get('motivo_elec', ''),
-                    'motivo_gas': datos.get('motivo_gas', ''),
-                    'ventas_pendientes': datos['ventas_pendientes'],
-                    'ventas_finales': ventas_finales,
-                    'campanya': datos['campanya'],
-                    'timestamp_deteccion': datetime.now().isoformat(),
-                    'hash_registro': datos['hash'],
-                    'detalles': f"Procesado automáticamente como {estado}",
-                    'estado': estado,
-                    'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
-                    'revisado_manual': False,
-                    'procesamiento_automatico': True
-                }
-                alertas.append(alerta)
-            
-            # Guardar todas las alertas
-            nuevas_agregadas = agregar_varias_alertas_sms(alertas)
-            
-            if nuevas_agregadas > 0:
-                st.session_state[f'procesadas_{estado}'] = len(alertas)
-                return True
-            return False
-            
-        except Exception as e:
-            st.error(f"Error procesando alertas: {e}")
-            return False
-
-
-    def procesar_alerta_individual(datos, estado="confirmado"):
-        """Procesa una alerta individual"""
-        try:
-            from database import agregar_varias_alertas_sms
-            
-            ventas_finales = datos['ventas_pendientes'] if estado == "confirmado" else 0
-            
-            alerta = {
-                'id': f"sms_{datos['hash']}",
-                'tipo': 'pendiente_sms',
-                'agente': datos['agente'],
-                'fecha': datos['fecha'],
-                'hora': datos['hora'],
-                'duracion_minutos': datos['duracion_minutos'],
-                'duracion_segundos': int(datos['duracion_minutos'] * 60),
-                'resultado_elec': datos['resultado_elec'],
-                'resultado_gas': datos['resultado_gas'],
-                'motivo_elec': datos.get('motivo_elec', ''),
-                'motivo_gas': datos.get('motivo_gas', ''),
-                'ventas_pendientes': datos['ventas_pendientes'],
-                'ventas_finales': ventas_finales,
-                'campanya': datos['campanya'],
-                'timestamp_deteccion': datetime.now().isoformat(),
-                'hash_registro': datos['hash'],
-                'detalles': f"Procesado manualmente como {estado}",
-                'estado': estado,
-                'opcion_seleccionada': f"SMS {'Contestado' if estado == 'confirmado' else 'No Contestado'}",
-                'revisado_manual': True,
-                'timestamp_revision': datetime.now().isoformat()
-            }
-            
-            nuevas_agregadas = agregar_varias_alertas_sms([alerta])
-            return nuevas_agregadas > 0
-            
-        except Exception as e:
-            st.error(f"Error procesando alerta individual: {e}")
-            return False
-
-    def mostrar_modal_edicion(datos, index):
-        """Muestra un modal simple para edición detallada"""
-        with st.expander(f"✏️ Editar detalles de la llamada #{index+1}", expanded=True):
-            st.write("**Edición avanzada:**")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                agente_edit = st.text_input("Agente", value=datos['agente'], key=f"edit_agente_{index}")
-                fecha_edit = st.date_input("Fecha", 
-                                        value=datetime.strptime(datos['fecha'], '%Y-%m-%d').date() 
-                                        if datos['fecha'] else datetime.now().date(),
-                                        key=f"edit_fecha_{index}")
-            
-            with col2:
-                duracion_edit = st.number_input("Duración (min)", 
-                                            value=float(datos['duracion_minutos']),
-                                            min_value=0.0,
-                                            max_value=120.0,
-                                            step=0.5,
-                                            key=f"edit_duracion_{index}")
-                
-                ventas_pendientes_edit = st.number_input("Ventas pendientes",
-                                                    value=int(datos['ventas_pendientes']),
-                                                    min_value=0,
-                                                    max_value=2,
-                                                    key=f"edit_ventas_{index}")
-            
-            # Opciones de estado
-            estado_edit = st.radio("Estado final:",
-                                options=["confirmado", "rechazado", "pendiente"],
-                                index=0 if datos.get('estado') == 'confirmado' else 1 if datos.get('estado') == 'rechazado' else 2,
-                                key=f"edit_estado_{index}",
-                                horizontal=True)
-            
-            # Botón para guardar edición
-            if st.button("💾 Guardar cambios", key=f"save_edit_{index}"):
-                datos_editados = datos.copy()
-                datos_editados['agente'] = agente_edit
-                datos_editados['fecha'] = fecha_edit.strftime('%Y-%m-%d')
-                datos_editados['duracion_minutos'] = duracion_edit
-                datos_editados['ventas_pendientes'] = ventas_pendientes_edit
-                
-                # Procesar con datos editados
-                procesar_alerta_individual(datos_editados, estado=estado_edit)
-                st.success("¡Cambios guardados!")
-                st.rerun()
+                            mostrar_modal_edicion(datos, i, analisis_id)
     
-    # Análisis por agente
+    # ==============================================
+    # ANÁLISIS POR AGENTE
+    # ==============================================
     st.subheader("👥 Resumen por Agente")
     
     agentes_analisis = []
@@ -530,7 +911,9 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         df_resultados = df_resultados.sort_values('Ventas Totales', ascending=False)
         st.dataframe(df_resultados, use_container_width=True)
     
-    # Ventas desde llamadas largas
+    # ==============================================
+    # VENTAS DESDE LLAMADAS LARGAS
+    # ==============================================
     df_ventas_largas = df_llamadas_largas[df_llamadas_largas['tiene_venta']]
     
     if not df_ventas_largas.empty:
@@ -545,93 +928,6 @@ def realizar_analisis(df_filtrado, nombre_analisis):
         st.dataframe(df_detalle.head(10), use_container_width=True)
     
     return df_filtrado
-
-
-def _generar_alertas_sms(pendientes_sms_data, nombre_analisis):
-    """Función auxiliar para generar alertas SMS"""
-    st.write("### 🚀 Generando Alertas SMS...")
-    
-    if not pendientes_sms_data:
-        st.error("❌ No hay llamadas con PENDIENTE SMS para generar alertas")
-        return
-    
-    st.write(f"**📊 Datos encontrados:** {len(pendientes_sms_data)} llamadas con PENDIENTE SMS")
-    
-    # Preparar las alertas
-    alertas = []
-    for i, item in enumerate(pendientes_sms_data):
-        alerta = {
-            'id': f"sms_{item['hash']}",
-            'tipo': 'pendiente_sms',
-            'agente': item['agente'],
-            'fecha': item['fecha'],
-            'hora': item['hora'],
-            'duracion': f"{item['duracion_minutos']} min",
-            'resultado_elec': item['resultado_elec'],
-            'resultado_gas': item['resultado_gas'],
-            'motivo_elec': item.get('motivo_elec', ''),
-            'motivo_gas': item.get('motivo_gas', ''),
-            'ventas_pendientes': item['ventas_pendientes'],
-            'campanya': item['campanya'],
-            'timestamp': datetime.now().isoformat(),
-            'hash_registro': item['hash'],
-            'detalles': f"PENDIENTE SMS: {item['ventas_pendientes']} venta(s) pendiente(s)",
-            'estado': 'pendiente',
-            'accion': None,
-            'confirmado_por': None,
-            'timestamp_confirmacion': None
-        }
-        alertas.append(alerta)
-        
-        if i < 3:
-            st.write(f"{i+1}. **{alerta['agente']}** - {alerta['fecha']} {alerta['hora']} - {alerta['ventas_pendientes']} venta(s)")
-    
-    if len(pendientes_sms_data) > 3:
-        st.write(f"... y {len(pendientes_sms_data) - 3} más")
-    
-    st.write(f"**✅ Alertas preparadas:** {len(alertas)}")
-    
-    try:
-        from database import agregar_varias_alertas_sms
-        
-        st.write("---")
-        st.write("**💾 Guardando alertas en el sistema...**")
-        
-        nuevas_agregadas = agregar_varias_alertas_sms(alertas)
-        
-        if nuevas_agregadas > 0:
-            st.balloons()
-            st.success(f"🎉 **¡{nuevas_agregadas} alertas generadas exitosamente!**")
-            st.info("📋 Las alertas aparecerán en el sidebar de Super Users para confirmación")
-            
-            if st.button("🔍 Verificar archivo", type="secondary", key=f"verificar_{nombre_analisis}"):
-                _verificar_archivo_alertas()
-        else:
-            st.info("ℹ️ No se agregaron nuevas alertas (posiblemente ya existían)")
-            
-    except ImportError:
-        st.error("❌ No se pudo importar la función de database.py")
-        st.info("💡 Asegúrate de haber agregado las funciones de alertas SMS a database.py")
-    except Exception as e:
-        st.error(f"❌ Error al guardar alertas: {e}")
-
-
-def _verificar_archivo_alertas():
-    """Función auxiliar para verificar archivo de alertas"""
-    import os
-    if os.path.exists('data/alertas_sms.json'):
-        st.success("✅ Archivo existe")
-        with open('data/alertas_sms.json', 'r', encoding='utf-8') as f:
-            datos = json.load(f)
-            st.write(f"Contiene {len(datos)} alertas")
-            
-            if datos:
-                st.write("**Ejemplo de alerta guardada:**")
-                primera_clave = list(datos.keys())[0]
-                st.json(datos[primera_clave])
-    else:
-        st.error("❌ Archivo NO existe")
-
 
 def importar_datos_a_registro(df_analizado, super_users_config):
     """
