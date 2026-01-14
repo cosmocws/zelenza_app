@@ -171,22 +171,6 @@
             "supervisor": "",
             "fecha_registro": "2026-01-01"
         },
-        "0869": {
-            "nombre": "Javier Olmedo",
-            "grupo": "CAPTA EQUIPO EVA",
-            "tipo": "manual",
-            "activo": true,
-            "supervisor": "",
-            "fecha_registro": "2026-01-01"
-        },
-        "0872": {
-            "nombre": "Javier Girol",
-            "grupo": "CAPTA EQUIPO EVA",
-            "tipo": "manual",
-            "activo": true,
-            "supervisor": "",
-            "fecha_registro": "2026-01-01"
-        },
         "0881": {
             "nombre": "Manuel Leiras",
             "grupo": "CAPTA EQUIPO EVA",
@@ -241,10 +225,11 @@
             "nombre": "Nathaly López",
             "grupo": "CAPTA EQUIPO LUIS",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0731",
+            "objetivo_ventas_mensual": 10,
             "fecha_registro": "2026-01-01",
-            "fecha_actualizacion": "2026-01-01 20:01:00"
+            "fecha_actualizacion": "2026-01-14 10:25:00"
         },
         "0893": {
             "nombre": "José Gabriel Orellana",
