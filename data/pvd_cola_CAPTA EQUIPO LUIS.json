@@ -1,1 +1,30 @@
-[]
+[
+    {
+        "id": "aba1584f",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-15T16:04:00.222412+01:00",
+        "timestamp_inicio": "2026-01-15T16:06:25.033111+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-15T16:04:00.381558+01:00"
+    },
+    {
+        "id": "d3ce40c3",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-15T16:07:15.567748+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-15T16:07:15.725328+01:00"
+    }
+]
