@@ -175,5 +175,62 @@
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-01-16T19:04:11.635083+01:00"
+    },
+    {
+        "id": "bf371355",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-01-16T19:34:07.715860+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-16T19:34:07.912846+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-01-16T19:34:07.919184+01:00"
+    },
+    {
+        "id": "cfc0c0b2",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-16T19:34:16.517375+01:00",
+        "timestamp_inicio": "2026-01-16T19:34:26.153071+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-16T19:34:16.729571+01:00"
+    },
+    {
+        "id": "9fb4e765",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-16T19:37:40.010315+01:00",
+        "timestamp_inicio": "2026-01-16T19:37:42.806599+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-16T19:37:40.171887+01:00"
+    },
+    {
+        "id": "d500a062",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-16T19:38:52.825232+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
