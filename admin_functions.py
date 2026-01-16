@@ -1289,7 +1289,9 @@ def _mostrar_pausa_en_espera_grupo(pausa, indice, grupo_id, cola_grupo, config_p
             en_pausa_grupo = len([p for p in cola_grupo if p['estado'] == 'EN_CURSO'])
             
             if en_pausa_grupo < max_simultaneo and indice == 0:
-                if st.button("▶️ Iniciar", key=f"iniciar_{pausa['id']}_{grupo_id}", use_container_width=True):
+                if st.button("▶️ Iniciar", 
+                             key=f"iniciar_{grupo_id}_{pausa['id']}_{indice}",  # Añadí indice para más unicidad
+                             use_container_width=True):
                     pausa['estado'] = 'EN_CURSO'
                     pausa['timestamp_inicio'] = obtener_hora_madrid().isoformat()
                     pausa['confirmado'] = True
@@ -1300,10 +1302,12 @@ def _mostrar_pausa_en_espera_grupo(pausa, indice, grupo_id, cola_grupo, config_p
                     st.success(f"✅ Pausa #{pausa['id']} iniciada manualmente")
                     st.rerun()
             else:
-                st.button("⏳ Esperando...", disabled=True, use_container_width=True)
+                st.button("⏳ Esperando...", 
+                          disabled=True, 
+                          use_container_width=True,
+                          key=f"esperando_{grupo_id}_{pausa['id']}_{indice}")  # KEY AÑADIDA AQUÍ
         
         st.markdown("---")
-
 
 def _mostrar_temporizadores_activos_grupos(temporizador, todas_colas):
     """Muestra información de temporizadores activos por grupos"""
