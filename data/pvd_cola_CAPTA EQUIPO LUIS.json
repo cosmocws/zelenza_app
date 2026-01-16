@@ -295,7 +295,7 @@
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-01-16T20:00:27.523650+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -303,6 +303,8 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-01-16T20:03:23.578622+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-01-16T20:10:23.601560+01:00"
     }
 ]
