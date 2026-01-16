@@ -116,5 +116,35 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-01-16T18:16:56.202148+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "2d395a84",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-01-16T18:35:52.545082+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-16T18:35:52.712701+01:00",
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-01-16T18:43:03.965052+01:00"
+    },
+    {
+        "id": "5e3268c7",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-16T18:43:30.136987+01:00",
+        "timestamp_inicio": "2026-01-16T18:43:34.188863+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-16T18:43:30.326401+01:00"
     }
 ]
