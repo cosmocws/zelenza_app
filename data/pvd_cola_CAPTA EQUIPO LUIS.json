@@ -136,5 +136,59 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-01-19T17:41:57.179343+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "c4c7e9bb",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-19T18:25:40.933364+01:00",
+        "timestamp_inicio": "2026-01-19T18:25:43.197627+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-19T18:25:41.109639+01:00"
+    },
+    {
+        "id": "ec95b263",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-19T18:26:02.246663+01:00",
+        "timestamp_inicio": "2026-01-19T18:26:07.354346+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-19T18:26:02.429344+01:00"
+    },
+    {
+        "id": "f49ac9d7",
+        "usuario_id": "0657",
+        "usuario_nombre": "Rocío Moslero",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-19T18:28:40.572551+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    },
+    {
+        "id": "cf3a5b9a",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-19T18:28:49.894139+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
