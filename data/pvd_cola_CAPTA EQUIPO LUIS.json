@@ -42,5 +42,32 @@
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-01-19T16:28:49.975108+01:00"
+    },
+    {
+        "id": "7940a99e",
+        "usuario_id": "0657",
+        "usuario_nombre": "Rocío Moslero",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-19T16:30:23.742812+01:00",
+        "timestamp_inicio": "2026-01-19T16:30:26.676861+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-19T16:30:23.956692+01:00"
+    },
+    {
+        "id": "ed6d62c2",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-19T16:32:41.940397+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
