@@ -13,5 +13,20 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-01-19T15:27:34.622198+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "f3e9eb32",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-01-19T16:08:49.560810+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-19T16:08:49.722502+01:00",
+        "motivo_cancelacion": "usuario_rechazo"
     }
 ]
