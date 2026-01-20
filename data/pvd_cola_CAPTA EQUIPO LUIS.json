@@ -165,5 +165,48 @@
         "confirmado": false,
         "motivo_cancelacion": "bloqueado_sin_notificar",
         "timestamp_cancelacion": "2026-01-20T18:45:43.120472+01:00"
+    },
+    {
+        "id": "b7b094fa",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-20T19:26:50.913556+01:00",
+        "timestamp_inicio": "2026-01-20T19:26:55.914025+01:00",
+        "timestamp_fin": "2026-01-20T19:37:08.836304+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-20T19:26:51.063496+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "6cce692d",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-20T19:36:01.582323+01:00",
+        "timestamp_inicio": "2026-01-20T19:36:20.689326+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-20T19:36:01.796917+01:00"
+    },
+    {
+        "id": "91da2b0f",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-20T19:37:13.611142+01:00",
+        "timestamp_inicio": "2026-01-20T19:37:29.624862+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-20T19:37:13.834015+01:00"
     }
 ]
