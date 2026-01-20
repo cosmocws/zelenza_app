@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-01-20T18:41:19.809724",
-  "message": "Auto-sync: 2026-01-20 18:40:35",
+  "timestamp": "2026-01-20T18:45:00.657967",
+  "message": "Auto-sync: 2026-01-20 18:44:13",
   "results": {
     "total": 42,
-    "success": 42,
-    "failed": 0,
+    "success": 41,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -22,7 +22,7 @@
       "✅ Subido: data/feedback_agentes.json",
       "✅ Subido: data/monitorizaciones.json",
       "✅ Subido: data/registro_llamadas.json",
-      "✅ Subido: data/config_pmg.json",
+      "❌ Falló: data/config_pmg.json",
       "✅ Subido: data/config_pvd.json",
       "✅ Subido: data/planes_gas.json",
       "✅ Subido: data/alertas_descartadas_admin.json",
