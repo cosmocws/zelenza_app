@@ -179,7 +179,7 @@
         "usuario_id": "0820",
         "usuario_nombre": "Raúl Palomino",
         "duracion_elegida": "corta",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-01-21T18:35:33.232920+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -189,6 +189,8 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-01-21T18:42:05.230957+01:00",
         "timestamp_notificacion": "2026-01-21T18:42:36.451837+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-01-21T18:49:36.491582+01:00"
     }
 ]
