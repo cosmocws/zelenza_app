@@ -12,5 +12,50 @@
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-01-21T16:01:31.399851+01:00"
+    },
+    {
+        "id": "6a55112f",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-21T16:21:42.640032+01:00",
+        "timestamp_inicio": "2026-01-21T16:22:10.934186+01:00",
+        "timestamp_fin": "2026-01-21T16:27:10.613609+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-21T16:21:42.795761+01:00"
+    },
+    {
+        "id": "efbc19ae",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-21T16:23:44.492746+01:00",
+        "timestamp_inicio": "2026-01-21T16:23:46.974460+01:00",
+        "timestamp_fin": "2026-01-21T16:28:51.234533+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-21T16:23:44.671498+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "ba11870c",
+        "usuario_id": "0657",
+        "usuario_nombre": "Rocío Moslero",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-21T16:27:02.712480+01:00",
+        "timestamp_inicio": "2026-01-21T16:27:28.085003+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "listo_para_confirmar": true,
+        "timestamp_disponible": "2026-01-21T16:27:10.618200+01:00",
+        "timestamp_notificacion": "2026-01-21T16:27:13.469983+01:00"
     }
 ]
