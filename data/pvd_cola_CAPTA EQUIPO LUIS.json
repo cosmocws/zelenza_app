@@ -33,10 +33,10 @@
         "usuario_id": "0387",
         "usuario_nombre": "David Montesinos",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-01-22T16:30:51.839107+01:00",
         "timestamp_inicio": "2026-01-22T16:31:07.474494+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-01-22T16:40:30.756950+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
@@ -72,7 +72,9 @@
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": false,
-        "timestamp_notificacion": "2026-01-22T16:39:53.169123+01:00",
-        "notificar_sidebar": true
+        "timestamp_notificacion": "2026-01-22T16:40:43.846312+01:00",
+        "notificar_sidebar": true,
+        "listo_para_confirmar": true,
+        "timestamp_disponible": "2026-01-22T16:40:30.759798+01:00"
     }
 ]
