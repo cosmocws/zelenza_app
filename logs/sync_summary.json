@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-01-22T14:51:32.789349",
-  "message": "Auto-sync: 2026-01-22 14:50:42",
+  "timestamp": "2026-01-22T15:04:03.143352",
+  "message": "Auto-sync: 2026-01-22 15:03:16",
   "results": {
     "total": 43,
-    "success": 43,
-    "failed": 0,
+    "success": 42,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -16,7 +16,7 @@
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/pvd_cola_.json",
       "✅ Subido: data/config_excedentes.csv",
-      "✅ Subido: data/ventas_agentes.json",
+      "❌ Falló: data/ventas_agentes.json",
       "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/alertas_sms.json",
       "✅ Subido: data/usuarios.json",
