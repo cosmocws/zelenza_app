@@ -164,5 +164,45 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-01-22T18:52:58.399461+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "e3e7f9b7",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-22T19:31:10.188211+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-22T19:31:10.357728+01:00"
+    },
+    {
+        "id": "c73f0132",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-22T19:31:17.608891+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    },
+    {
+        "id": "d54889a6",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-22T19:31:57.992819+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
