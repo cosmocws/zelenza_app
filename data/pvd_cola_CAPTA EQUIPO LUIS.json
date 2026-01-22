@@ -1,1 +1,75 @@
-[]
+[
+    {
+        "id": "6cd290ae",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-22T16:22:38.621121+01:00",
+        "timestamp_inicio": "2026-01-22T16:22:56.291604+01:00",
+        "timestamp_fin": "2026-01-22T16:27:58.781541+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-22T16:22:38.802400+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "adaac934",
+        "usuario_id": "0657",
+        "usuario_nombre": "Rocío Moslero",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-22T16:26:45.650387+01:00",
+        "timestamp_inicio": "2026-01-22T16:26:50.048016+01:00",
+        "timestamp_fin": "2026-01-22T16:34:31.327346+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-22T16:26:45.820586+01:00"
+    },
+    {
+        "id": "df04fff2",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-22T16:30:51.839107+01:00",
+        "timestamp_inicio": "2026-01-22T16:31:07.474494+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-22T16:30:52.038493+01:00"
+    },
+    {
+        "id": "20fc6c6a",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-22T16:32:51.628085+01:00",
+        "timestamp_inicio": "2026-01-22T16:34:52.866137+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "listo_para_confirmar": true,
+        "timestamp_disponible": "2026-01-22T16:34:31.331374+01:00",
+        "timestamp_notificacion": "2026-01-22T16:34:43.821422+01:00",
+        "notificar_sidebar": true
+    },
+    {
+        "id": "d38f1981",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-22T16:35:26.393495+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    }
+]
