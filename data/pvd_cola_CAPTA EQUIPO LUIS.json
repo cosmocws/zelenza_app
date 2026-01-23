@@ -128,14 +128,15 @@
         "usuario_id": "0782",
         "usuario_nombre": "Rocío Miranda",
         "duracion_elegida": "corta",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-01-23T19:20:26.132292+01:00",
         "timestamp_inicio": "2026-01-23T19:26:18.132704+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-01-23T19:31:19.106017+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-01-23T19:20:26.308017+01:00"
+        "timestamp_notificacion": "2026-01-23T19:20:26.308017+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "17ca5793",
@@ -171,12 +172,14 @@
         "usuario_id": "0657",
         "usuario_nombre": "Rocío Moslero",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-01-23T19:30:28.236721+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-01-23T19:31:27.263060+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-23T19:31:19.108611+01:00",
+        "notificar_sidebar": true
     }
 ]
