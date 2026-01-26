@@ -1721,6 +1721,328 @@ def _configuracion_festivos(festivos_data):
         st.success("✅ Festivos restaurados a valores por defecto")
         st.rerun()
 
+def gestion_agentes_objetivos():
+    """Gestión de agentes, horarios, ausencias y objetivos - VISTA TABULAR"""
+    st.subheader("👨‍💼 Gestión de Agentes y Objetivos - Vista Tabular")
+    
+    # Cargar datos
+    from database import cargar_configuracion_usuarios
+    from festivos_manager import cargar_festivos
+    
+    agentes_config = cargar_configuracion_usuarios()
+    horarios = cargar_horarios_agentes()
+    ausencias = cargar_ausencias_agentes()
+    metricas = cargar_metricas_agentes()
+    festivos_data = cargar_festivos()
+    
+    # Obtener mes actual para cálculos
+    hoy = datetime.now()
+    año_actual = hoy.year
+    mes_actual = hoy.month
+    mes_key = f"{año_actual}-{mes_actual:02d}"
+    
+    # Calcular festivos del mes actual
+    from festivos_manager import obtener_festivos_año
+    festivos_mes = obtener_festivos_año(año_actual, festivos_data)
+    festivos_mes = [f for f in festivos_mes if f.startswith(f"{año_actual}-{mes_actual:02d}")]
+    horas_festivos_mes = len(festivos_mes) * 6  # Asumiendo 6 horas por festivo
+    
+    # Filtrar solo agentes (no admin)
+    agentes = [username for username in agentes_config.keys() if username != "admin"]
+    
+    if not agentes:
+        st.info("📝 No hay agentes configurados. Primero crea agentes en la pestaña 'Usuarios'.")
+        return
+    
+    st.info(f"📅 **Mes actual:** {mes_key} | **Festivos este mes:** {len(festivos_mes)} días ({horas_festivos_mes}h)")
+    
+    # Crear tabla de datos
+    datos_tabla = []
+    
+    for agente_id in agentes:
+        # Obtener nombre del agente
+        nombre = agentes_config[agente_id].get('nombre', agente_id)
+        
+        # Asegurar que el agente tenga horario
+        if agente_id not in horarios:
+            horarios[agente_id] = crear_horario_por_defecto()
+        
+        # Calcular horas por día de la semana
+        dias_semana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes"]
+        horas_por_dia = {}
+        total_horas_semana = 0
+        
+        for dia in dias_semana:
+            if dia in horarios[agente_id]:
+                horas = obtener_horas_diarias(horarios[agente_id][dia])
+                horas_por_dia[dia] = round(horas, 1)
+                total_horas_semana += horas
+            else:
+                horas_por_dia[dia] = 6.0  # Valor por defecto
+                total_horas_semana += 6.0
+        
+        # Calcular días laborables del mes (sin festivos)
+        from festivos_manager import es_festivo
+        
+        dias_laborables = 0
+        fecha_actual = date(año_actual, mes_actual, 1)
+        ultimo_dia_mes = (fecha_actual.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+        
+        while fecha_actual <= ultimo_dia_mes:
+            if fecha_actual.weekday() < 5 and not es_festivo(fecha_actual, festivos_data):
+                dias_laborables += 1
+            fecha_actual += timedelta(days=1)
+        
+        # Calcular horas totales del mes
+        horas_totales_mes = (dias_laborables * total_horas_semana / 5)
+        
+        # Calcular ausencias del mes (en horas)
+        horas_ausencias_mes = 0
+        
+        if agente_id in ausencias:
+            for fecha_str, datos_ausencia in ausencias[agente_id].items():
+                try:
+                    fecha_ausencia = datetime.strptime(fecha_str, "%Y-%m-%d")
+                    if fecha_ausencia.year == año_actual and fecha_ausencia.month == mes_actual:
+                        # Solo contar si es día laborable y no festivo
+                        fecha_date = fecha_ausencia.date()
+                        if fecha_date.weekday() < 5 and not es_festivo(fecha_date, festivos_data):
+                            horas_perdidas = datos_ausencia.get('horas_perdidas', 0)
+                            horas_ausencias_mes += horas_perdidas
+                except:
+                    pass
+        
+        # Restar horas de ausencias
+        horas_totales_mes -= horas_ausencias_mes
+        
+        # Obtener SPH actual
+        sph_actual = 0.07
+        if agente_id in metricas and mes_key in metricas[agente_id]:
+            sph_actual = metricas[agente_id][mes_key].get('sph', 0.07)
+        
+        # CALCULAR OBJETIVO AUTOMÁTICAMENTE (con la fórmula que me diste)
+        # 1. Horas efectivas = horas_totales_mes × 0.83
+        horas_efectivas = horas_totales_mes * 0.83
+        
+        # 2. Objetivo decimal = horas_efectivas × SPH
+        objetivo_decimal = horas_efectivas * sph_actual
+        
+        # 3. Redondear según regla: ≥ 0.51 sube, < 0.51 baja
+        if objetivo_decimal - int(objetivo_decimal) >= 0.51:
+            objetivo_final = int(objetivo_decimal) + 1
+        else:
+            objetivo_final = int(objetivo_decimal)
+        
+        # Asegurar que no sea negativo
+        objetivo_final = max(0, objetivo_final)
+        
+        # Añadir a la tabla
+        datos_tabla.append({
+            'Agente': nombre,
+            'Username': agente_id,
+            'Lunes': horas_por_dia['Lunes'],
+            'Martes': horas_por_dia['Martes'],
+            'Miércoles': horas_por_dia['Miércoles'],
+            'Jueves': horas_por_dia['Jueves'],
+            'Viernes': horas_por_dia['Viernes'],
+            'Festivos (h)': horas_festivos_mes,
+            'AUS (h)': horas_ausencias_mes,
+            'SPH': sph_actual,
+            'OBJ': objetivo_final,
+            '_horas_totales': round(horas_totales_mes, 1),  # Campo oculto para cálculos
+            '_horas_efectivas': round(horas_efectivas, 1)   # Campo oculto para cálculos
+        })
+    
+    # Crear DataFrame
+    import pandas as pd
+    df = pd.DataFrame(datos_tabla)
+    
+    # Mostrar tabla editable
+    st.write("### 📊 Tabla de Agentes - Edición Directa")
+    st.caption("📝 Modifica las horas por día y el SPH - El OBJETIVO se calculará automáticamente")
+    
+    # Usar st.data_editor para edición directa
+    edited_df = st.data_editor(
+        df,
+        column_config={
+            'Agente': st.column_config.TextColumn("Agente", width="medium", disabled=True),
+            'Username': st.column_config.TextColumn("Username", width="small", disabled=True),
+            'Lunes': st.column_config.NumberColumn("Lunes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
+            'Martes': st.column_config.NumberColumn("Martes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
+            'Miércoles': st.column_config.NumberColumn("Miércoles (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
+            'Jueves': st.column_config.NumberColumn("Jueves (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
+            'Viernes': st.column_config.NumberColumn("Viernes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
+            'Festivos (h)': st.column_config.NumberColumn("Festivos (h)", disabled=True),
+            'AUS (h)': st.column_config.NumberColumn("Ausencias (h)", min_value=0.0, max_value=200.0, step=1.0, disabled=True),  # Se edita en otra pestaña
+            'SPH': st.column_config.NumberColumn("SPH", min_value=0.01, max_value=1.0, step=0.01, format="%.2f"),
+            'OBJ': st.column_config.NumberColumn("Objetivo", min_value=0, max_value=1000, step=1, disabled=True),
+            '_horas_totales': None,  # Ocultar columna
+            '_horas_efectivas': None  # Ocultar columna
+        },
+        hide_index=True,
+        use_container_width=True,
+        num_rows="fixed",
+        key="tabla_agentes_editor"
+    )
+    
+    # Botón para guardar cambios
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("💾 Guardar Todos los Cambios", type="primary", use_container_width=True, key="guardar_tabla_completa"):
+            cambios_realizados = False
+            
+            for idx, row in edited_df.iterrows():
+                agente_id = row['Username']
+                
+                # 1. Actualizar horarios (convertir horas a horarios reales)
+                if agente_id not in horarios:
+                    horarios[agente_id] = crear_horario_por_defecto()
+                
+                # Actualizar cada día según las horas especificadas
+                dias_editor = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes']
+                
+                for dia in dias_editor:
+                    horas_nuevas = float(row[dia])
+                    
+                    # Mantener hora de inicio fija (15:00) y ajustar fin según horas
+                    hora_inicio_str = "15:00"  # Hora de inicio por defecto
+                    
+                    try:
+                        hora_inicio = datetime.strptime(hora_inicio_str, "%H:%M")
+                        hora_fin = hora_inicio + timedelta(hours=horas_nuevas)
+                        
+                        # Si pasa de medianoche, ajustar
+                        if hora_fin.day > hora_inicio.day:
+                            hora_fin_str = hora_fin.strftime("%H:%M") + " (+1)"
+                        else:
+                            hora_fin_str = hora_fin.strftime("%H:%M")
+                        
+                        horarios[agente_id][dia] = {
+                            "inicio": hora_inicio_str,
+                            "fin": hora_fin_str
+                        }
+                    except:
+                        # Si hay error, mantener horario por defecto
+                        horarios[agente_id][dia] = {"inicio": "15:00", "fin": "21:00"}
+                
+                # 2. Actualizar SPH
+                sph_nuevo = float(row['SPH'])
+                
+                # 3. Calcular objetivo actualizado
+                # Recalcular días laborables y horas
+                dias_laborables = 0
+                fecha_actual = date(año_actual, mes_actual, 1)
+                ultimo_dia_mes = (fecha_actual.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
+                
+                while fecha_actual <= ultimo_dia_mes:
+                    if fecha_actual.weekday() < 5 and not es_festivo(fecha_actual, festivos_data):
+                        dias_laborables += 1
+                    fecha_actual += timedelta(days=1)
+                
+                # Calcular horas totales del mes con nuevo horario
+                total_horas_semana = sum(float(row[dia]) for dia in dias_editor)
+                horas_totales_mes = (dias_laborables * total_horas_semana / 5)
+                
+                # Restar ausencias
+                horas_ausencias = float(row['AUS (h)'])
+                horas_totales_mes -= horas_ausencias
+                horas_totales_mes = max(0, horas_totales_mes)  # No negativo
+                
+                # Calcular objetivo con fórmula
+                horas_efectivas = horas_totales_mes * 0.83
+                objetivo_decimal = horas_efectivas * sph_nuevo
+                
+                if objetivo_decimal - int(objetivo_decimal) >= 0.51:
+                    objetivo_final = int(objetivo_decimal) + 1
+                else:
+                    objetivo_final = int(objetivo_decimal)
+                
+                objetivo_final = max(0, objetivo_final)
+                
+                # Guardar métricas
+                if agente_id not in metricas:
+                    metricas[agente_id] = {}
+                
+                metricas[agente_id][mes_key] = {
+                    "sph": sph_nuevo,
+                    "objetivo_calculado": objetivo_final,
+                    "horas_totales_mes": round(horas_totales_mes, 2),
+                    "horas_efectivas": round(horas_efectivas, 2),
+                    "dias_ausentes": int(horas_ausencias / 6) if horas_ausencias > 0 else 0,
+                    "mes": mes_key
+                }
+                
+                cambios_realizados = True
+            
+            if cambios_realizados:
+                # Guardar todos los cambios
+                guardar_horarios_agentes(horarios)
+                guardar_metricas_agentes(metricas)
+                
+                st.success("✅ Todos los cambios guardados exitosamente")
+                st.rerun()
+            else:
+                st.info("📝 No se detectaron cambios para guardar")
+    
+    # Sección para gestión de ausencias (ya que en la tabla no se pueden editar fácilmente)
+    st.write("---")
+    st.write("### 🏖️ Gestión Rápida de Ausencias")
+    
+    col_aus1, col_aus2, col_aus3 = st.columns(3)
+    
+    with col_aus1:
+        agente_ausencia = st.selectbox(
+            "Agente:",
+            agentes,
+            format_func=lambda x: f"{agentes_config[x].get('nombre', x)}",
+            key="agente_ausencia_rapida"
+        )
+    
+    with col_aus2:
+        fecha_ausencia = st.date_input(
+            "Fecha:",
+            value=hoy.date(),
+            key="fecha_ausencia_rapida"
+        )
+    
+    with col_aus3:
+        horas_ausencia = st.number_input(
+            "Horas perdidas:",
+            min_value=1,
+            max_value=12,
+            value=6,
+            key="horas_ausencia_rapida"
+        )
+    
+    if st.button("📝 Registrar Ausencia Rápida", key="registrar_ausencia_rapida"):
+        fecha_str = fecha_ausencia.strftime("%Y-%m-%d")
+        
+        if agente_ausencia not in ausencias:
+            ausencias[agente_ausencia] = {}
+        
+        ausencias[agente_ausencia][fecha_str] = {
+            "motivo": "Ausencia registrada desde tabla",
+            "horas_perdidas": horas_ausencia,
+            "notas": "Registro rápido desde panel de agentes",
+            "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        }
+        
+        if guardar_ausencias_agentes(ausencias):
+            st.success(f"✅ Ausencia registrada para {agente_ausencia}")
+            st.rerun()
+    
+    # Mostrar resumen de cambios
+    st.write("---")
+    st.write("### 📈 Resumen del Cálculo Automático")
+    st.info("""
+    **Fórmula aplicada automáticamente:**
+    1. **Horas totales mes** = (Días laborables - Festivos) × Horas diarias
+    2. **Restar ausencias** = Horas totales - Horas de ausencias
+    3. **Horas efectivas** = Horas totales × 0.83
+    4. **Objetivo decimal** = Horas efectivas × SPH
+    5. **Redondeo final**: Si decimal ≥ 0.51 → sube, si < 0.51 → baja
+    """)
+
 # ==============================================
 # FUNCIÓN PRINCIPAL DEL PANEL DE ADMINISTRACIÓN
 # ==============================================
@@ -1729,11 +2051,11 @@ def mostrar_panel_administrador():
     """Panel de administración"""
     st.header("🔧 Panel de Administración")
 
-    # 12 pestañas
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12 = st.tabs([
+    # 13 pestañas (añadiendo Agentes)
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10, tab11, tab12, tab13 = st.tabs([
         "⚡ Electricidad", "🔥 Gas", "👥 Usuarios", "👑 Super Users", "👁️ PVD", 
         "📄 Facturas", "☀️ Excedentes", "⚙️ Sistema", "👁️ Secciones", 
-        "📊 Analizador Llamadas", "Festivos", "🔄 GitHub Sync"
+        "📊 Analizador Llamadas", "🗓️ Festivos", "🔄 GitHub Sync", "👨‍💼 Agentes"
     ])
     
     with tab1:
@@ -1764,4 +2086,5 @@ def mostrar_panel_administrador():
             show_sync_panel_simple()
         except ImportError:
             st.error("❌ No se puede cargar el módulo de sincronización")
-            st.info("Asegúrate de que `sync_ui_simple.py` existe en tu repositorio")
+    with tab13:
+        gestion_agentes_objetivos()  # NUEVA PESTAÑA
