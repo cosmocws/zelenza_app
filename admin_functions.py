@@ -42,6 +42,15 @@ from pvd_system import temporizador_pvd_mejorado
 # Utilidades
 from utils import obtener_hora_madrid, formatear_hora_madrid
 
+# Al principio del archivo, junto con los otros imports
+from agent_schedule_manager import (
+    cargar_horarios_agentes, guardar_horarios_agentes,
+    cargar_ausencias_agentes, guardar_ausencias_agentes,
+    cargar_metricas_agentes, guardar_metricas_agentes,
+    crear_horario_por_defecto, obtener_horas_diarias,
+    calcular_objetivo_mes, calcular_horas_mes
+)
+
 # ==============================================
 # FUNCIONES DE GESTIÓN DE PLANES
 # ==============================================
