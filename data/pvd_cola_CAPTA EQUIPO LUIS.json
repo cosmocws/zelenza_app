@@ -76,5 +76,34 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-01-28T16:36:51.485422+01:00",
         "timestamp_notificacion": "2026-01-28T16:36:56.132562+01:00"
+    },
+    {
+        "id": "954ba331",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-01-28T16:51:31.750765+01:00",
+        "timestamp_inicio": "2026-01-28T16:51:37.712203+01:00",
+        "timestamp_fin": "2026-01-28T17:01:39.723601+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-28T16:51:31.941945+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "4d24010c",
+        "usuario_id": "0820",
+        "usuario_nombre": "Raúl Palomino",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-01-28T17:03:07.589330+01:00",
+        "timestamp_inicio": "2026-01-28T17:03:15.545641+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-01-28T17:03:07.753276+01:00"
     }
 ]
