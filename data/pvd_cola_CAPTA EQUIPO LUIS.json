@@ -66,7 +66,7 @@
         "usuario_id": "0792",
         "usuario_nombre": "Carmen Uceda",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-01-30T16:41:08.287591+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -74,6 +74,36 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-01-30T16:42:19.776255+01:00",
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-01-30T16:49:19.808244+01:00"
+    },
+    {
+        "id": "111879bb",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-30T16:46:44.617432+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-01-30T16:49:19.810606+01:00",
         "notificar_sidebar": true
+    },
+    {
+        "id": "69335ff5",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-01-30T16:51:15.326597+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
