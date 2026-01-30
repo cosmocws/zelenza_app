@@ -1130,3 +1130,18 @@
 2026-01-30 17:57:06 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 3de5f71df6a8af455f931c3756d57231b4cfb9ee but expected 24207dfee97f04f1c6be06adb4af5eb35d0fcaec","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-01-30 17:57:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
 2026-01-30 17:57:08 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-01-30 17:57:09 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-01-30 17:57:09 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-01-30 17:57:10 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-01-30 17:57:10 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 1743c4d4b75b4d28d9202ffcd7e06733b3aaa50e but expected 8ceb3dec548f3178530f534799a8d5a91753bc2c","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-01-30 17:57:11 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-01-30 17:57:11 - INFO - 📊 Sincronización completada: 38/46 exitosas
+2026-01-30 17:57:12 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-01-30 17:57:13 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-01-30 17:57:15 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-01-30 17:57:16 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-01-30 17:57:18 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-01-30 17:57:20 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-01-30 17:57:21 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-01-30 17:57:23 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-01-30 17:57:25 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
