@@ -2091,7 +2091,7 @@ def gestion_agentes_objetivos():
         total_agentes = len(df)
         agentes_cumplen = len(df[df['Estado'] == '✅ Cumple'])
         agentes_cerca = len(df[df['Estado'] == '⚠️ Cerca'])
-        agentes_debajo = len(df[df['Estado'] == '❌ Debajo']
+        agentes_debajo = len(df[df['Estado'] == '❌ Debajo'])
         
         # Calcular promedios
         avg_sph_objetivo = df['SPH Objetivo'].mean()
