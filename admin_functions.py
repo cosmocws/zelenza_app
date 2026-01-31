@@ -1921,10 +1921,16 @@ def gestion_agentes_objetivos():
         
         objetivo_final = calculo_objetivo['objetivo']
         
-        # Obtener ventas reales
+        # Obtener ventas reales DIRECTAMENTE del registro_llamadas.json
         ventas_reales = 0
-        if agente_id in ventas and mes_key_selected in ventas[agente_id]:
-            ventas_reales = ventas[agente_id][mes_key_selected].get("ventas_reales", 0)
+        for fecha_str, agentes_dia in registro_llamadas.items():
+            try:
+                fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+                if fecha.year == año_seleccionado and fecha.month == mes_seleccionado:
+                    if agente_id in agentes_dia:
+                        ventas_reales += agentes_dia[agente_id].get('ventas', 0)
+            except:
+                continue
         
         # Calcular SPH REAL considerando ausencias
         sph_real = calcular_sph_real_con_ausencias(agente_id, mes_key_selected)
