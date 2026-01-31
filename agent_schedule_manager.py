@@ -314,3 +314,216 @@ def obtener_agentes_con_horarios(usuarios_config: Dict) -> List[str]:
         # Considerar cualquier usuario como potencial agente
         agentes.append(username)
     return agentes
+    
+# Añadir al final del archivo, antes del cierre
+
+# ==============================================
+# FUNCIONES DE VENTAS REALES
+# ==============================================
+
+def cargar_ventas_agentes() -> Dict:
+    """Carga las ventas reales de los agentes"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo = 'data/agent_sales.json'
+        
+        if os.path.exists(archivo):
+            with open(archivo, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            ventas_base = {}
+            guardar_ventas_agentes(ventas_base)
+            return ventas_base
+            
+    except Exception as e:
+        st.error(f"Error cargando ventas: {e}")
+        return {}
+
+def guardar_ventas_agentes(ventas_data: Dict) -> bool:
+    """Guarda las ventas de agentes"""
+    try:
+        os.makedirs('data', exist_ok=True)
+        archivo = 'data/agent_sales.json'
+        
+        with open(archivo, 'w', encoding='utf-8') as f:
+            json.dump(ventas_data, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        st.error(f"Error guardando ventas: {e}")
+        return False
+
+def actualizar_ventas_agente(agente_id: str, fecha_str: str, ventas_reales: int):
+    """Actualiza las ventas reales de un agente para una fecha específica"""
+    try:
+        ventas = cargar_ventas_agentes()
+        
+        # Parsear la fecha para obtener mes
+        fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+        mes_key = f"{fecha.year}-{fecha.month:02d}"
+        
+        if agente_id not in ventas:
+            ventas[agente_id] = {}
+        
+        if mes_key not in ventas[agente_id]:
+            ventas[agente_id][mes_key] = {
+                "ventas_reales": 0,
+                "detalle_dias": {}
+            }
+        
+        # Sumar ventas al mes
+        ventas[agente_id][mes_key]["ventas_reales"] += ventas_reales
+        
+        # Guardar detalle por día
+        if "detalle_dias" not in ventas[agente_id][mes_key]:
+            ventas[agente_id][mes_key]["detalle_dias"] = {}
+        
+        if fecha_str not in ventas[agente_id][mes_key]["detalle_dias"]:
+            ventas[agente_id][mes_key]["detalle_dias"][fecha_str] = 0
+        
+        ventas[agente_id][mes_key]["detalle_dias"][fecha_str] += ventas_reales
+        
+        guardar_ventas_agentes(ventas)
+        return True
+    except Exception as e:
+        st.error(f"Error actualizando ventas: {e}")
+        return False
+
+def obtener_resumen_agente_mes(agente_id: str, año: int, mes: int, 
+                               horarios: Dict, ausencias: Dict, 
+                               metricas: Dict, ventas: Dict,
+                               festivos_data: Dict) -> Dict:
+    """Obtiene un resumen completo del agente para un mes específico"""
+    try:
+        # Calcular objetivo
+        sph_objetivo = metricas.get(agente_id, {}).get(f"{año}-{mes:02d}", {}).get("sph", 0.07)
+        
+        objetivo_info = calcular_objetivo_mes(agente_id, año, mes, sph_objetivo,
+                                              horarios, ausencias, festivos_data)
+        
+        # Obtener ventas reales del mes
+        ventas_mes_key = f"{año}-{mes:02d}"
+        ventas_reales = 0
+        if agente_id in ventas and ventas_mes_key in ventas[agente_id]:
+            ventas_reales = ventas[agente_id][ventas_mes_key].get("ventas_reales", 0)
+        
+        # Calcular SPH real
+        horas_efectivas = objetivo_info.get("horas_efectivas", 0)
+        sph_real = 0
+        if horas_efectivas > 0 and ventas_reales > 0:
+            sph_real = ventas_reales / horas_efectivas
+        
+        # Calcular porcentaje de objetivo
+        porcentaje_objetivo = 0
+        objetivo_final = objetivo_info.get("objetivo_calculado", 0)
+        if objetivo_final > 0:
+            porcentaje_objetivo = (ventas_reales / objetivo_final) * 100
+        
+        # Calcular diferencia y estado
+        diferencia = ventas_reales - objetivo_final
+        
+        if ventas_reales >= objetivo_final:
+            estado = "✅ Cumple"
+            color_estado = "green"
+        elif ventas_reales >= objetivo_final * 0.8:
+            estado = "⚠️ Cerca"
+            color_estado = "orange"
+        else:
+            estado = "❌ Por debajo"
+            color_estado = "red"
+        
+        return {
+            "agente_id": agente_id,
+            "mes": ventas_mes_key,
+            "sph_objetivo": sph_objetivo,
+            "sph_real": round(sph_real, 4),
+            "horas_totales": round(objetivo_info.get("horas_totales_mes", 0), 1),
+            "horas_efectivas": round(objetivo_info.get("horas_efectivas", 0), 1),
+            "objetivo": objetivo_final,
+            "ventas_reales": ventas_reales,
+            "diferencia": diferencia,
+            "porcentaje_objetivo": round(porcentaje_objetivo, 1),
+            "dias_ausentes": objetivo_info.get("dias_ausentes", 0),
+            "estado": estado,
+            "color_estado": color_estado
+        }
+        
+    except Exception as e:
+        print(f"Error en obtener_resumen_agente_mes para {agente_id}: {e}")
+        return None
+
+# ==============================================
+# FUNCIONES DE SINCRONIZACIÓN AUTOMÁTICA
+# ==============================================
+
+def sincronizar_ventas_con_github():
+    """Sincroniza el archivo de ventas con GitHub"""
+    try:
+        # Intentar importar el módulo de GitHub
+        try:
+            from github_sync_simple import GitHubSyncSimple
+        except ImportError:
+            # Intentar la otra versión
+            from github_api_sync import GitHubSync
+        
+        ventas = cargar_ventas_agentes()
+        
+        # Guardar archivo temporalmente
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json', encoding='utf-8') as tmp:
+            json.dump(ventas, tmp, indent=4, ensure_ascii=False)
+            temp_path = tmp.name
+        
+        try:
+            # Intentar con GitHubSyncSimple primero
+            try:
+                sync = GitHubSyncSimple()
+                with open(temp_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                success, message = sync.upload_file(
+                    "data/agent_sales.json",
+                    content,
+                    "Sync automática de ventas de agentes"
+                )
+                
+                if success:
+                    print(f"✅ Ventas sincronizadas: {message}")
+                    return True
+                else:
+                    print(f"❌ Error: {message}")
+                    return False
+                    
+            except Exception as e1:
+                print(f"Primer método falló: {e1}")
+                
+                # Intentar con GitHubSync
+                try:
+                    sync = GitHubSync()
+                    success = sync.upload_file(
+                        temp_path,
+                        "data/agent_sales.json",
+                        "Sync automática de ventas de agentes"
+                    )
+                    
+                    if success:
+                        print("✅ Ventas sincronizadas con GitHubSync")
+                        return True
+                    else:
+                        print("❌ Error con GitHubSync")
+                        return False
+                        
+                except Exception as e2:
+                    print(f"Segundo método también falló: {e2}")
+                    return False
+                    
+        finally:
+            # Limpiar archivo temporal
+            import os
+            try:
+                os.unlink(temp_path)
+            except:
+                pass
+                
+    except Exception as e:
+        print(f"Error general en sincronizar_ventas_con_github: {e}")
+        return False

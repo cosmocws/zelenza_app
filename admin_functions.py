@@ -1744,16 +1744,41 @@ def gestion_agentes_objetivos():
     metricas = cargar_metricas_agentes()
     festivos_data = cargar_festivos()
     
+    # AÑADIR: Cargar ventas reales
+    from agent_schedule_manager import cargar_ventas_agentes, guardar_ventas_agentes
+    ventas = cargar_ventas_agentes()
+    
     # Obtener mes actual para cálculos
     hoy = datetime.now()
     año_actual = hoy.year
     mes_actual = hoy.month
     mes_key = f"{año_actual}-{mes_actual:02d}"
     
-    # Calcular festivos del mes actual
-    from festivos_manager import obtener_festivos_año
-    festivos_mes = obtener_festivos_año(año_actual, festivos_data)
-    festivos_mes = [f for f in festivos_mes if f.startswith(f"{año_actual}-{mes_actual:02d}")]
+    # Selector de mes (para ver meses anteriores también)
+    col_mes1, col_mes2 = st.columns(2)
+    with col_mes1:
+        mes_seleccionado = st.number_input(
+            "Mes:",
+            min_value=1,
+            max_value=12,
+            value=mes_actual,
+            key="mes_seleccionado_agentes"
+        )
+    with col_mes2:
+        año_seleccionado = st.number_input(
+            "Año:",
+            min_value=2023,
+            max_value=2030,
+            value=año_actual,
+            key="año_seleccionado_agentes"
+        )
+    
+    mes_key_selected = f"{año_seleccionado}-{mes_seleccionado:02d}"
+    
+    # Calcular festivos del mes
+    from festivos_manager import es_festivo, obtener_festivos_año
+    festivos_mes = obtener_festivos_año(año_seleccionado, festivos_data)
+    festivos_mes = [f for f in festivos_mes if f.startswith(f"{año_seleccionado}-{mes_seleccionado:02d}")]
     horas_festivos_mes = len(festivos_mes) * 6  # Asumiendo 6 horas por festivo
     
     # Filtrar solo agentes (no admin)
@@ -1763,7 +1788,15 @@ def gestion_agentes_objetivos():
         st.info("📝 No hay agentes configurados. Primero crea agentes en la pestaña 'Usuarios'.")
         return
     
-    st.info(f"📅 **Mes actual:** {mes_key} | **Festivos este mes:** {len(festivos_mes)} días ({horas_festivos_mes}h)")
+    st.info(f"📅 **Mes seleccionado:** {mes_key_selected} | **Festivos este mes:** {len(festivos_mes)} días ({horas_festivos_mes}h)")
+    
+    # Botón para sincronizar con GitHub
+    if st.button("🔄 Sincronizar Ventas con GitHub", key="sync_ventas_github"):
+        from agent_schedule_manager import sincronizar_ventas_con_github
+        if sincronizar_ventas_con_github():
+            st.success("✅ Ventas sincronizadas con GitHub")
+        else:
+            st.error("❌ Error al sincronizar con GitHub")
     
     # Crear tabla de datos
     datos_tabla = []
@@ -1791,10 +1824,8 @@ def gestion_agentes_objetivos():
                 total_horas_semana += 6.0
         
         # Calcular días laborables del mes (sin festivos)
-        from festivos_manager import es_festivo
-        
         dias_laborables = 0
-        fecha_actual = date(año_actual, mes_actual, 1)
+        fecha_actual = date(año_seleccionado, mes_seleccionado, 1)
         ultimo_dia_mes = (fecha_actual.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
         
         while fecha_actual <= ultimo_dia_mes:
@@ -1812,7 +1843,7 @@ def gestion_agentes_objetivos():
             for fecha_str, datos_ausencia in ausencias[agente_id].items():
                 try:
                     fecha_ausencia = datetime.strptime(fecha_str, "%Y-%m-%d")
-                    if fecha_ausencia.year == año_actual and fecha_ausencia.month == mes_actual:
+                    if fecha_ausencia.year == año_seleccionado and fecha_ausencia.month == mes_seleccionado:
                         # Solo contar si es día laborable y no festivo
                         fecha_date = fecha_ausencia.date()
                         if fecha_date.weekday() < 5 and not es_festivo(fecha_date, festivos_data):
@@ -1823,18 +1854,19 @@ def gestion_agentes_objetivos():
         
         # Restar horas de ausencias
         horas_totales_mes -= horas_ausencias_mes
+        horas_totales_mes = max(0, horas_totales_mes)  # No negativo
         
-        # Obtener SPH actual
-        sph_actual = 0.07
-        if agente_id in metricas and mes_key in metricas[agente_id]:
-            sph_actual = metricas[agente_id][mes_key].get('sph', 0.07)
+        # Obtener SPH objetivo
+        sph_objetivo = 0.07
+        if agente_id in metricas and mes_key_selected in metricas[agente_id]:
+            sph_objetivo = metricas[agente_id][mes_key_selected].get('sph', 0.07)
         
-        # CALCULAR OBJETIVO AUTOMÁTICAMENTE (con la fórmula que me diste)
+        # CALCULAR OBJETIVO AUTOMÁTICAMENTE
         # 1. Horas efectivas = horas_totales_mes × 0.83
         horas_efectivas = horas_totales_mes * 0.83
         
         # 2. Objetivo decimal = horas_efectivas × SPH
-        objetivo_decimal = horas_efectivas * sph_actual
+        objetivo_decimal = horas_efectivas * sph_objetivo
         
         # 3. Redondear según regla: ≥ 0.51 sube, < 0.51 baja
         if objetivo_decimal - int(objetivo_decimal) >= 0.51:
@@ -1842,8 +1874,33 @@ def gestion_agentes_objetivos():
         else:
             objetivo_final = int(objetivo_decimal)
         
-        # Asegurar que no sea negativo
         objetivo_final = max(0, objetivo_final)
+        
+        # Obtener ventas reales del mes
+        ventas_reales = 0
+        if agente_id in ventas and mes_key_selected in ventas[agente_id]:
+            ventas_reales = ventas[agente_id][mes_key_selected].get("ventas_reales", 0)
+        
+        # Calcular SPH real
+        sph_real = 0
+        if horas_efectivas > 0 and ventas_reales > 0:
+            sph_real = ventas_reales / horas_efectivas
+        
+        # Calcular diferencia y estado
+        diferencia = ventas_reales - objetivo_final
+        porcentaje = 0
+        if objetivo_final > 0:
+            porcentaje = (ventas_reales / objetivo_final) * 100
+        
+        if ventas_reales >= objetivo_final:
+            estado = "✅ Cumple"
+            color = "#d4edda"
+        elif ventas_reales >= objetivo_final * 0.8:
+            estado = "⚠️ Cerca"
+            color = "#fff3cd"
+        else:
+            estado = "❌ Debajo"
+            color = "#f8d7da"
         
         # Añadir a la tabla
         datos_tabla.append({
@@ -1856,10 +1913,15 @@ def gestion_agentes_objetivos():
             'Viernes': horas_por_dia['Viernes'],
             'Festivos (h)': horas_festivos_mes,
             'AUS (h)': horas_ausencias_mes,
-            'SPH': sph_actual,
+            'SPH Objetivo': sph_objetivo,
+            'SPH Real': round(sph_real, 4),
             'OBJ': objetivo_final,
-            '_horas_totales': round(horas_totales_mes, 1),  # Campo oculto para cálculos
-            '_horas_efectivas': round(horas_efectivas, 1)   # Campo oculto para cálculos
+            'Ventas Reales': ventas_reales,
+            '% Objetivo': round(porcentaje, 1),
+            'Estado': estado,
+            '_color': color,
+            '_horas_totales': round(horas_totales_mes, 1),
+            '_horas_efectivas': round(horas_efectivas, 1)
         })
     
     # Crear DataFrame
@@ -1870,10 +1932,17 @@ def gestion_agentes_objetivos():
     st.write("### 📊 Tabla de Agentes - Edición Directa")
     st.caption("📝 Modifica las horas por día y el SPH - El OBJETIVO se calculará automáticamente")
     
-    # Usar st.data_editor para edición directa
-    edited_df = st.data_editor(
-        df,
-        column_config={
+    # Función para aplicar colores según estado
+    def aplicar_colores(row):
+        return [f'background-color: {row["_color"]}'] * len(row)
+    
+    # Mostrar tabla con colores
+    if not df.empty:
+        # Mostrar dataframe con estilo
+        styled_df = df.style.apply(aplicar_colores, axis=1)
+        
+        # Crear columnas configurables
+        column_config = {
             'Agente': st.column_config.TextColumn("Agente", width="medium", disabled=True),
             'Username': st.column_config.TextColumn("Username", width="small", disabled=True),
             'Lunes': st.column_config.NumberColumn("Lunes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
@@ -1882,28 +1951,40 @@ def gestion_agentes_objetivos():
             'Jueves': st.column_config.NumberColumn("Jueves (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
             'Viernes': st.column_config.NumberColumn("Viernes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
             'Festivos (h)': st.column_config.NumberColumn("Festivos (h)", disabled=True),
-            'AUS (h)': st.column_config.NumberColumn("Ausencias (h)", min_value=0.0, max_value=200.0, step=1.0, disabled=True),  # Se edita en otra pestaña
-            'SPH': st.column_config.NumberColumn("SPH", min_value=0.01, max_value=1.0, step=0.01, format="%.2f"),
+            'AUS (h)': st.column_config.NumberColumn("Ausencias (h)", min_value=0.0, max_value=200.0, step=1.0, disabled=True),
+            'SPH Objetivo': st.column_config.NumberColumn("SPH Objetivo", min_value=0.01, max_value=1.0, step=0.01, format="%.4f"),
+            'SPH Real': st.column_config.NumberColumn("SPH Real", min_value=0.0, max_value=1.0, step=0.0001, format="%.4f", disabled=True),
             'OBJ': st.column_config.NumberColumn("Objetivo", min_value=0, max_value=1000, step=1, disabled=True),
-            '_horas_totales': None,  # Ocultar columna
-            '_horas_efectivas': None  # Ocultar columna
-        },
-        hide_index=True,
-        use_container_width=True,
-        num_rows="fixed",
-        key="tabla_agentes_editor"
-    )
+            'Ventas Reales': st.column_config.NumberColumn("Ventas Reales", min_value=0, max_value=1000, step=1),
+            '% Objetivo': st.column_config.NumberColumn("% Objetivo", min_value=0.0, max_value=200.0, format="%.1f", disabled=True),
+            'Estado': st.column_config.TextColumn("Estado", disabled=True),
+            '_color': None,  # Ocultar
+            '_horas_totales': None,  # Ocultar
+            '_horas_efectivas': None  # Ocultar
+        }
+        
+        edited_df = st.data_editor(
+            df,
+            column_config=column_config,
+            hide_index=True,
+            use_container_width=True,
+            num_rows="fixed",
+            key="tabla_agentes_completa"
+        )
+    else:
+        st.warning("No hay agentes para mostrar")
+        return
     
     # Botón para guardar cambios
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("💾 Guardar Todos los Cambios", type="primary", use_container_width=True, key="guardar_tabla_completa"):
+        if st.button("💾 Guardar Todos los Cambios", type="primary", use_container_width=True, key="guardar_tabla_completa_v2"):
             cambios_realizados = False
             
             for idx, row in edited_df.iterrows():
                 agente_id = row['Username']
                 
-                # 1. Actualizar horarios (convertir horas a horarios reales)
+                # 1. Actualizar horarios
                 if agente_id not in horarios:
                     horarios[agente_id] = crear_horario_por_defecto()
                 
@@ -1914,13 +1995,12 @@ def gestion_agentes_objetivos():
                     horas_nuevas = float(row[dia])
                     
                     # Mantener hora de inicio fija (15:00) y ajustar fin según horas
-                    hora_inicio_str = "15:00"  # Hora de inicio por defecto
+                    hora_inicio_str = "15:00"
                     
                     try:
                         hora_inicio = datetime.strptime(hora_inicio_str, "%H:%M")
                         hora_fin = hora_inicio + timedelta(hours=horas_nuevas)
                         
-                        # Si pasa de medianoche, ajustar
                         if hora_fin.day > hora_inicio.day:
                             hora_fin_str = hora_fin.strftime("%H:%M") + " (+1)"
                         else:
@@ -1931,16 +2011,14 @@ def gestion_agentes_objetivos():
                             "fin": hora_fin_str
                         }
                     except:
-                        # Si hay error, mantener horario por defecto
                         horarios[agente_id][dia] = {"inicio": "15:00", "fin": "21:00"}
                 
-                # 2. Actualizar SPH
-                sph_nuevo = float(row['SPH'])
+                # 2. Actualizar SPH objetivo
+                sph_nuevo = float(row['SPH Objetivo'])
                 
                 # 3. Calcular objetivo actualizado
-                # Recalcular días laborables y horas
                 dias_laborables = 0
-                fecha_actual = date(año_actual, mes_actual, 1)
+                fecha_actual = date(año_seleccionado, mes_seleccionado, 1)
                 ultimo_dia_mes = (fecha_actual.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
                 
                 while fecha_actual <= ultimo_dia_mes:
@@ -1948,16 +2026,13 @@ def gestion_agentes_objetivos():
                         dias_laborables += 1
                     fecha_actual += timedelta(days=1)
                 
-                # Calcular horas totales del mes con nuevo horario
                 total_horas_semana = sum(float(row[dia]) for dia in dias_editor)
                 horas_totales_mes = (dias_laborables * total_horas_semana / 5)
                 
-                # Restar ausencias
                 horas_ausencias = float(row['AUS (h)'])
                 horas_totales_mes -= horas_ausencias
-                horas_totales_mes = max(0, horas_totales_mes)  # No negativo
+                horas_totales_mes = max(0, horas_totales_mes)
                 
-                # Calcular objetivo con fórmula
                 horas_efectivas = horas_totales_mes * 0.83
                 objetivo_decimal = horas_efectivas * sph_nuevo
                 
@@ -1972,14 +2047,28 @@ def gestion_agentes_objetivos():
                 if agente_id not in metricas:
                     metricas[agente_id] = {}
                 
-                metricas[agente_id][mes_key] = {
+                metricas[agente_id][mes_key_selected] = {
                     "sph": sph_nuevo,
                     "objetivo_calculado": objetivo_final,
                     "horas_totales_mes": round(horas_totales_mes, 2),
                     "horas_efectivas": round(horas_efectivas, 2),
                     "dias_ausentes": int(horas_ausencias / 6) if horas_ausencias > 0 else 0,
-                    "mes": mes_key
+                    "mes": mes_key_selected
                 }
+                
+                # 4. Actualizar ventas reales
+                ventas_reales = int(row['Ventas Reales'])
+                
+                if agente_id not in ventas:
+                    ventas[agente_id] = {}
+                
+                if mes_key_selected not in ventas[agente_id]:
+                    ventas[agente_id][mes_key_selected] = {
+                        "ventas_reales": 0,
+                        "detalle_dias": {}
+                    }
+                
+                ventas[agente_id][mes_key_selected]["ventas_reales"] = ventas_reales
                 
                 cambios_realizados = True
             
@@ -1987,69 +2076,132 @@ def gestion_agentes_objetivos():
                 # Guardar todos los cambios
                 guardar_horarios_agentes(horarios)
                 guardar_metricas_agentes(metricas)
+                guardar_ventas_agentes(ventas)
                 
                 st.success("✅ Todos los cambios guardados exitosamente")
                 st.rerun()
             else:
                 st.info("📝 No se detectaron cambios para guardar")
     
-    # Sección para gestión de ausencias (ya que en la tabla no se pueden editar fácilmente)
+    # Mostrar estadísticas generales
     st.write("---")
-    st.write("### 🏖️ Gestión Rápida de Ausencias")
+    st.write("### 📈 Estadísticas Generales del Mes")
     
-    col_aus1, col_aus2, col_aus3 = st.columns(3)
-    
-    with col_aus1:
-        agente_ausencia = st.selectbox(
-            "Agente:",
-            agentes,
-            format_func=lambda x: f"{agentes_config[x].get('nombre', x)}",
-            key="agente_ausencia_rapida"
-        )
-    
-    with col_aus2:
-        fecha_ausencia = st.date_input(
-            "Fecha:",
-            value=hoy.date(),
-            key="fecha_ausencia_rapida"
-        )
-    
-    with col_aus3:
-        horas_ausencia = st.number_input(
-            "Horas perdidas:",
-            min_value=1,
-            max_value=12,
-            value=6,
-            key="horas_ausencia_rapida"
-        )
-    
-    if st.button("📝 Registrar Ausencia Rápida", key="registrar_ausencia_rapida"):
-        fecha_str = fecha_ausencia.strftime("%Y-%m-%d")
+    if not df.empty:
+        total_agentes = len(df)
+        agentes_cumplen = len(df[df['Estado'] == '✅ Cumple'])
+        agentes_cerca = len(df[df['Estado'] == '⚠️ Cerca'])
+        agentes_debajo = len(df[df['Estado'] == '❌ Debajo']
         
-        if agente_ausencia not in ausencias:
-            ausencias[agente_ausencia] = {}
+        # Calcular promedios
+        avg_sph_objetivo = df['SPH Objetivo'].mean()
+        avg_sph_real = df['SPH Real'].mean()
+        avg_porcentaje = df['% Objetivo'].mean()
         
-        ausencias[agente_ausencia][fecha_str] = {
-            "motivo": "Ausencia registrada desde tabla",
-            "horas_perdidas": horas_ausencia,
-            "notas": "Registro rápido desde panel de agentes",
-            "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        }
+        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        with col_stat1:
+            st.metric("Total Agentes", total_agentes)
+        with col_stat2:
+            st.metric("✅ Cumplen", agentes_cumplen, delta=f"{(agentes_cumplen/total_agentes*100):.1f}%")
+        with col_stat3:
+            st.metric("⚠️ Cerca", agentes_cerca)
+        with col_stat4:
+            st.metric("❌ Debajo", agentes_debajo)
         
-        if guardar_ausencias_agentes(ausencias):
-            st.success(f"✅ Ausencia registrada para {agente_ausencia}")
-            st.rerun()
+        col_avg1, col_avg2, col_avg3 = st.columns(3)
+        with col_avg1:
+            st.metric("SPH Objetivo Prom", f"{avg_sph_objetivo:.4f}")
+        with col_avg2:
+            st.metric("SPH Real Prom", f"{avg_sph_real:.4f}")
+        with col_avg3:
+            st.metric("% Objetivo Prom", f"{avg_porcentaje:.1f}%")
     
-    # Mostrar resumen de cambios
+    # Sección para actualizar ventas desde registro de llamadas
     st.write("---")
-    st.write("### 📈 Resumen del Cálculo Automático")
+    st.write("### 📥 Actualizar Ventas desde Registro de Llamadas")
+    
+    col_upd1, col_upd2 = st.columns(2)
+    
+    with col_upd1:
+        if st.button("🔄 Calcular Ventas del Mes Actual", key="calcular_ventas_mes"):
+            from database import cargar_registro_llamadas
+            registro = cargar_registro_llamadas()
+            
+            ventas_actualizadas = 0
+            agentes_actualizados = []
+            
+            # Procesar ventas del mes actual
+            for fecha_str, agentes_dia in registro.items():
+                try:
+                    fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+                    if fecha.year == año_seleccionado and fecha.month == mes_seleccionado:
+                        for agente_id, datos in agentes_dia.items():
+                            if agente_id in agentes:
+                                ventas_dia = datos.get('ventas', 0)
+                                if ventas_dia > 0:
+                                    # Actualizar ventas usando la nueva función
+                                    from agent_schedule_manager import actualizar_ventas_agente
+                                    if actualizar_ventas_agente(agente_id, fecha_str, ventas_dia):
+                                        ventas_actualizadas += ventas_dia
+                                        if agente_id not in agentes_actualizados:
+                                            agentes_actualizados.append(agente_id)
+                except:
+                    continue
+            
+            st.success(f"✅ {ventas_actualizadas} ventas actualizadas para {len(agentes_actualizados)} agentes")
+            if agentes_actualizados:
+                st.info(f"Agentes actualizados: {', '.join(agentes_actualizados[:5])}")
+                if len(agentes_actualizados) > 5:
+                    st.info(f"... y {len(agentes_actualizados) - 5} más")
+            
+            # Sincronizar automáticamente con GitHub después de actualizar
+            if st.button("🔄 Sincronizar ahora con GitHub", key="sync_ahora"):
+                from agent_schedule_manager import sincronizar_ventas_con_github
+                if sincronizar_ventas_con_github():
+                    st.success("✅ Ventas sincronizadas con GitHub automáticamente")
+                else:
+                    st.error("❌ Error al sincronizar con GitHub")
+    
+    with col_upd2:
+        if st.button("📊 Ver Detalle de Ventas", key="ver_detalle_ventas"):
+            st.write("#### 📋 Detalle de Ventas por Agente")
+            
+            # Crear detalle
+            detalle_data = []
+            for agente_id in agentes:
+                if agente_id in ventas and mes_key_selected in ventas[agente_id]:
+                    ventas_mes = ventas[agente_id][mes_key_selected]
+                    ventas_reales = ventas_mes.get("ventas_reales", 0)
+                    detalle_dias = ventas_mes.get("detalle_dias", {})
+                    
+                    # Calcular días con ventas
+                    dias_con_ventas = len(detalle_dias)
+                    
+                    detalle_data.append({
+                        'Agente': agentes_config[agente_id].get('nombre', agente_id),
+                        'Ventas Totales': ventas_reales,
+                        'Días con Ventas': dias_con_ventas,
+                        'Promedio/Día': round(ventas_reales / max(dias_con_ventas, 1), 1)
+                    })
+            
+            if detalle_data:
+                df_detalle = pd.DataFrame(detalle_data)
+                df_detalle = df_detalle.sort_values('Ventas Totales', ascending=False)
+                st.dataframe(df_detalle, use_container_width=True)
+            else:
+                st.info("No hay datos de ventas para este mes")
+    
+    st.write("---")
     st.info("""
-    **Fórmula aplicada automáticamente:**
-    1. **Horas totales mes** = (Días laborables - Festivos) × Horas diarias
-    2. **Restar ausencias** = Horas totales - Horas de ausencias
-    3. **Horas efectivas** = Horas totales × 0.83
-    4. **Objetivo decimal** = Horas efectivas × SPH
-    5. **Redondeo final**: Si decimal ≥ 0.51 → sube, si < 0.51 → baja
+    **📋 Notas importantes:**
+    1. **SPH Objetivo**: Es el valor que se usa para calcular el objetivo de ventas
+    2. **SPH Real**: Se calcula automáticamente como: Ventas Reales ÷ Horas Efectivas
+    3. **Horas Efectivas**: Se calculan como 83% de las horas totales (descontando ausencias)
+    4. **Ventas Reales**: Se pueden actualizar desde el registro de llamadas automáticamente
+    5. **Estado**: 
+       - ✅ **Cumple**: Ventas >= 100% del objetivo
+       - ⚠️ **Cerca**: Ventas entre 80-99% del objetivo  
+       - ❌ **Debajo**: Ventas < 80% del objetivo
     """)
 
 # ==============================================
