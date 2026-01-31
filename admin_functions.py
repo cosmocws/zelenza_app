@@ -48,7 +48,9 @@ from agent_schedule_manager import (
     cargar_ausencias_agentes, guardar_ausencias_agentes,
     cargar_metricas_agentes, guardar_metricas_agentes,
     crear_horario_por_defecto, obtener_horas_diarias,
-    calcular_objetivo_mes, calcular_horas_mes
+    calcular_objetivo_mes, calcular_horas_mes,
+    cargar_ventas_agentes, guardar_ventas_agentes,  # AÑADIR ESTAS
+    sincronizar_ventas_con_github, actualizar_ventas_agente  # Y ESTAS SI EXISTEN
 )
 
 # ==============================================
