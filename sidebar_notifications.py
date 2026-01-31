@@ -460,14 +460,16 @@ def mostrar_notificacion_sidebar(usuario_id, grupo_usuario):
 # FUNCIÓN PRINCIPAL MODIFICADA PARA SIDEBAR
 # ==============================================
 
+# En sidebar_notifications.py, reemplazar las funciones de SPH:
+
 def verificar_turno_sidebar():
-    """Verifica si es el turno del usuario y muestra notificación en sidebar - CON BOTÓN REFRESCAR ARRIBA"""
+    """Verifica si es el turno del usuario y muestra notificación en sidebar"""
     
     try:
         if not st.session_state.get('authenticated', False):
             return False
         
-        # MOSTRAR BOTÓN DE REFRESCAR PRIMERO (PARTE SUPERIOR DEL SIDEBAR)
+        # MOSTRAR BOTÓN DE REFRESCAR PRIMERO
         st.sidebar.markdown("---")
         if st.sidebar.button("🔄 **Refrescar página**", 
                            use_container_width=True, 
@@ -475,18 +477,28 @@ def verificar_turno_sidebar():
                            key="refresh_manual_top"):
             st.rerun()
         
+        usuario_id = st.session_state.username
+        
+        # MOSTRAR RENDIMIENTO DEL AGENTE
+        try:
+            # Importar la nueva función
+            from agent_performance import mostrar_performance_sidebar
+            mostrar_performance_sidebar(usuario_id)
+        except ImportError:
+            # Si no existe el módulo, continuar sin mostrar rendimiento
+            pass
+        
         if st.session_state.get('user_type') != 'user':
             return False
         
         usuarios_config = cargar_configuracion_usuarios()
-        usuario_id = st.session_state.username
         
         if usuario_id not in usuarios_config:
             return False
         
         grupo_usuario = usuarios_config[usuario_id].get('grupo', 'basico')
         
-        # Llamar a la función de notificación (la línea original se mantiene)
+        # Llamar a la función de notificación PVD
         return mostrar_notificacion_sidebar(usuario_id, grupo_usuario)
     
     except Exception as e:
@@ -588,193 +600,3 @@ def eliminar_mensaje_refresco_automatico():
     # st.sidebar.caption(f"⏱️ Temporizador automático: 60s")
     # st.sidebar.caption(f"🔄 Última ejecución: {formatear_hora_madrid(temporizador_pvd_mejorado.ultima_actualizacion)}")
     pass
-    
-# En sidebar_notifications.py, agregar estas funciones:
-
-def mostrar_sph_usuario_en_login(usuario_id):
-    """Muestra el SPH del usuario en el sidebar durante el login"""
-    try:
-        from agent_schedule_manager import cargar_ventas_agentes, cargar_horarios_agentes
-        from database import cargar_registro_llamadas
-        from festivos_manager import es_festivo, cargar_festivos
-        
-        hoy = datetime.now()
-        mes_actual = hoy.month
-        año_actual = hoy.year
-        mes_key = f"{año_actual}-{mes_actual:02d}"
-        
-        # Cargar datos necesarios
-        ventas = cargar_ventas_agentes()
-        horarios = cargar_horarios_agentes()
-        festivos_data = cargar_festivos()
-        registro = cargar_registro_llamadas()
-        
-        # Verificar si el usuario es agente
-        if usuario_id not in ventas or mes_key not in ventas[usuario_id]:
-            return None  # No es agente o no tiene datos este mes
-        
-        # Calcular SPH acumulado del mes
-        sph_acumulado = calcular_sph_acumulado_agente(usuario_id, mes_key, ventas, horarios, registro, festivos_data)
-        
-        return sph_acumulado
-        
-    except Exception as e:
-        print(f"Error calculando SPH para {usuario_id}: {e}")
-        return None
-
-def calcular_sph_acumulado_agente(agente_id, mes_key, ventas, horarios, registro, festivos_data):
-    """Calcula el SPH acumulado de un agente hasta hoy"""
-    try:
-        # Obtener ventas acumuladas del mes
-        if agente_id not in ventas or mes_key not in ventas[agente_id]:
-            return 0.0
-        
-        ventas_mes = ventas[agente_id][mes_key]
-        ventas_acumuladas = ventas_mes.get("ventas_reales", 0)
-        
-        # Calcular horas efectivas acumuladas
-        hoy = datetime.now()
-        año_actual = hoy.year
-        mes_actual = int(mes_key.split("-")[1])
-        
-        # Obtener días laborables hasta hoy
-        dias_laborables = 0
-        horas_efectivas_acumuladas = 0.0
-        
-        fecha_actual = date(año_actual, mes_actual, 1)
-        hoy_date = hoy.date()
-        
-        while fecha_actual <= hoy_date:
-            # Solo días laborables (lunes-viernes) y no festivos
-            if fecha_actual.weekday() < 5 and not es_festivo(fecha_actual, festivos_data):
-                # Calcular horas del día según horario
-                if agente_id in horarios:
-                    dia_semana = fecha_actual.strftime("%A")
-                    if dia_semana in horarios[agente_id]:
-                        horas_dia = obtener_horas_diarias(horarios[agente_id][dia_semana])
-                    else:
-                        horas_dia = 6.0  # Valor por defecto
-                else:
-                    horas_dia = 6.0
-                
-                # Restar ausencias si hay
-                fecha_str = fecha_actual.strftime("%Y-%m-%d")
-                from agent_schedule_manager import cargar_ausencias_agentes
-                ausencias = cargar_ausencias_agentes()
-                
-                horas_perdidas = 0
-                if agente_id in ausencias and fecha_str in ausencias[agente_id]:
-                    horas_perdidas = ausencias[agente_id][fecha_str].get("horas_perdidas", 0)
-                
-                horas_efectivas_dia = max(0, (horas_dia - horas_perdidas) * 0.83)  # 83% productividad
-                horas_efectivas_acumuladas += horas_efectivas_dia
-                
-                dias_laborables += 1
-            
-            fecha_actual += timedelta(days=1)
-        
-        # Calcular SPH acumulado
-        if horas_efectivas_acumuladas > 0:
-            sph_acumulado = ventas_acumuladas / horas_efectivas_acumuladas
-            return round(sph_acumulado, 4)
-        else:
-            return 0.0
-        
-    except Exception as e:
-        print(f"Error calculando SPH acumulado para {agente_id}: {e}")
-        return 0.0
-
-def obtener_horas_diarias(horario_dia):
-    """Obtiene horas diarias de un horario"""
-    try:
-        if isinstance(horario_dia, dict) and "inicio" in horario_dia and "fin" in horario_dia:
-            inicio_str = horario_dia["inicio"]
-            fin_str = horario_dia["fin"]
-            
-            # Manejar formato con "+1" para días siguientes
-            if " (+1)" in fin_str:
-                fin_str = fin_str.replace(" (+1)", "")
-                # Asumir que termina al día siguiente
-                horas = 24 - (int(inicio_str.split(":")[0]) + int(inicio_str.split(":")[1])/60)
-                horas += int(fin_str.split(":")[0]) + int(fin_str.split(":")[1])/60
-            else:
-                inicio = datetime.strptime(inicio_str, "%H:%M")
-                fin = datetime.strptime(fin_str, "%H:%M")
-                horas = (fin - inicio).total_seconds() / 3600
-            
-            return max(0, horas)
-        return 6.0  # Valor por defecto
-    except:
-        return 6.0
-
-# En la función verificar_turno_sidebar(), agregar la visualización del SPH:
-
-def verificar_turno_sidebar():
-    """Verifica si es el turno del usuario y muestra notificación en sidebar - CON BOTÓN REFRESCAR ARRIBA"""
-    
-    try:
-        if not st.session_state.get('authenticated', False):
-            return False
-        
-        # MOSTRAR BOTÓN DE REFRESCAR PRIMERO (PARTE SUPERIOR DEL SIDEBAR)
-        st.sidebar.markdown("---")
-        if st.sidebar.button("🔄 **Refrescar página**", 
-                           use_container_width=True, 
-                           type="secondary",
-                           key="refresh_manual_top"):
-            st.rerun()
-        
-        usuario_id = st.session_state.username
-        
-        # MOSTRAR SPH DEL AGENTE SI ES AGENTE
-        sph_acumulado = mostrar_sph_usuario_en_login(usuario_id)
-        if sph_acumulado is not None:
-            st.sidebar.markdown("---")
-            st.sidebar.markdown("### 📊 Tu Rendimiento")
-            
-            # Obtener objetivo SPH
-            from agent_schedule_manager import cargar_metricas_agentes
-            metricas = cargar_metricas_agentes()
-            hoy = datetime.now()
-            mes_key = f"{hoy.year}-{hoy.month:02d}"
-            
-            sph_objetivo = 0.07  # Valor por defecto
-            if usuario_id in metricas and mes_key in metricas[usuario_id]:
-                sph_objetivo = metricas[usuario_id][mes_key].get("sph", 0.07)
-            
-            # Mostrar métricas
-            col_sph1, col_sph2 = st.sidebar.columns(2)
-            with col_sph1:
-                st.sidebar.metric("🎯 SPH Objetivo", f"{sph_objetivo:.4f}")
-            with col_sph2:
-                st.sidebar.metric("📈 SPH Actual", f"{sph_acumulado:.4f}", 
-                                 delta=f"{(sph_acumulado - sph_objetivo):.4f}" if sph_acumulado > sph_objetivo else None)
-            
-            # Barra de progreso
-            progreso = min(100, (sph_acumulado / sph_objetivo) * 100)
-            st.sidebar.progress(int(progreso))
-            
-            # Estado
-            if sph_acumulado >= sph_objetivo:
-                st.sidebar.success("✅ ¡Superando objetivo!")
-            elif sph_acumulado >= sph_objetivo * 0.8:
-                st.sidebar.info("⚠️ Cerca del objetivo")
-            else:
-                st.sidebar.warning("📉 Por debajo del objetivo")
-        
-        if st.session_state.get('user_type') != 'user':
-            return False
-        
-        usuarios_config = cargar_configuracion_usuarios()
-        
-        if usuario_id not in usuarios_config:
-            return False
-        
-        grupo_usuario = usuarios_config[usuario_id].get('grupo', 'basico')
-        
-        # Llamar a la función de notificación (la línea original se mantiene)
-        return mostrar_notificacion_sidebar(usuario_id, grupo_usuario)
-    
-    except Exception as e:
-        print(f"Error en verificar_turno_sidebar: {e}")
-        return False
