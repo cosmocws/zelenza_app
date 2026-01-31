@@ -479,14 +479,34 @@ def verificar_turno_sidebar():
         
         usuario_id = st.session_state.username
         
-        # MOSTRAR RENDIMIENTO DEL AGENTE
+        # MOSTRAR RENDIMIENTO DEL AGENTE USANDO agent_performance.py
         try:
-            # Importar la nueva función
             from agent_performance import mostrar_performance_sidebar
             mostrar_performance_sidebar(usuario_id)
         except ImportError:
-            # Si no existe el módulo, continuar sin mostrar rendimiento
-            pass
+            # Si no existe el módulo, intentar con agent_calculations
+            try:
+                from agent_calculations import calcular_sph_acumulado_mes
+                from agent_schedule_manager import cargar_ventas_agentes, cargar_metricas_agentes
+                from database import cargar_registro_llamadas
+                from festivos_manager import cargar_festivos
+                
+                hoy = datetime.now()
+                mes_key = f"{hoy.year}-{hoy.month:02d}"
+                
+                # Cálculo simple como fallback
+                metricas = cargar_metricas_agentes()
+                sph_objetivo = 0.07
+                if usuario_id in metricas and mes_key in metricas[usuario_id]:
+                    sph_objetivo = metricas[usuario_id][mes_key].get("sph", 0.07)
+                
+                st.sidebar.markdown("---")
+                st.sidebar.markdown("### 📊 Tu Rendimiento")
+                st.sidebar.metric("🎯 SPH Objetivo", f"{sph_objetivo:.4f}")
+                st.sidebar.info("ℹ️ SPH actual no disponible")
+                
+            except:
+                pass  # Silenciar errores
         
         if st.session_state.get('user_type') != 'user':
             return False

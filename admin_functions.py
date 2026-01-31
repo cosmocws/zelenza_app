@@ -1738,9 +1738,11 @@ def gestion_agentes_objetivos():
     
     # Cargar datos
     from database import cargar_configuracion_usuarios
+    from database import cargar_registro_llamadas
     from festivos_manager import cargar_festivos, es_festivo, obtener_festivos_año
     
     agentes_config = cargar_configuracion_usuarios()
+    registro_llamadas = cargar_registro_llamadas()
     horarios = cargar_horarios_agentes()
     ausencias = cargar_ausencias_agentes()
     metricas = cargar_metricas_agentes()
@@ -1883,10 +1885,24 @@ def gestion_agentes_objetivos():
         if agente_id in ventas and mes_key_selected in ventas[agente_id]:
             ventas_reales = ventas[agente_id][mes_key_selected].get("ventas_reales", 0)
         
-        # Calcular SPH real
+        # Calcular SPH real usando agent_calculations.py
         sph_real = 0
-        if horas_efectivas > 0 and ventas_reales > 0:
-            sph_real = ventas_reales / horas_efectivas
+        try:
+            from agent_calculations import calcular_sph_acumulado_mes
+            # Pasar todos los datos necesarios
+            sph_real = calcular_sph_acumulado_mes(
+                agente_id, 
+                mes_key_selected, 
+                ventas, 
+                registro_llamadas,  # Necesitarás cargar esto
+                horarios, 
+                ausencias, 
+                festivos_data
+            )
+        except ImportError:
+            # Fallback al cálculo antiguo
+            if horas_efectivas > 0 and ventas_reales > 0:
+                sph_real = ventas_reales / horas_efectivas
         
         # Calcular diferencia y estado
         diferencia = ventas_reales - objetivo_final
