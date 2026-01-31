@@ -21,6 +21,30 @@ def mostrar_login():
         
         if login_automatico_activado:
             st.info("El acceso automático está ACTIVADO")
+            
+            # Intentar obtener SPH del agente si ya ha accedido antes
+            if st.session_state.get('username'):
+                try:
+                    from sidebar_notifications import mostrar_sph_usuario_en_login
+                    sph_acumulado = mostrar_sph_usuario_en_login(st.session_state.username)
+                    
+                    if sph_acumulado is not None:
+                        st.markdown("---")
+                        st.markdown("### 📊 Tu Rendimiento Actual")
+                        st.metric("📈 SPH Acumulado", f"{sph_acumulado:.4f}")
+                        
+                        # Obtener objetivo
+                        from agent_schedule_manager import cargar_metricas_agentes
+                        metricas = cargar_metricas_agentes()
+                        hoy = datetime.now()
+                        mes_key = f"{hoy.year}-{hoy.month:02d}"
+                        
+                        if st.session_state.username in metricas and mes_key in metricas[st.session_state.username]:
+                            sph_objetivo = metricas[st.session_state.username][mes_key].get("sph", 0.07)
+                            st.metric("🎯 SPH Objetivo", f"{sph_objetivo:.4f}")
+                except:
+                    pass
+            
             if st.button("Entrar Automáticamente", use_container_width=True, type="primary"):
                 username, user_config = identificar_usuario_automatico()
                 st.session_state.authenticated = True
@@ -29,7 +53,19 @@ def mostrar_login():
                 st.session_state.user_config = user_config
                 st.session_state.login_time = datetime.now()
                 
-                st.success(f"✅ Identificado como: {user_config['nombre']}")
+                # Intentar mostrar SPH inmediatamente después del login
+                try:
+                    from sidebar_notifications import mostrar_sph_usuario_en_login
+                    sph_acumulado = mostrar_sph_usuario_en_login(username)
+                    
+                    if sph_acumulado is not None:
+                        st.success(f"✅ Identificado como: {user_config['nombre']}")
+                        st.info(f"📊 Tu SPH acumulado: {sph_acumulado:.4f}")
+                    else:
+                        st.success(f"✅ Identificado como: {user_config['nombre']}")
+                except:
+                    st.success(f"✅ Identificado como: {user_config['nombre']}")
+                
                 st.rerun()
         else:
             st.warning("El acceso automático está DESACTIVADO por el administrador")
