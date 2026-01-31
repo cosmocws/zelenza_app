@@ -1930,7 +1930,7 @@ def gestion_agentes_objetivos():
             'Jueves': horas_por_dia['Jueves'],
             'Viernes': horas_por_dia['Viernes'],
             'Festivos (h)': horas_festivos_mes,
-            'AUS (h)': horas_ausencias_mes,
+            'AUS (h)': round(horas_ausencias_mes, 1),  # Ahora editable
             'SPH Objetivo': sph_objetivo,
             'SPH Real': round(sph_real, 4),
             'OBJ': objetivo_final,
@@ -1939,7 +1939,8 @@ def gestion_agentes_objetivos():
             'Estado': estado,
             '_color': color,
             '_horas_totales': round(horas_totales_mes, 1),
-            '_horas_efectivas': round(horas_efectivas, 1)
+            '_horas_efectivas': round(horas_efectivas, 1),
+            '_dias_ausentes': dias_ausentes
         })
     
     # Crear DataFrame
@@ -1948,17 +1949,14 @@ def gestion_agentes_objetivos():
     
     # Mostrar tabla editable
     st.write("### 📊 Tabla de Agentes - Edición Directa")
-    st.caption("📝 Modifica las horas por día y el SPH - El OBJETIVO se calculará automáticamente")
+    st.caption("📝 Modifica las horas por día, SPH y AUSENCIAS - El OBJETIVO se calculará automáticamente")
     
     # Función para aplicar colores según estado
     def aplicar_colores(row):
         return [f'background-color: {row["_color"]}'] * len(row)
     
-    # Mostrar tabla con colores
+    # Mostrar dataframe con estilo
     if not df.empty:
-        # Mostrar dataframe con estilo
-        styled_df = df.style.apply(aplicar_colores, axis=1)
-        
         # Crear columnas configurables
         column_config = {
             'Agente': st.column_config.TextColumn("Agente", width="medium", disabled=True),
@@ -1969,7 +1967,7 @@ def gestion_agentes_objetivos():
             'Jueves': st.column_config.NumberColumn("Jueves (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
             'Viernes': st.column_config.NumberColumn("Viernes (h)", min_value=0.0, max_value=24.0, step=0.5, format="%.1f"),
             'Festivos (h)': st.column_config.NumberColumn("Festivos (h)", disabled=True),
-            'AUS (h)': st.column_config.NumberColumn("Ausencias (h)", min_value=0.0, max_value=200.0, step=1.0, disabled=True),
+            'AUS (h)': st.column_config.NumberColumn("Ausencias (h)", min_value=0.0, max_value=200.0, step=1.0, help="Horas totales de ausencia este mes"),
             'SPH Objetivo': st.column_config.NumberColumn("SPH Objetivo", min_value=0.01, max_value=1.0, step=0.01, format="%.4f"),
             'SPH Real': st.column_config.NumberColumn("SPH Real", min_value=0.0, max_value=1.0, step=0.0001, format="%.4f", disabled=True),
             'OBJ': st.column_config.NumberColumn("Objetivo", min_value=0, max_value=1000, step=1, disabled=True),
@@ -1978,7 +1976,8 @@ def gestion_agentes_objetivos():
             'Estado': st.column_config.TextColumn("Estado", disabled=True),
             '_color': None,  # Ocultar
             '_horas_totales': None,  # Ocultar
-            '_horas_efectivas': None  # Ocultar
+            '_horas_efectivas': None,  # Ocultar
+            '_dias_ausentes': None  # Ocultar
         }
         
         edited_df = st.data_editor(
@@ -1987,23 +1986,23 @@ def gestion_agentes_objetivos():
             hide_index=True,
             use_container_width=True,
             num_rows="fixed",
-            key="tabla_agentes_completa"
+            key="tabla_agentes_completa_editable"
         )
     else:
         st.warning("No hay agentes para mostrar")
         return
     
     # ==============================================
-    # GESTIÓN DE AUSENCIAS
+    # GESTIÓN DE AUSENCIAS (FUNCIONALIDAD MEJORADA)
     # ==============================================
     
     st.write("---")
     st.write("### 🏥 Gestión de Ausencias")
     
-    col_aus1, col_aus2 = st.columns(2)
+    col_aus1, col_aus2, col_aus3 = st.columns(3)
     
     with col_aus1:
-        if st.button("➕ Añadir Ausencia", key="añadir_ausencia"):
+        if st.button("➕ Añadir Ausencia", key="añadir_ausencia_detallada"):
             st.session_state.mostrar_formulario_ausencia = True
             st.rerun()
     
@@ -2016,9 +2015,14 @@ def gestion_agentes_objetivos():
         )
         st.metric("Ausencias este mes", total_ausencias_mes)
     
+    with col_aus3:
+        if st.button("🔄 Actualizar desde Tabla", key="actualizar_ausencias_tabla", 
+                    help="Actualiza las ausencias desde los valores de la tabla"):
+            st.info("Las ausencias se actualizarán al guardar la tabla completa")
+    
     # Mostrar formulario para añadir ausencia si está activado
     if st.session_state.get('mostrar_formulario_ausencia', False):
-        _mostrar_formulario_ausencia(agentes, agentes_config, ausencias, mes_seleccionado, año_seleccionado)
+        _mostrar_formulario_ausencia_mejorado(agentes, agentes_config, ausencias, mes_seleccionado, año_seleccionado)
     
     # Mostrar ausencias existentes
     if total_ausencias_mes > 0:
@@ -2034,7 +2038,8 @@ def gestion_agentes_objetivos():
                                 "fecha": fecha_str,
                                 "tipo": datos.get("tipo", "Desconocido"),
                                 "horas": datos.get("horas_perdidas", 0),
-                                "motivo": datos.get("motivo", "")
+                                "motivo": datos.get("motivo", ""),
+                                "fecha_registro": datos.get("fecha_registro", "")
                             })
                     except:
                         pass
@@ -2042,21 +2047,26 @@ def gestion_agentes_objetivos():
                 if ausencias_agente:
                     with st.expander(f"✅ {agentes_config[agente_id].get('nombre', agente_id)} ({len(ausencias_agente)} ausencias)", expanded=False):
                         for ausencia in ausencias_agente:
-                            st.write(f"📅 **{ausencia['fecha']}** - {ausencia['tipo']}")
-                            st.write(f"   ⏰ {ausencia['horas']} horas | 📝 {ausencia['motivo']}")
+                            col_info, col_accion = st.columns([4, 1])
+                            with col_info:
+                                st.write(f"📅 **{ausencia['fecha']}** - {ausencia['tipo']}")
+                                st.write(f"   ⏰ {ausencia['horas']} horas | 📝 {ausencia['motivo']}")
+                                if ausencia['fecha_registro']:
+                                    st.caption(f"Registrado: {ausencia['fecha_registro']}")
                             
-                            # Botón para eliminar
-                            if st.button(f"🗑️ Eliminar", key=f"del_ausencia_{agente_id}_{ausencia['fecha']}"):
-                                del ausencias[agente_id][ausencia['fecha']]
-                                guardar_ausencias_agentes(ausencias)
-                                st.success(f"✅ Ausencia eliminada")
-                                st.rerun()
+                            with col_accion:
+                                # Botón para eliminar
+                                if st.button(f"🗑️", key=f"del_ausencia_{agente_id}_{ausencia['fecha']}"):
+                                    del ausencias[agente_id][ausencia['fecha']]
+                                    guardar_ausencias_agentes(ausencias)
+                                    st.success(f"✅ Ausencia eliminada")
+                                    st.rerun()
     
-    # Botón para guardar cambios de la tabla
+    # Botón para guardar cambios de la tabla (CON GESTIÓN DE AUSENCIAS)
     st.write("---")
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        if st.button("💾 Guardar Todos los Cambios", type="primary", use_container_width=True, key="guardar_tabla_completa_v2"):
+        if st.button("💾 Guardar Todos los Cambios", type="primary", use_container_width=True, key="guardar_tabla_completa_v3"):
             cambios_realizados = False
             
             for idx, row in edited_df.iterrows():
@@ -2091,10 +2101,59 @@ def gestion_agentes_objetivos():
                     except:
                         horarios[agente_id][dia] = {"inicio": "15:00", "fin": "21:00"}
                 
-                # 2. Actualizar SPH objetivo
+                # 2. GESTIÓN DE AUSENCIAS DESDE TABLA
+                horas_ausencias_tabla = float(row['AUS (h)'])
+                
+                # Obtener horas actuales de ausencias del mes
+                horas_ausencias_actuales = 0
+                fechas_ausencias_mes = []
+                
+                if agente_id in ausencias:
+                    for fecha_str, datos in ausencias[agente_id].items():
+                        try:
+                            fecha = datetime.strptime(fecha_str, "%Y-%m-%d")
+                            if fecha.year == año_seleccionado and fecha.month == mes_seleccionado:
+                                horas = datos.get("horas_perdidas", 0)
+                                horas_ausencias_actuales += horas
+                                fechas_ausencias_mes.append(fecha_str)
+                        except:
+                            pass
+                
+                # Si hay diferencia, actualizar ausencias
+                if abs(horas_ausencias_tabla - horas_ausencias_actuales) > 0.1:
+                    if horas_ausencias_tabla > 0:
+                        # Si hay horas pero no hay ausencias registradas, crear una
+                        if not fechas_ausencias_mes:
+                            # Crear nueva ausencia con la suma de horas
+                            fecha_ausencia = f"{año_seleccionado}-{mes_seleccionado:02d}-01"
+                            
+                            if agente_id not in ausencias:
+                                ausencias[agente_id] = {}
+                            
+                            ausencias[agente_id][fecha_ausencia] = {
+                                "tipo": "Ausencia general",
+                                "horas_perdidas": horas_ausencias_tabla,
+                                "motivo": f"Actualizado desde tabla - Total: {horas_ausencias_tabla}h",
+                                "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                                "registrado_por": st.session_state.get('username', 'admin')
+                            }
+                        else:
+                            # Redistribuir las horas entre las ausencias existentes
+                            # Opción 1: Ajustar la primera ausencia
+                            primera_fecha = sorted(fechas_ausencias_mes)[0]
+                            ausencias[agente_id][primera_fecha]["horas_perdidas"] = horas_ausencias_tabla
+                            ausencias[agente_id][primera_fecha]["motivo"] = f"Ajustado desde tabla - Total: {horas_ausencias_tabla}h"
+                    else:
+                        # Si horas_ausencias_tabla = 0, eliminar todas las ausencias del mes
+                        if agente_id in ausencias:
+                            for fecha_str in fechas_ausencias_mes:
+                                if fecha_str in ausencias[agente_id]:
+                                    del ausencias[agente_id][fecha_str]
+                
+                # 3. Actualizar SPH objetivo
                 sph_nuevo = float(row['SPH Objetivo'])
                 
-                # 3. Calcular objetivo actualizado
+                # 4. Calcular objetivo actualizado con nuevas ausencias
                 dias_laborables = 0
                 fecha_actual = date(año_seleccionado, mes_seleccionado, 1)
                 ultimo_dia_mes = (fecha_actual.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1)
@@ -2107,8 +2166,8 @@ def gestion_agentes_objetivos():
                 total_horas_semana = sum(float(row[dia]) for dia in dias_editor)
                 horas_totales_mes = (dias_laborables * total_horas_semana / 5)
                 
-                horas_ausencias = float(row['AUS (h)'])
-                horas_totales_mes -= horas_ausencias
+                # Usar horas_ausencias_tabla (ya actualizadas)
+                horas_totales_mes -= horas_ausencias_tabla
                 horas_totales_mes = max(0, horas_totales_mes)
                 
                 horas_efectivas = horas_totales_mes * 0.83
@@ -2130,11 +2189,12 @@ def gestion_agentes_objetivos():
                     "objetivo_calculado": objetivo_final,
                     "horas_totales_mes": round(horas_totales_mes, 2),
                     "horas_efectivas": round(horas_efectivas, 2),
-                    "dias_ausentes": int(horas_ausencias / 6) if horas_ausencias > 0 else 0,
+                    "dias_ausentes": len(fechas_ausencias_mes),
+                    "horas_ausencias": horas_ausencias_tabla,
                     "mes": mes_key_selected
                 }
                 
-                # 4. Actualizar ventas reales
+                # 5. Actualizar ventas reales
                 ventas_reales = int(row['Ventas Reales'])
                 
                 if agente_id not in ventas:
@@ -2153,10 +2213,12 @@ def gestion_agentes_objetivos():
             if cambios_realizados:
                 # Guardar todos los cambios
                 guardar_horarios_agentes(horarios)
+                guardar_ausencias_agentes(ausencias)  # ¡IMPORTANTE! Guardar ausencias
                 guardar_metricas_agentes(metricas)
                 guardar_ventas_agentes(ventas)
                 
                 st.success("✅ Todos los cambios guardados exitosamente")
+                st.success("✅ Ausencias actualizadas desde la tabla")
                 st.rerun()
             else:
                 st.info("📝 No se detectaron cambios para guardar")
@@ -2175,8 +2237,9 @@ def gestion_agentes_objetivos():
         avg_sph_objetivo = df['SPH Objetivo'].mean()
         avg_sph_real = df['SPH Real'].mean()
         avg_porcentaje = df['% Objetivo'].mean()
+        avg_ausencias = df['AUS (h)'].mean()
         
-        col_stat1, col_stat2, col_stat3, col_stat4 = st.columns(4)
+        col_stat1, col_stat2, col_stat3, col_stat4, col_stat5 = st.columns(5)
         with col_stat1:
             st.metric("Total Agentes", total_agentes)
         with col_stat2:
@@ -2185,6 +2248,8 @@ def gestion_agentes_objetivos():
             st.metric("⚠️ Cerca", agentes_cerca)
         with col_stat4:
             st.metric("❌ Debajo", agentes_debajo)
+        with col_stat5:
+            st.metric("⏰ Ausencias/h", f"{avg_ausencias:.1f}")
         
         col_avg1, col_avg2, col_avg3 = st.columns(3)
         with col_avg1:
@@ -2201,7 +2266,7 @@ def gestion_agentes_objetivos():
     col_upd1, col_upd2 = st.columns(2)
     
     with col_upd1:
-        if st.button("🔄 Calcular Ventas del Mes Actual", key="calcular_ventas_mes"):
+        if st.button("🔄 Calcular Ventas del Mes Actual", key="calcular_ventas_mes_v2"):
             from database import cargar_registro_llamadas
             registro = cargar_registro_llamadas()
             
@@ -2233,7 +2298,7 @@ def gestion_agentes_objetivos():
                     st.info(f"... y {len(agentes_actualizados) - 5} más")
             
             # Sincronizar automáticamente con GitHub después de actualizar
-            if st.button("🔄 Sincronizar ahora con GitHub", key="sync_ahora"):
+            if st.button("🔄 Sincronizar ahora con GitHub", key="sync_ahora_v2"):
                 from agent_schedule_manager import sincronizar_ventas_con_github
                 if sincronizar_ventas_con_github():
                     st.success("✅ Ventas sincronizadas con GitHub automáticamente")
@@ -2241,7 +2306,7 @@ def gestion_agentes_objetivos():
                     st.error("❌ Error al sincronizar con GitHub")
     
     with col_upd2:
-        if st.button("📊 Ver Detalle de Ventas", key="ver_detalle_ventas"):
+        if st.button("📊 Ver Detalle de Ventas", key="ver_detalle_ventas_v2"):
             st.write("#### 📋 Detalle de Ventas por Agente")
             
             # Crear detalle
@@ -2259,7 +2324,8 @@ def gestion_agentes_objetivos():
                         'Agente': agentes_config[agente_id].get('nombre', agente_id),
                         'Ventas Totales': ventas_reales,
                         'Días con Ventas': dias_con_ventas,
-                        'Promedio/Día': round(ventas_reales / max(dias_con_ventas, 1), 1)
+                        'Promedio/Día': round(ventas_reales / max(dias_con_ventas, 1), 1),
+                        'Ausencias (h)': next((row['AUS (h)'] for idx, row in df.iterrows() if row['Username'] == agente_id), 0)
                     })
             
             if detalle_data:
@@ -2275,18 +2341,20 @@ def gestion_agentes_objetivos():
     1. **SPH Objetivo**: Es el valor que se usa para calcular el objetivo de ventas
     2. **SPH Real**: Se calcula automáticamente como: Ventas Reales ÷ Horas Efectivas
     3. **Horas Efectivas**: Se calculan como 83% de las horas totales (descontando ausencias)
-    4. **Ventas Reales**: Se pueden actualizar desde el registro de llamadas automáticamente
-    5. **Estado**: 
+    4. **AUS (h)**: Puedes editar directamente las horas de ausencia en la tabla
+    5. **Ventas Reales**: Se pueden actualizar desde el registro de llamadas automáticamente
+    6. **Estado**: 
        - ✅ **Cumple**: Ventas >= 100% del objetivo
        - ⚠️ **Cerca**: Ventas entre 80-99% del objetivo  
        - ❌ **Debajo**: Ventas < 80% del objetivo
+    7. **Guardar**: Recuerda hacer click en "Guardar Todos los Cambios" para aplicar los cambios
     """)
 
-def _mostrar_formulario_ausencia(agentes, agentes_config, ausencias_data, mes, año):
-    """Muestra formulario para añadir ausencia"""
+def _mostrar_formulario_ausencia_mejorado(agentes, agentes_config, ausencias_data, mes, año):
+    """Muestra formulario mejorado para añadir ausencia con recarga automática"""
     st.write("#### 📝 Añadir Nueva Ausencia")
     
-    with st.form("form_ausencia"):
+    with st.form("form_ausencia_mejorado"):
         # Seleccionar agente
         opciones_agentes = [(agente_id, agentes_config[agente_id].get('nombre', agente_id)) 
                           for agente_id in agentes]
@@ -2295,7 +2363,8 @@ def _mostrar_formulario_ausencia(agentes, agentes_config, ausencias_data, mes, a
         agente_seleccionado = st.selectbox(
             "Agente:",
             options=[a[0] for a in opciones_agentes],
-            format_func=lambda x: f"{agentes_config[x].get('nombre', x)} ({x})"
+            format_func=lambda x: f"{agentes_config[x].get('nombre', x)} ({x})",
+            key="form_agente_ausencia"
         )
         
         # Seleccionar fecha
@@ -2303,13 +2372,15 @@ def _mostrar_formulario_ausencia(agentes, agentes_config, ausencias_data, mes, a
             "Fecha de ausencia:",
             value=date(año, mes, 1),
             min_value=date(año, mes, 1),
-            max_value=date(año, mes, 28) + timedelta(days=4)
+            max_value=date(año, mes, 28) + timedelta(days=4),
+            key="form_fecha_ausencia"
         )
         
         # Tipo de ausencia
         tipo_ausencia = st.selectbox(
             "Tipo de ausencia:",
-            ["Baja médica", "Vacaciones", "Día libre", "Permiso", "Otro"]
+            ["Baja médica", "Vacaciones", "Día libre", "Permiso", "Otro"],
+            key="form_tipo_ausencia"
         )
         
         # Horas perdidas
@@ -2319,12 +2390,14 @@ def _mostrar_formulario_ausencia(agentes, agentes_config, ausencias_data, mes, a
             max_value=24.0,
             value=6.0,
             step=0.5,
-            help="Horas laborables perdidas ese día"
+            help="Horas laborables perdidas ese día",
+            key="form_horas_ausencia"
         )
         
         # Motivo
         motivo = st.text_area("Motivo (opcional):", 
-                             placeholder="Ej: Consulta médica, Vacaciones familiares...")
+                             placeholder="Ej: Consulta médica, Vacaciones familiares...",
+                             key="form_motivo_ausencia")
         
         col_submit1, col_submit2 = st.columns(2)
         with col_submit1:
@@ -2339,19 +2412,49 @@ def _mostrar_formulario_ausencia(agentes, agentes_config, ausencias_data, mes, a
             if agente_seleccionado not in ausencias_data:
                 ausencias_data[agente_seleccionado] = {}
             
-            # Guardar ausencia
-            ausencias_data[agente_seleccionado][fecha_str] = {
-                "tipo": tipo_ausencia,
-                "horas_perdidas": horas_perdidas,
-                "motivo": motivo,
-                "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "registrado_por": st.session_state.get('username', 'admin')
-            }
-            
-            guardar_ausencias_agentes(ausencias_data)
-            st.success(f"✅ Ausencia registrada para {agentes_config[agente_seleccionado].get('nombre', agente_seleccionado)}")
-            st.session_state.mostrar_formulario_ausencia = False
-            st.rerun()
+            # Verificar si ya existe ausencia en esa fecha
+            if fecha_str in ausencias_data[agente_seleccionado]:
+                st.warning(f"⚠️ Ya existe una ausencia para {agente_seleccionado} en {fecha_str}")
+                st.info("¿Deseas actualizarla?")
+                
+                col_act1, col_act2 = st.columns(2)
+                with col_act1:
+                    if st.button("✅ Sí, actualizar", key="actualizar_ausencia_existente"):
+                        ausencias_data[agente_seleccionado][fecha_str].update({
+                            "tipo": tipo_ausencia,
+                            "horas_perdidas": horas_perdidas,
+                            "motivo": motivo,
+                            "fecha_actualizacion": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        })
+                        guardar_ausencias_agentes(ausencias_data)
+                        st.success(f"✅ Ausencia actualizada para {agentes_config[agente_seleccionado].get('nombre', agente_seleccionado)}")
+                        st.session_state.mostrar_formulario_ausencia = False
+                        st.rerun()
+                with col_act2:
+                    if st.button("↩️ Cancelar", key="cancelar_actualizacion"):
+                        st.session_state.mostrar_formulario_ausencia = False
+                        st.rerun()
+            else:
+                # Guardar nueva ausencia
+                ausencias_data[agente_seleccionado][fecha_str] = {
+                    "tipo": tipo_ausencia,
+                    "horas_perdidas": horas_perdidas,
+                    "motivo": motivo,
+                    "fecha_registro": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "registrado_por": st.session_state.get('username', 'admin')
+                }
+                
+                guardar_ausencias_agentes(ausencias_data)
+                st.success(f"✅ Ausencia registrada para {agentes_config[agente_seleccionado].get('nombre', agente_seleccionado)}")
+                
+                # Recargar automáticamente después de 2 segundos
+                st.balloons()
+                st.info("🔄 Actualizando tabla...")
+                
+                import time
+                time.sleep(2)
+                st.session_state.mostrar_formulario_ausencia = False
+                st.rerun()
         
         if cancel:
             st.session_state.mostrar_formulario_ausencia = False
