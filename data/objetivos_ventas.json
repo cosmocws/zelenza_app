@@ -18,7 +18,7 @@
         "0829": 7,
         "0841": 0,
         "0854": 8,
-        "0857": 7,
+        "0857": 5,
         "0869": 7,
         "0872": 7,
         "0881": 7,
@@ -307,6 +307,13 @@
                 "fecha": "2026-01-11T03:14:40.331263",
                 "agente": "0857",
                 "objetivo_nuevo": 7,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-02-02T20:18:54.187008",
+                "agente": "0857",
+                "objetivo_nuevo": 5,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -615,6 +622,6 @@
     },
     "metadata": {
         "fecha_creacion": "2026-01-11T01:41:18.398921",
-        "ultima_actualizacion": "2026-02-02T13:44:53.654398"
+        "ultima_actualizacion": "2026-02-02T20:18:54.187048"
     }
 }
