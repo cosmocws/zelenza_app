@@ -1,7 +1,7 @@
 {
     "objetivos": {
         "0245": 11,
-        "0381": 24,
+        "0381": 20,
         "0387": 10,
         "0613": 11,
         "0657": 11,
@@ -70,6 +70,13 @@
                 "fecha": "2026-02-02T13:44:53.654294",
                 "agente": "0381",
                 "objetivo_nuevo": 24,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-02-03T19:53:43.912193",
+                "agente": "0381",
+                "objetivo_nuevo": 20,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -622,6 +629,6 @@
     },
     "metadata": {
         "fecha_creacion": "2026-01-11T01:41:18.398921",
-        "ultima_actualizacion": "2026-02-02T20:18:54.187048"
+        "ultima_actualizacion": "2026-02-03T19:53:43.912283"
     }
 }
