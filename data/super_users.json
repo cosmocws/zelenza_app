@@ -73,10 +73,11 @@
             "nombre": "Estefanía Merino",
             "grupo": "CAPTA EQUIPO LUIS",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0731",
+            "objetivo_ventas_mensual": 10,
             "fecha_registro": "2026-01-01",
-            "fecha_actualizacion": "2026-01-01 19:57:46"
+            "fecha_actualizacion": "2026-02-07 10:18:38"
         },
         "0775": {
             "nombre": "María del Carmen López",
@@ -118,10 +119,11 @@
             "nombre": "Raúl Palomino",
             "grupo": "CAPTA EQUIPO LUIS",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0731",
+            "objetivo_ventas_mensual": 10,
             "fecha_registro": "2026-01-01",
-            "fecha_actualizacion": "2026-01-01 19:58:44"
+            "fecha_actualizacion": "2026-02-07 10:19:31"
         },
         "0821": {
             "nombre": "Irene Benítez",
@@ -152,9 +154,11 @@
             "nombre": "Lucía García",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "",
-            "fecha_registro": "2026-01-01"
+            "objetivo_ventas_mensual": 10,
+            "fecha_registro": "2026-01-01",
+            "fecha_actualizacion": "2026-02-07 10:20:05"
         },
         "0854": {
             "nombre": "Yusely Bracho",
@@ -201,61 +205,71 @@
             "nombre": "Samuel Alarcón",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "",
-            "fecha_registro": "2026-01-01"
+            "objetivo_ventas_mensual": 10,
+            "fecha_registro": "2026-01-01",
+            "fecha_actualizacion": "2026-02-07 10:20:40"
         },
         "0891": {
             "nombre": "Noelia Escudero",
             "grupo": "CAPTA EQUIPO LUIS",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0731",
+            "objetivo_ventas_mensual": 10,
             "fecha_registro": "2026-01-01",
-            "fecha_actualizacion": "2026-01-01 20:00:45"
+            "fecha_actualizacion": "2026-02-07 10:21:15"
         },
         "0893": {
             "nombre": "José Gabriel Orellana",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "",
-            "fecha_registro": "2026-01-01"
+            "objetivo_ventas_mensual": 10,
+            "fecha_registro": "2026-01-01",
+            "fecha_actualizacion": "2026-02-07 10:24:21"
         },
         "0894": {
             "nombre": "Laura González",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "",
-            "fecha_registro": "2026-01-01"
+            "objetivo_ventas_mensual": 10,
+            "fecha_registro": "2026-01-01",
+            "fecha_actualizacion": "2026-02-07 10:24:53"
         },
         "0903": {
             "nombre": "Sergio Rodríguez Guisado",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0320",
             "objetivo_ventas_mensual": 10,
-            "fecha_registro": "2026-01-22"
+            "fecha_registro": "2026-01-22",
+            "fecha_actualizacion": "2026-02-07 10:25:29"
         },
         "0904": {
             "nombre": "Ángel Vázquez Del Toro",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0320",
             "objetivo_ventas_mensual": 10,
-            "fecha_registro": "2026-01-22"
+            "fecha_registro": "2026-01-22",
+            "fecha_actualizacion": "2026-02-07 10:22:46"
         },
         "0906": {
             "nombre": "Jesús Sola Díaz",
             "grupo": "CAPTA EQUIPO EVA",
             "tipo": "manual",
-            "activo": true,
+            "activo": false,
             "supervisor": "0320",
             "objetivo_ventas_mensual": 10,
-            "fecha_registro": "2026-01-22"
+            "fecha_registro": "2026-01-22",
+            "fecha_actualizacion": "2026-02-07 10:26:01"
         },
         "0907": {
             "nombre": "Laura Liceth Orjuela Palacios",
@@ -442,7 +456,7 @@
         "duracion_minima_llamada": 15,
         "periodo_mensual": "calendario",
         "target_llamadas": 50,
-        "target_ventas_global": 250,
+        "target_ventas_global": 271,
         "metrica_eficiencia": "ratio",
         "mostrar_solo_mis_agentes": false,
         "umbral_alertas_llamadas": 25,
