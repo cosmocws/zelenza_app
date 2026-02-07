@@ -325,3 +325,5 @@
 2026-02-07 11:00:10 - ERROR - Error al subir modelos_facturas/yoigo/yoigo2.jpg: 409 - {"message":"is at 227186537004e114c04b0ce2afcc04c4778a7348 but expected c8623f1fd6c3c1d8a1d7de455641f3e0a89b0631","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-07 11:00:11 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 41303f3286f6ae9b35e0df29286c357c60327cb3 but expected 227186537004e114c04b0ce2afcc04c4778a7348","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-07 11:00:12 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-07 11:00:13 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at c55bef90bc3dd8050f534a23eea1c96ac73f60da but expected 41303f3286f6ae9b35e0df29286c357c60327cb3","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-07 11:00:13 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
