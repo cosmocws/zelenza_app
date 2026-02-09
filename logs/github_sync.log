@@ -11354,3 +11354,58 @@
 2026-02-09 02:33:28 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-09 02:33:29 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at 70af54f9efd37b7918cd227bb8d963121854507e but expected f2d9302c225b90cf84f5db83ace3f1a559db3fd4","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-09 02:33:29 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-09 02:33:31 - ERROR - Error al subir logs/github_sync.log: 409 - {"message":"is at 1baea23ee97319cb7bd6d6db08bbfe72f09e3f35 but expected 70af54f9efd37b7918cd227bb8d963121854507e","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-09 02:33:31 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-09 02:33:32 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at f9a035b9e292b5faaae7911979f0dd85a6a2b26f but expected 1baea23ee97319cb7bd6d6db08bbfe72f09e3f35","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-09 02:33:32 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-09 02:33:32 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at aa2d332f6a92b4dc4b8760e9a2d7222679fe3faa but expected f9a035b9e292b5faaae7911979f0dd85a6a2b26f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-09 02:33:32 - INFO - 📊 Sincronización completada: 17/48 exitosas
+2026-02-09 02:33:32 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-09 02:33:32 - INFO - 📊 Sincronización completada: 31/48 exitosas
+2026-02-09 02:46:02 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-09 02:46:03 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-09 02:46:04 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-09 02:46:05 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-09 02:46:05 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-09 02:46:06 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-09 02:46:07 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-09 02:46:08 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-09 02:46:09 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-09 02:46:10 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-09 02:46:11 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-09 02:46:12 - SUCCESS - ✅ Archivo sincronizado: data/agent_absences.json
+2026-02-09 02:46:13 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-09 02:46:14 - SUCCESS - ✅ Archivo sincronizado: data/agent_sales.json
+2026-02-09 02:46:15 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-09 02:46:16 - SUCCESS - ✅ Archivo sincronizado: data/precios_luz.csv
+2026-02-09 02:46:17 - SUCCESS - ✅ Archivo sincronizado: data/alertas_sms.json
+2026-02-09 02:46:18 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-09 02:46:19 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-09 02:46:20 - SUCCESS - ✅ Archivo sincronizado: data/monitorizaciones.json
+2026-02-09 02:46:21 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-09 02:46:22 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-09 02:46:22 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-09 02:46:24 - SUCCESS - ✅ Archivo sincronizado: data/agent_metrics.json
+2026-02-09 02:46:25 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-09 02:46:25 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-09 02:46:26 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-09 02:46:28 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-09 02:46:30 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-09 02:46:31 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy2.jpg
+2026-02-09 02:46:33 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-09 02:46:34 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-09 02:46:35 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-09 02:46:37 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-09 02:46:38 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-09 02:46:39 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-09 02:46:41 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-09 02:46:42 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-09 02:46:43 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-09 02:46:45 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-09 02:46:46 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-09 02:46:48 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-09 02:46:49 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-09 02:46:51 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-09 02:46:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-09 02:46:54 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-09 02:46:55 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
