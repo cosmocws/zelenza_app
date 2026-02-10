@@ -1,1 +1,45 @@
-[]
+[
+    {
+        "id": "dd536e1f",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-02-10T16:11:22.789414+01:00",
+        "timestamp_inicio": "2026-02-10T16:11:26.614800+01:00",
+        "timestamp_fin": "2026-02-10T16:16:26.865869+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-10T16:11:23.014064+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "90da1cf5",
+        "usuario_id": "0245",
+        "usuario_nombre": "Francisco José Cruz",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-10T16:19:29.439229+01:00",
+        "timestamp_inicio": "2026-02-10T16:19:48.705297+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-10T16:19:29.633890+01:00"
+    },
+    {
+        "id": "019f7e9b",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "corta",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-10T16:22:18.189241+01:00",
+        "timestamp_inicio": "2026-02-10T16:23:16.918219+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-10T16:22:18.981648+01:00"
+    }
+]
