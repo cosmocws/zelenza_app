@@ -330,13 +330,28 @@
         "usuario_id": "0782",
         "usuario_nombre": "Rocío Miranda",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-10T19:03:43.545359+01:00",
         "timestamp_inicio": "2026-02-10T19:03:47.113704+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-10T19:14:19.303043+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-10T19:03:43.751716+01:00"
+        "timestamp_notificacion": "2026-02-10T19:03:43.751716+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "a533643b",
+        "usuario_id": "0799",
+        "usuario_nombre": "José Enrique García Vega",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-02-10T19:14:23.765346+01:00",
+        "timestamp_inicio": "2026-02-10T19:14:45.637804+01:00",
+        "timestamp_fin": "2026-02-10T19:24:08.724682+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-10T19:14:24.001413+01:00"
     }
 ]
