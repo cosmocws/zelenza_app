@@ -1612,3 +1612,12 @@
 2026-02-11 17:12:04 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 9c6563fad012a85d272ca770bb0b43eafafe6a66 but expected d9101aa8fc744d017e0bb4b42d98f08f66f4c9cd","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-11 17:12:06 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
 2026-02-11 17:12:06 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at bd33006b12183271be012e569d3e99707bf51e77 but expected 9c6563fad012a85d272ca770bb0b43eafafe6a66","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 17:12:07 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-11 17:12:07 - ERROR - Error al subir modelos_facturas/totalenergies/totalenergiesgas.jpg: 409 - {"message":"is at 4a738cde5458fc73bbb529e892c70e551aabae43 but expected bd33006b12183271be012e569d3e99707bf51e77","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 17:12:08 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-11 17:12:09 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-11 17:12:09 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 7509db1e11da9c47d019f6317ab715d27667f630 but expected bb6f4716d1a8ebca8e1c4c056be3ed0c72a0f8b6","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 17:12:09 - INFO - 📊 Sincronización completada: 35/48 exitosas
+2026-02-11 17:12:10 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-11 17:12:12 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-11 17:12:14 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
