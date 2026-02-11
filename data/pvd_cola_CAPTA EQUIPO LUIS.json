@@ -279,5 +279,20 @@
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-02-11T19:16:50.530439+01:00"
+    },
+    {
+        "id": "ac5fe7c2",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-11T19:22:42.542885+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-11T19:22:42.701939+01:00",
+        "motivo_cancelacion": "usuario_rechazo"
     }
 ]
