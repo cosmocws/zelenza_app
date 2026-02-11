@@ -420,3 +420,12 @@
 2026-02-11 14:14:52 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 1114efc38585861d939875e025421a20737e9395 but expected 2646abf62af1c87cfaef0e88623aae7de1f36f04","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-11 14:14:53 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
 2026-02-11 14:14:54 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at 1345c109fa4a637ce36d6f71122b05524fe06bad but expected 1114efc38585861d939875e025421a20737e9395","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 14:14:55 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-11 14:14:55 - ERROR - Error al subir modelos_facturas/totalenergies/totalenergiesgas.jpg: 409 - {"message":"is at d671da0c0a3a62b6cebc3a82d255a42911e515ad but expected 1345c109fa4a637ce36d6f71122b05524fe06bad","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 14:14:56 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-11 14:14:57 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at f6e84de601b6026523bb670aa59277a8d5843c74 but expected 8c1fd781f71f72f2214d0fe6fde163bb4d757f25","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-11 14:14:57 - INFO - 📊 Sincronización completada: 34/48 exitosas
+2026-02-11 14:14:57 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-11 14:14:58 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-11 14:15:00 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-11 14:15:01 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
