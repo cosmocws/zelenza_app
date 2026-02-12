@@ -52,7 +52,13 @@
         "0929": 6,
         "0931": 6,
         "0933": 6,
-        "0934": 6
+        "0934": 6,
+        "0937": 4,
+        "0938": 4,
+        "0939": 4,
+        "0941": 4,
+        "0948": 4,
+        "0949": 4
     },
     "historico": {
         "0245": [
@@ -741,10 +747,64 @@
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
+        ],
+        "0937": [
+            {
+                "fecha": "2026-02-12T13:58:38.883035",
+                "agente": "0937",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0938": [
+            {
+                "fecha": "2026-02-12T13:58:38.883046",
+                "agente": "0938",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0939": [
+            {
+                "fecha": "2026-02-12T13:58:38.883049",
+                "agente": "0939",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0941": [
+            {
+                "fecha": "2026-02-12T13:58:38.883051",
+                "agente": "0941",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0948": [
+            {
+                "fecha": "2026-02-12T13:58:38.883053",
+                "agente": "0948",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0949": [
+            {
+                "fecha": "2026-02-12T13:58:38.883055",
+                "agente": "0949",
+                "objetivo_nuevo": 4,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
         ]
     },
     "metadata": {
         "fecha_creacion": "2026-01-11T01:41:18.398921",
-        "ultima_actualizacion": "2026-02-10T13:03:40.516292"
+        "ultima_actualizacion": "2026-02-12T13:58:38.883083"
     }
 }
