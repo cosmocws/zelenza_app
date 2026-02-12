@@ -242,13 +242,26 @@
         "usuario_id": "0387",
         "usuario_nombre": "David Montesinos",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-02-12T19:29:52.333090+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-02-12T19:29:56.100655+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
-        "confirmado": false,
+        "confirmado": true,
         "timestamp_notificacion": "2026-02-12T19:29:52.480372+01:00"
+    },
+    {
+        "id": "3b3a0b23",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-12T19:30:26.330884+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
