@@ -17344,3 +17344,10 @@
 2026-02-14 17:44:23 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-14 17:44:23 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
 2026-02-14 17:44:24 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-14 17:44:24 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-14 17:44:25 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-14 17:44:26 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 37b02f1a484a99f43e694b116b9263917e9c38c2 but expected c769a33fe3a8f67fd4bcd84d949158064094e52e","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-14 17:44:26 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-14 17:44:27 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-14 17:44:27 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 8e202f4b174772118fdb15f3f68aab94058eef2a but expected ff4fa8d4d90e92892a7171ca5b386cd2501a6262","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-14 17:44:27 - INFO - 📊 Sincronización completada: 28/48 exitosas
