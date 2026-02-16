@@ -76,22 +76,23 @@
         "usuario_id": "0775",
         "usuario_nombre": "María del Carmen López",
         "duracion_elegida": "corta",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-16T17:01:54.188123+01:00",
         "timestamp_inicio": "2026-02-16T17:10:18.991516+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-16T17:15:49.282917+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-02-16T17:05:55.942451+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "05ed356a",
         "usuario_id": "0821",
         "usuario_nombre": "Irene Benítez",
         "duracion_elegida": "corta",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-02-16T17:07:25.663037+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -99,6 +100,22 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-02-16T17:10:49.247917+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-02-16T17:17:49.295871+01:00"
+    },
+    {
+        "id": "56e32be1",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-02-16T17:18:31.256967+01:00",
+        "timestamp_inicio": "2026-02-16T17:18:47.718546+01:00",
+        "timestamp_fin": "2026-02-16T17:23:04.763975+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-16T17:18:31.418022+01:00"
     }
 ]
