@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-17T13:48:56.545687",
-  "message": "Auto-sync: 2026-02-17 13:47:58",
+  "timestamp": "2026-02-17T13:49:57.201725",
+  "message": "Auto-sync: 2026-02-17 13:49:00",
   "results": {
     "total": 48,
-    "success": 48,
-    "failed": 0,
+    "success": 44,
+    "failed": 4,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -47,12 +47,12 @@
       "✅ Subido: modelos_facturas/repsol/repsol1.jpg",
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg",
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg",
-      "✅ Subido: modelos_facturas/totalenergies/Totalenergiesfactura.jpg",
-      "✅ Subido: modelos_facturas/totalenergies/totalenergiesgas.jpg",
+      "❌ Falló: modelos_facturas/totalenergies/Totalenergiesfactura.jpg",
+      "❌ Falló: modelos_facturas/totalenergies/totalenergiesgas.jpg",
       "✅ Subido: modelos_facturas/fenie_energia/fenieenergia1.jpg",
-      "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
+      "❌ Falló: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
-      "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
+      "❌ Falló: modelos_facturas/endesa/endesa-factura-1.jpg",
       "✅ Subido: logs/github_sync.log",
       "✅ Subido: logs/sync_summary.json"
     ]
