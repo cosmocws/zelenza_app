@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-17T06:03:13.837304",
-  "message": "Auto-sync: 2026-02-17 06:02:29",
+  "timestamp": "2026-02-17T06:03:48.570222",
+  "message": "Auto-sync: 2026-02-17 06:03:05",
   "results": {
     "total": 48,
-    "success": 44,
-    "failed": 4,
+    "success": 47,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -16,7 +16,7 @@
       "✅ Subido: data/planes_accion.json",
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/pvd_cola_.json",
-      "✅ Subido: data/agent_schedules.json",
+      "❌ Falló: data/agent_schedules.json",
       "✅ Subido: data/agent_absences.json",
       "✅ Subido: data/config_excedentes.csv",
       "✅ Subido: data/agent_sales.json",
@@ -49,12 +49,12 @@
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg",
       "✅ Subido: modelos_facturas/totalenergies/Totalenergiesfactura.jpg",
       "✅ Subido: modelos_facturas/totalenergies/totalenergiesgas.jpg",
-      "❌ Falló: modelos_facturas/fenie_energia/fenieenergia1.jpg",
+      "✅ Subido: modelos_facturas/fenie_energia/fenieenergia1.jpg",
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
-      "❌ Falló: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
+      "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
-      "❌ Falló: logs/github_sync.log",
-      "❌ Falló: logs/sync_summary.json"
+      "✅ Subido: logs/github_sync.log",
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
