@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-18T11:44:20.486487",
-  "message": "Auto-sync: 2026-02-18 11:43:18",
+  "timestamp": "2026-02-18T11:49:19.961041",
+  "message": "Auto-sync: 2026-02-18 11:48:20",
   "results": {
     "total": 48,
-    "success": 45,
-    "failed": 3,
+    "success": 47,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -14,12 +14,12 @@
       "✅ Subido: data/config_sistema.json",
       "✅ Subido: data/seguimiento_agentes.json",
       "✅ Subido: data/planes_accion.json",
-      "❌ Falló: data/festivos.json",
+      "✅ Subido: data/festivos.json",
       "✅ Subido: data/pvd_cola_.json",
       "✅ Subido: data/agent_schedules.json",
-      "❌ Falló: data/agent_absences.json",
+      "✅ Subido: data/agent_absences.json",
       "✅ Subido: data/config_excedentes.csv",
-      "❌ Falló: data/agent_sales.json",
+      "✅ Subido: data/agent_sales.json",
       "✅ Subido: data/ventas_agentes.json",
       "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/alertas_sms.json",
@@ -53,7 +53,7 @@
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
-      "✅ Subido: logs/github_sync.log",
+      "❌ Falló: logs/github_sync.log",
       "✅ Subido: logs/sync_summary.json"
     ]
   },
