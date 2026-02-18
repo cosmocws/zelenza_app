@@ -19411,3 +19411,101 @@ iVBORw0KGgoAAAANSUhEUgAAAZAAAAGZCAMAAACQbpc2AAADAFBMVEWEBz6FAD6FAD6GAD+MAEGOAEOK
 2026-02-18 11:51:04 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
 2026-02-18 11:51:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-18 11:51:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-18 11:51:09 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-18 11:51:10 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-18 11:51:11 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-18 11:51:11 - INFO - 📊 Sincronización completada: 45/48 exitosas
+2026-02-18 12:00:54 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-18 12:00:54 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-18 12:00:55 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-18 12:00:56 - ERROR - Error al subir data/objetivos_ventas.json: 409 - {"message":"is at 01fa54cb74c4f18043ed084395b608144a0fdbe5 but expected ad2cc903ee6557ebb721f8564c9c8b778b74cd99","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:00:57 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-18 12:00:57 - ERROR - Error al subir data/cola_pvd.json: 409 - {"message":"is at 6d3c7948b605297a4865352e966d8a429c6415f9 but expected 01fa54cb74c4f18043ed084395b608144a0fdbe5","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:00:57 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-18 12:00:58 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-18 12:00:58 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-18 12:00:59 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-18 12:00:59 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-18 12:01:00 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-18 12:01:00 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-18 12:01:01 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-18 12:01:01 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-18 12:01:02 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-18 12:01:02 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-18 12:01:03 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-18 12:01:03 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-18 12:01:04 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-18 12:01:04 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-18 12:01:05 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-18 12:01:05 - SUCCESS - ✅ Archivo sincronizado: data/agent_absences.json
+2026-02-18 12:01:06 - ERROR - Error al subir data/agent_absences.json: 409 - {"message":"is at 243401b721e586528584ed0c9566119305178c59 but expected c6350eb7295eb9c5af834707124bc0f9141ce3ea","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:06 - ERROR - Error al subir data/config_excedentes.csv: 409 - {"message":"is at 41ff68773b3e98498a4756977000527a930e5432 but expected 243401b721e586528584ed0c9566119305178c59","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:06 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-18 12:01:07 - SUCCESS - ✅ Archivo sincronizado: data/agent_sales.json
+2026-02-18 12:01:07 - ERROR - Error al subir data/agent_sales.json: 409 - {"message":"is at 930ba35937919580f8a23e3a0d53b2996b81a5e6 but expected 41ff68773b3e98498a4756977000527a930e5432","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:08 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-18 12:01:08 - ERROR - Error al subir data/ventas_agentes.json: 409 - {"message":"is at 467f4a83ef946ee10c9cc1839ca2b88a06e84e7b but expected 930ba35937919580f8a23e3a0d53b2996b81a5e6","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:09 - ERROR - Error al subir data/precios_luz.csv: 409 - {"message":"is at bbd2213b39124f6fd016e13314acc9228b7470ef but expected 467f4a83ef946ee10c9cc1839ca2b88a06e84e7b","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:09 - SUCCESS - ✅ Archivo sincronizado: data/precios_luz.csv
+2026-02-18 12:01:10 - SUCCESS - ✅ Archivo sincronizado: data/alertas_sms.json
+2026-02-18 12:01:10 - ERROR - Error al subir data/alertas_sms.json: 409 - {"message":"is at 355356f9b151fe141362527b12e0008b742a51b0 but expected bbd2213b39124f6fd016e13314acc9228b7470ef","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:11 - ERROR - Error al subir data/usuarios.json: 409 - {"message":"is at aad4c55264f338407b18a95cfbd0fd7ede629f3c but expected 355356f9b151fe141362527b12e0008b742a51b0","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:11 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-18 12:01:12 - ERROR - Error al subir data/feedback_agentes.json: 409 - {"message":"is at fcd476ab8e50082dc1b4bfbdf1413be559dd1967 but expected aad4c55264f338407b18a95cfbd0fd7ede629f3c","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:12 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-18 12:01:13 - SUCCESS - ✅ Archivo sincronizado: data/monitorizaciones.json
+2026-02-18 12:01:13 - ERROR - Error al subir data/monitorizaciones.json: 409 - {"message":"is at 10f0b5e25c24797f2738d1fcb4ed0ea702e8b2ae but expected fcd476ab8e50082dc1b4bfbdf1413be559dd1967","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:15 - ERROR - Error al subir data/registro_llamadas.json: 409 - {"message":"is at 9db0251a810ac8e751fa18e2d2a786085d8b1b67 but expected 10f0b5e25c24797f2738d1fcb4ed0ea702e8b2ae","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:15 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-18 12:01:16 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-18 12:01:16 - ERROR - Error al subir data/config_pmg.json: 409 - {"message":"is at 37701d425f380f47c7e7f3b92f20db5e630f68c6 but expected 9db0251a810ac8e751fa18e2d2a786085d8b1b67","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:17 - ERROR - Error al subir data/config_pvd.json: 409 - {"message":"is at bb8f24a6dda534f003deae5c5c33cd9e05139976 but expected 37701d425f380f47c7e7f3b92f20db5e630f68c6","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:17 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-18 12:01:18 - SUCCESS - ✅ Archivo sincronizado: data/agent_metrics.json
+2026-02-18 12:01:18 - ERROR - Error al subir data/agent_metrics.json: 409 - {"message":"is at 9ac53f605cc5eab5f8347fcc73799d880babf754 but expected bb8f24a6dda534f003deae5c5c33cd9e05139976","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:19 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-18 12:01:19 - ERROR - Error al subir data/planes_gas.json: 409 - {"message":"is at 99c8129da72eb4042296ea3d54360b37443ba95f but expected 9ac53f605cc5eab5f8347fcc73799d880babf754","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:20 - ERROR - Error al subir data/alertas_descartadas_admin.json: 409 - {"message":"is at 12068d214a497d997d29cf085b1481ddca24447a but expected 99c8129da72eb4042296ea3d54360b37443ba95f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:20 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-18 12:01:21 - ERROR - Error al subir data/super_users.json: 409 - {"message":"is at cd0fd98ff05d89303786a5824462c2375175ed18 but expected 12068d214a497d997d29cf085b1481ddca24447a","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:21 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-18 12:01:22 - ERROR - Error al subir modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg: 409 - {"message":"is at 9a0ae439a2b97c6cf1f226ec1121cba2914a22a5 but expected cd0fd98ff05d89303786a5824462c2375175ed18","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:22 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-18 12:01:24 - ERROR - Error al subir modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg: 409 - {"message":"is at c71bd11bc1dd9688c0590444ddce1ce56953eb3f but expected 9a0ae439a2b97c6cf1f226ec1121cba2914a22a5","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:24 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-18 12:01:26 - ERROR - Error al subir modelos_facturas/naturgy/naturgy2.jpg: 409 - {"message":"is at 60a84be41934cdb52ef3959c4a660df6439997cf but expected c71bd11bc1dd9688c0590444ddce1ce56953eb3f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:26 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy2.jpg
+2026-02-18 12:01:27 - ERROR - Error al subir modelos_facturas/naturgy/naturgy1.jpg: 409 - {"message":"is at 204ec791334af47de17bfd82430bd9e282d258bb but expected 60a84be41934cdb52ef3959c4a660df6439997cf","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:27 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-18 12:01:28 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-18 12:01:28 - ERROR - Error al subir modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg: 409 - {"message":"is at 8ff0cc24f3b54fd6de54f6d4476a43bc8eb633c9 but expected 204ec791334af47de17bfd82430bd9e282d258bb","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:30 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-18 12:01:30 - ERROR - Error al subir modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg: 409 - {"message":"is at 656a9c6d2d659a498854c78194e660ac97fae867 but expected 8ff0cc24f3b54fd6de54f6d4476a43bc8eb633c9","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:31 - ERROR - Error al subir modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg: 409 - {"message":"is at acc5ed0f27ac8267ff33826becc3129bbe295550 but expected 656a9c6d2d659a498854c78194e660ac97fae867","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:31 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-18 12:01:32 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-18 12:01:33 - ERROR - Error al subir modelos_facturas/octopus/octopusCUPS.png: 409 - {"message":"is at 977e0765314ffb646c4fa22818e9428d466e8d6a but expected acc5ed0f27ac8267ff33826becc3129bbe295550","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:34 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-18 12:01:34 - ERROR - Error al subir modelos_facturas/octopus/factura_octopus_energy_3.jpg: 409 - {"message":"is at d2f596c14047febf8c046c42481cc1a2fd85acdc but expected 977e0765314ffb646c4fa22818e9428d466e8d6a","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:35 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-18 12:01:35 - ERROR - Error al subir modelos_facturas/repsol/factura_luz_repsol.jpg: 409 - {"message":"is at eb89164c79c60b3a2c7e57421f52228bac77541e but expected d2f596c14047febf8c046c42481cc1a2fd85acdc","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:36 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-18 12:01:37 - ERROR - Error al subir modelos_facturas/repsol/factura_luz_repsol_2.jpg: 409 - {"message":"is at a232bcfefdec0e04437d4dfc5061b95b53010f84 but expected eb89164c79c60b3a2c7e57421f52228bac77541e","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:38 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-18 12:01:38 - ERROR - Error al subir modelos_facturas/repsol/repsol1.jpg: 409 - {"message":"is at e67b377b25489b3cfe3be4143b91496db242cdd6 but expected a232bcfefdec0e04437d4dfc5061b95b53010f84","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:39 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-18 12:01:40 - ERROR - Error al subir modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg: 409 - {"message":"is at d1322d4072c2725b947620054cf3b600a2a9d0f9 but expected e67b377b25489b3cfe3be4143b91496db242cdd6","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:41 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-18 12:01:41 - ERROR - Error al subir modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg: 409 - {"message":"is at 6d4676ad78c57515c15cd5efa3f417519b000b16 but expected d1322d4072c2725b947620054cf3b600a2a9d0f9","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:42 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-18 12:01:43 - ERROR - Error al subir modelos_facturas/totalenergies/Totalenergiesfactura.jpg: 409 - {"message":"is at 0ea4a45a32f2acb3c3bbb0a06c1e6a91d5d40e7a but expected 6d4676ad78c57515c15cd5efa3f417519b000b16","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:44 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-18 12:01:44 - ERROR - Error al subir modelos_facturas/totalenergies/totalenergiesgas.jpg: 409 - {"message":"is at c77640430ba9f58b0d0558356f8546b3d15288bd but expected 0ea4a45a32f2acb3c3bbb0a06c1e6a91d5d40e7a","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:46 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-18 12:01:46 - ERROR - Error al subir modelos_facturas/fenie_energia/fenieenergia1.jpg: 409 - {"message":"is at b14f4c82f31c3a6ebbd404161c7b3d5e7a6e1d81 but expected c77640430ba9f58b0d0558356f8546b3d15288bd","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:47 - ERROR - Error al subir modelos_facturas/yoigo/yoigo2.jpg: 409 - {"message":"is at ea9f623c464da482be12acff34528e5653051b32 but expected b14f4c82f31c3a6ebbd404161c7b3d5e7a6e1d81","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:47 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-18 12:01:49 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at d8dd9e22c829a9d1ec198d8c8417068ea79fb4f8 but expected ea9f623c464da482be12acff34528e5653051b32","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:49 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-18 12:01:50 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at 90cc750eedfda89b7ebb9d5801c131f4864d2c36 but expected d8dd9e22c829a9d1ec198d8c8417068ea79fb4f8","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-18 12:01:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
