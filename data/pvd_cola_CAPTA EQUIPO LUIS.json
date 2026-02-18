@@ -254,5 +254,73 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-02-18T19:03:06.866967+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "0fe952f0",
+        "usuario_id": "0799",
+        "usuario_nombre": "José Enrique García Vega",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-18T19:29:03.252953+01:00",
+        "timestamp_inicio": "2026-02-18T19:29:24.036988+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-18T19:29:03.436266+01:00"
+    },
+    {
+        "id": "63488c7b",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-18T19:29:48.988340+01:00",
+        "timestamp_inicio": "2026-02-18T19:29:54.297858+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-18T19:29:49.263084+01:00"
+    },
+    {
+        "id": "ce6da3cf",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-18T19:30:26.231625+01:00",
+        "timestamp_inicio": "2026-02-18T19:30:29.704911+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-18T19:30:26.468367+01:00"
+    },
+    {
+        "id": "a066593d",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-18T19:31:21.789588+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    },
+    {
+        "id": "ad433338",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-18T19:32:09.742271+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
