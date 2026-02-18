@@ -1,15 +1,15 @@
 {
-  "timestamp": "2026-02-18T14:03:13.626297",
-  "message": "Auto-sync: 2026-02-18 14:02:11",
+  "timestamp": "2026-02-18T14:09:46.909865",
+  "message": "Auto-sync: 2026-02-18 14:08:38",
   "results": {
     "total": 48,
-    "success": 45,
-    "failed": 3,
+    "success": 48,
+    "failed": 0,
     "skipped": 0,
     "details": [
-      "❌ Falló: data/objetivos_ventas.json",
-      "❌ Falló: data/cola_pvd.json",
-      "❌ Falló: data/pvd_cola_CAPTA EQUIPO EVA.json",
+      "✅ Subido: data/objetivos_ventas.json",
+      "✅ Subido: data/cola_pvd.json",
+      "✅ Subido: data/pvd_cola_CAPTA EQUIPO EVA.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO LUIS.json",
       "✅ Subido: data/config_sistema.json",
       "✅ Subido: data/seguimiento_agentes.json",
