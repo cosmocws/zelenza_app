@@ -33,28 +33,30 @@
         "usuario_id": "0387",
         "usuario_nombre": "David Montesinos",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-20T16:27:03.028414+01:00",
         "timestamp_inicio": "2026-02-20T16:27:06.734846+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-20T16:37:36.973217+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-20T16:27:03.215825+01:00"
+        "timestamp_notificacion": "2026-02-20T16:27:03.215825+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "9f232d70",
         "usuario_id": "0782",
         "usuario_nombre": "Rocío Miranda",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-20T16:27:27.814191+01:00",
         "timestamp_inicio": "2026-02-20T16:27:32.071957+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-20T16:37:36.974311+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-20T16:27:27.970668+01:00"
+        "timestamp_notificacion": "2026-02-20T16:27:27.970668+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "c9ee4072",
@@ -89,12 +91,14 @@
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-02-20T16:32:54.417654+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-02-20T16:37:56.647390+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-20T16:37:36.977388+01:00",
+        "notificar_sidebar": true
     }
 ]
