@@ -147,5 +147,46 @@
         "timestamp_notificacion": "2026-02-20T18:35:26.183369+01:00",
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-02-20T18:35:00.806098+01:00"
+    },
+    {
+        "id": "a7a2fa71",
+        "usuario_id": "0792",
+        "usuario_nombre": "Carmen Uceda",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-20T18:38:15.399515+01:00",
+        "timestamp_inicio": "2026-02-20T18:38:19.087618+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-20T18:38:15.589010+01:00"
+    },
+    {
+        "id": "34c521cf",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-20T18:40:20.960269+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-20T18:40:21.131540+01:00"
+    },
+    {
+        "id": "7c0b9f8a",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-20T18:41:28.166024+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
