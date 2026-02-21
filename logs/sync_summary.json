@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-02-21T17:43:17.894626",
-  "message": "Auto-sync: 2026-02-21 17:42:33",
+  "timestamp": "2026-02-21T17:43:58.623721",
+  "message": "Auto-sync: 2026-02-21 17:43:15",
   "results": {
     "total": 48,
     "success": 46,
     "failed": 2,
     "skipped": 0,
     "details": [
-      "✅ Subido: data/objetivos_ventas.json",
+      "❌ Falló: data/objetivos_ventas.json",
       "✅ Subido: data/cola_pvd.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO EVA.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO LUIS.json",
-      "✅ Subido: data/config_sistema.json",
+      "❌ Falló: data/config_sistema.json",
       "✅ Subido: data/seguimiento_agentes.json",
       "✅ Subido: data/planes_accion.json",
       "✅ Subido: data/festivos.json",
@@ -53,8 +53,8 @@
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
-      "❌ Falló: logs/github_sync.log",
-      "❌ Falló: logs/sync_summary.json"
+      "✅ Subido: logs/github_sync.log",
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
