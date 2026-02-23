@@ -9145,3 +9145,9 @@
 2026-02-23 22:32:47 - ERROR - Error al subir modelos_facturas/fenie_energia/fenieenergia1.jpg: 409 - {"message":"is at c2c642322a294c61784d8ba4bf0baf0ca1631268 but expected 219c0bcd161deeb6a59e3fc251d70b69e9a3ebc1","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-23 22:32:48 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
 2026-02-23 22:32:48 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at dfa975271779b245d1c1b857a8561d4008d9a4fb but expected c2c642322a294c61784d8ba4bf0baf0ca1631268","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-23 22:32:50 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-23 22:32:50 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 001734d61ebf44b905ddd9c856349e4a9ce10586 but expected dfa975271779b245d1c1b857a8561d4008d9a4fb","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-23 22:32:51 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-23 22:32:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-23 22:32:52 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 735939c9df02bae6e73964e4939b575996c3a1c4 but expected 548bc78b224e6bb5406c95c00a920f9203bf7bdf","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-23 22:32:52 - INFO - 📊 Sincronización completada: 37/49 exitosas
