@@ -4,28 +4,30 @@
         "usuario_id": "0821",
         "usuario_nombre": "0821",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-23T19:37:06.922675+01:00",
         "timestamp_inicio": "2026-02-23T19:37:38.128195+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-23T19:47:49.027675+01:00",
         "grupo": "basico",
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-02-23T19:37:16.308791+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "fc749511",
         "usuario_id": "0782",
         "usuario_nombre": "0782",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-23T19:37:23.372898+01:00",
         "timestamp_inicio": "2026-02-23T19:37:48.100665+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-23T19:47:49.028710+01:00",
         "grupo": "basico",
         "notificado": false,
-        "confirmado": true
+        "confirmado": true,
+        "finalizado_auto": true
     },
     {
         "id": "e5078ea6",
@@ -37,7 +39,9 @@
         "timestamp_inicio": null,
         "timestamp_fin": null,
         "grupo": "basico",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-23T19:47:49.033609+01:00",
+        "notificar_sidebar": true
     }
 ]
