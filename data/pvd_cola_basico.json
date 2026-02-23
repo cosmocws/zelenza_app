@@ -34,7 +34,7 @@
         "usuario_id": "0792",
         "usuario_nombre": "0792",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-02-23T19:38:06.319220+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -42,6 +42,8 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-02-23T19:47:49.033609+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-02-23T19:55:19.881290+01:00"
     }
 ]
