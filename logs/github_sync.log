@@ -5120,3 +5120,74 @@
 2026-02-23 18:34:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
 2026-02-23 18:34:09 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-23 18:34:10 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-23 18:38:32 - SUCCESS - ✅ Archivo descargado: logs/github_sync.log
+2026-02-23 18:38:32 - SUCCESS - ✅ Archivo descargado: logs/sync_summary.json
+2026-02-23 18:38:33 - ERROR - Excepción al descargar modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:33 - ERROR - Excepción al descargar modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:34 - ERROR - Excepción al descargar modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:34 - ERROR - Excepción al descargar modelos_facturas/endesa/endesa-factura-1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:34 - ERROR - Excepción al descargar modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:35 - ERROR - Excepción al descargar modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:35 - ERROR - Excepción al descargar modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:36 - ERROR - Excepción al descargar modelos_facturas/fenie_energia/fenieenergia1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:36 - ERROR - Excepción al descargar modelos_facturas/naturgy/naturgy1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:37 - ERROR - Excepción al descargar modelos_facturas/naturgy/naturgy2.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:37 - ERROR - Excepción al descargar modelos_facturas/octopus/factura_octopus_energy_3.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:38 - ERROR - Excepción al descargar modelos_facturas/octopus/octopusCUPS.png: 'utf-8' codec can't decode byte 0x89 in position 0: invalid start byte
+2026-02-23 18:38:38 - ERROR - Excepción al descargar modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:38 - ERROR - Excepción al descargar modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:38 - ERROR - Excepción al descargar modelos_facturas/repsol/factura_luz_repsol.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:39 - ERROR - Excepción al descargar modelos_facturas/repsol/factura_luz_repsol_2.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:39 - ERROR - Excepción al descargar modelos_facturas/repsol/repsol1.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:39 - ERROR - Excepción al descargar modelos_facturas/totalenergies/Totalenergiesfactura.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:40 - ERROR - Excepción al descargar modelos_facturas/totalenergies/totalenergiesgas.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:40 - ERROR - Excepción al descargar modelos_facturas/yoigo/yoigo2.jpg: 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+2026-02-23 18:38:40 - INFO - 📊 Descarga completada: 40/82 exitosas
+2026-02-23 18:42:22 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-23 18:42:23 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-23 18:42:24 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-23 18:42:25 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-23 18:42:26 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-23 18:42:26 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_basico.json
+2026-02-23 18:42:27 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-23 18:42:28 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-23 18:42:29 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-23 18:42:29 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-23 18:42:30 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-23 18:42:31 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-23 18:42:32 - SUCCESS - ✅ Archivo sincronizado: data/agent_absences.json
+2026-02-23 18:42:33 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-23 18:42:33 - SUCCESS - ✅ Archivo sincronizado: data/agent_sales.json
+2026-02-23 18:42:34 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-23 18:42:35 - SUCCESS - ✅ Archivo sincronizado: data/precios_luz.csv
+2026-02-23 18:42:36 - SUCCESS - ✅ Archivo sincronizado: data/alertas_sms.json
+2026-02-23 18:42:36 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-23 18:42:37 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-23 18:42:38 - SUCCESS - ✅ Archivo sincronizado: data/monitorizaciones.json
+2026-02-23 18:42:39 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-23 18:42:40 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-23 18:42:41 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-23 18:42:42 - SUCCESS - ✅ Archivo sincronizado: data/agent_metrics.json
+2026-02-23 18:42:43 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-23 18:42:43 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-23 18:42:44 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-23 18:42:45 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-23 18:42:47 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-23 18:42:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy2.jpg
+2026-02-23 18:42:54 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-23 18:42:55 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-23 18:42:56 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-23 18:42:57 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-23 18:42:59 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-23 18:43:00 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-23 18:43:01 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-23 18:43:02 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-23 18:43:03 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-23 18:43:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-23 18:43:06 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-23 18:43:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-23 18:43:09 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-23 18:43:10 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-23 18:43:11 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-23 18:43:13 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-23 18:43:14 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
