@@ -85,5 +85,20 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-02-23T16:57:39.873472+01:00",
         "finalizado_auto": true
+    },
+    {
+        "id": "75d07db8",
+        "usuario_id": "0799",
+        "usuario_nombre": "José Enrique García Vega",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-23T18:24:19.430262+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-23T18:24:19.607291+01:00",
+        "motivo_cancelacion": "usuario_rechazo"
     }
 ]
