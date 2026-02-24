@@ -8230,3 +8230,14 @@
 2026-02-24 20:23:15 - ERROR - Error al subir modelos_facturas/fenie_energia/fenieenergia1.jpg: 409 - {"message":"is at 78872f2ec3802d340b8149969c9ab32cc7c93acd but expected 5b1a202e943831175d6332ad978781506a09c4d1","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-24 20:23:15 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
 2026-02-24 20:23:15 - ERROR - Error al subir data/agent_absences.json: 409 - {"message":"is at 87a8d10227c684b06db6ac37b0c9c637e4325a89 but expected 78872f2ec3802d340b8149969c9ab32cc7c93acd","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-24 20:23:16 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-24 20:23:16 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-24 20:23:17 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-24 20:23:18 - SUCCESS - ✅ Archivo sincronizado: data/agent_sales.json
+2026-02-24 20:23:18 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at c499bdfcf662c924ca95c9cdd36613f1d3be0d50 but expected 7e2f2dd23dbc4db123cea22279cea519d287522c","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-24 20:23:18 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-24 20:23:19 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-24 20:23:19 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-24 20:23:19 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at acd19f640c7d7cf25dab733d4b170ce332c7a3ce but expected e86efcaa38e28fe77b695a9ed0c8f467d422f913","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-24 20:23:19 - INFO - 📊 Sincronización completada: 40/49 exitosas
+2026-02-24 20:23:19 - ERROR - Error al subir data/precios_luz.csv: 409 - {"message":"is at acd19f640c7d7cf25dab733d4b170ce332c7a3ce but expected e86efcaa38e28fe77b695a9ed0c8f467d422f913","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
