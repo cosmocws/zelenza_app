@@ -289,7 +289,7 @@
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-02-24T19:25:20.649170+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -297,7 +297,9 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-02-24T19:25:38.301883+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-02-24T19:32:38.350293+01:00"
     },
     {
         "id": "69d5506c",
@@ -309,8 +311,10 @@
         "timestamp_inicio": null,
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-24T19:32:38.353445+01:00",
+        "notificar_sidebar": true
     },
     {
         "id": "5402adc0",
@@ -332,6 +336,19 @@
         "duracion_elegida": "corta",
         "estado": "ESPERANDO",
         "timestamp_solicitud": "2026-02-24T19:29:47.915427+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    },
+    {
+        "id": "73b40b2f",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-24T19:32:41.422493+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
