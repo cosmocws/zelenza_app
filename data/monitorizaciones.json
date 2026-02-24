@@ -474,5 +474,30 @@
         "fecha_creacion": "2026-02-17T12:42:09.193809",
         "id_monitorizacion": "MON_20260217124209_0799",
         "created_at": "2026-02-17T12:42:09.195367"
+    },
+    "MON_20260224191317_0245": {
+        "id_empleado": "0245",
+        "fecha_monitorizacion": "2026-02-24",
+        "fecha_proxima_monitorizacion": "2026-03-04",
+        "nota_global": 13.0,
+        "objetivo": 85.0,
+        "experiencia": 65.0,
+        "comunicacion": 50.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 0.0,
+        "cierre_contacto": 67.0,
+        "feedback": "TZS0245 LOPD NO (te corta y se te olvida.), enlace entro presentación y sondeo un poco tosca en este caso. ¿Usted paga factura 0? Cuidado con lo que afirmamos en llamada. No tenemos constancia de su consumo ni su excedente, por tanto decirle que estamos seguro de que no tendría que estar pagando nada, no podemos hacerlo. Tampoco es cierto que al inicio se le quita todos los excedentes de la potencia, hasta donde sabemos es una vez que está en la batería virtual sí podemos quedarnos a 0. Comentas cosas de las que no tenemos ninguna constancia ni certeza, como lo que hace Iberdrola con los excedentes del cliente.",
+        "plan_accion": "LOPD NO CUIDADO, si nos cortan tenemos que estar atentos para decirlo de todas maneras. Le haces un buen sondeo pero al inicio utilizas argumentación engañosa, asegurando que debería pagar 0. ESTO NUNCA lo podemos hacer. Y mucho cuidado con la manera de enlazar la presentación y el sondeo, vamos a intentar que sea mucho más limpia, y no tan tosca.",
+        "puntos_clave": [
+            "LOPD ¡CUIDADO!",
+            "Argumentación",
+            "Estructura",
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-02-24T19:13:17.854402",
+        "id_monitorizacion": "MON_20260224191317_0245",
+        "created_at": "2026-02-24T19:13:17.855497"
     }
 }
