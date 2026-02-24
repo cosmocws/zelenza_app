@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-24T18:12:01.953624",
-  "message": "Auto-sync: 2026-02-24 18:10:55",
+  "timestamp": "2026-02-24T18:12:55.040885",
+  "message": "Auto-sync: 2026-02-24 18:11:47",
   "results": {
     "total": 49,
-    "success": 41,
-    "failed": 8,
+    "success": 47,
+    "failed": 2,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -18,15 +18,15 @@
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/pvd_cola_.json",
       "✅ Subido: data/agent_schedules.json",
-      "✅ Subido: data/agent_absences.json",
-      "❌ Falló: data/config_excedentes.csv",
+      "❌ Falló: data/agent_absences.json",
+      "✅ Subido: data/config_excedentes.csv",
       "✅ Subido: data/agent_sales.json",
       "✅ Subido: data/ventas_agentes.json",
-      "❌ Falló: data/precios_luz.csv",
+      "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/alertas_sms.json",
       "✅ Subido: data/usuarios.json",
-      "❌ Falló: data/feedback_agentes.json",
-      "❌ Falló: data/monitorizaciones.json",
+      "✅ Subido: data/feedback_agentes.json",
+      "✅ Subido: data/monitorizaciones.json",
       "✅ Subido: data/registro_llamadas.json",
       "✅ Subido: data/config_pmg.json",
       "✅ Subido: data/config_pvd.json",
@@ -50,12 +50,12 @@
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg",
       "✅ Subido: modelos_facturas/totalenergies/Totalenergiesfactura.jpg",
       "✅ Subido: modelos_facturas/totalenergies/totalenergiesgas.jpg",
-      "❌ Falló: modelos_facturas/fenie_energia/fenieenergia1.jpg",
+      "✅ Subido: modelos_facturas/fenie_energia/fenieenergia1.jpg",
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
-      "❌ Falló: modelos_facturas/endesa/endesa-factura-1.jpg",
+      "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
       "✅ Subido: logs/github_sync.log",
-      "❌ Falló: logs/sync_summary.json"
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
