@@ -187,14 +187,15 @@
         "usuario_id": "0792",
         "usuario_nombre": "Carmen Uceda",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-25T18:43:03.563185+01:00",
         "timestamp_inicio": "2026-02-25T18:43:06.059902+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-25T18:53:57.781687+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-25T18:43:03.773926+01:00"
+        "timestamp_notificacion": "2026-02-25T18:43:03.773926+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "4888b004",
@@ -216,27 +217,28 @@
         "usuario_id": "0821",
         "usuario_nombre": "Irene Benítez",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-25T18:44:33.811402+01:00",
         "timestamp_inicio": "2026-02-25T18:49:16.679937+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-25T18:59:57.822292+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-25T18:44:33.982562+01:00"
+        "timestamp_notificacion": "2026-02-25T18:44:33.982562+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "9ba67160",
         "usuario_id": "0782",
         "usuario_nombre": "Rocío Miranda",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-02-25T18:46:00.814054+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-02-25T18:51:42.177316+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
-        "confirmado": false,
+        "confirmado": true,
         "timestamp_notificacion": "2026-02-25T18:49:57.752005+01:00",
         "notificar_sidebar": true
     },
@@ -250,7 +252,9 @@
         "timestamp_inicio": null,
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-25T18:53:57.784996+01:00",
+        "notificar_sidebar": true
     }
 ]
