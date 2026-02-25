@@ -259,5 +259,61 @@
         "notificar_sidebar": true,
         "motivo_cancelacion": "confirmacion_expirada",
         "timestamp_cancelacion": "2026-02-25T19:00:57.833070+01:00"
+    },
+    {
+        "id": "69a44cb5",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-25T19:27:24.518232+01:00",
+        "timestamp_inicio": "2026-02-25T19:27:27.271064+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-25T19:27:24.711432+01:00"
+    },
+    {
+        "id": "c7366cb3",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-25T19:27:36.552535+01:00",
+        "timestamp_inicio": "2026-02-25T19:28:17.353844+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-25T19:27:36.733243+01:00"
+    },
+    {
+        "id": "cf1358db",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-25T19:27:40.005996+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-25T19:28:58.377401+01:00",
+        "notificar_sidebar": true
+    },
+    {
+        "id": "b57e5cde",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-25T19:28:11.948196+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
