@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-25T01:20:36.755749",
-  "message": "Auto-sync: 2026-02-25 01:19:39",
+  "timestamp": "2026-02-25T01:22:53.130984",
+  "message": "Auto-sync: 2026-02-25 01:21:56",
   "results": {
     "total": 49,
-    "success": 49,
-    "failed": 0,
+    "success": 48,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -34,7 +34,7 @@
       "✅ Subido: data/planes_gas.json",
       "✅ Subido: data/alertas_descartadas_admin.json",
       "✅ Subido: data/super_users.json",
-      "✅ Subido: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg",
+      "❌ Falló: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg",
       "✅ Subido: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg",
       "✅ Subido: modelos_facturas/naturgy/naturgy2.jpg",
       "✅ Subido: modelos_facturas/naturgy/naturgy1.jpg",
