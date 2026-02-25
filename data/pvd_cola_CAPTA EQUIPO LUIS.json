@@ -130,5 +130,32 @@
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-02-25T18:15:57.320000+01:00"
+    },
+    {
+        "id": "ad242cda",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-25T18:21:16.837062+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-25T18:21:17.293222+01:00"
+    },
+    {
+        "id": "25122f0d",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-25T18:23:45.104040+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
     }
 ]
