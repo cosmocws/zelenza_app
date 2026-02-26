@@ -1,13 +1,13 @@
 {
-  "timestamp": "2026-02-26T04:15:13.346857",
-  "message": "Auto-sync: 2026-02-26 04:14:15",
+  "timestamp": "2026-02-26T04:16:01.208835",
+  "message": "Auto-sync: 2026-02-26 04:15:02",
   "results": {
     "total": 49,
     "success": 47,
     "failed": 2,
     "skipped": 0,
     "details": [
-      "✅ Subido: data/objetivos_ventas.json",
+      "❌ Falló: data/objetivos_ventas.json",
       "✅ Subido: data/cola_pvd.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO EVA.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO LUIS.json",
@@ -50,7 +50,7 @@
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg",
       "✅ Subido: modelos_facturas/totalenergies/Totalenergiesfactura.jpg",
       "✅ Subido: modelos_facturas/totalenergies/totalenergiesgas.jpg",
-      "❌ Falló: modelos_facturas/fenie_energia/fenieenergia1.jpg",
+      "✅ Subido: modelos_facturas/fenie_energia/fenieenergia1.jpg",
       "✅ Subido: modelos_facturas/yoigo/yoigo2.jpg",
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "❌ Falló: modelos_facturas/endesa/endesa-factura-1.jpg",
