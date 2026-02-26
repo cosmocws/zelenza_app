@@ -583,3 +583,35 @@
 2026-02-26 14:14:36 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
 2026-02-26 14:14:37 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-26 14:14:39 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-26 14:14:40 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-26 14:14:42 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:14:43 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:14:43 - INFO - 📊 Sincronización completada: 41/49 exitosas
+2026-02-26 14:15:14 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-26 14:15:15 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-26 14:15:16 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-26 14:15:17 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-26 14:15:18 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-26 14:15:38 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-26 14:15:39 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-26 14:15:41 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-26 14:15:42 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-26 14:15:44 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-26 14:15:45 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-26 14:15:46 - ERROR - Excepción al subir modelos_facturas/fenie_energia/fenieenergia1.jpg: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/modelos_facturas/fenie_energia/fenieenergia1.jpg (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e0fb31110>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:15:47 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-26 14:15:48 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-26 14:15:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-26 14:15:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-26 14:15:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-26 14:15:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-26 14:15:53 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-26 14:15:53 - ERROR - Error al subir logs/github_sync.log: 409 - {"message":"is at 906a7b98189b99795e2f845462744f2ce3a0f7ed but expected a2e70191202081298ce5f62c4531f77f1eb591f8","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:15:54 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:15:54 - ERROR - Excepción al subir data/agent_schedules.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/agent_schedules.json (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e5c481a90>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:15:55 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-26 14:15:55 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 126c394997d9b8b3b103a0064ab18a4d53eaf98c but expected 8968c345fd6a343a928a32d5dfa2f096b3905f8f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:15:55 - INFO - 📊 Sincronización completada: 38/49 exitosas
+2026-02-26 14:15:55 - SUCCESS - ✅ Archivo sincronizado: data/agent_absences.json
+2026-02-26 14:15:56 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-26 14:15:57 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at 7e9e07fc093808aaa334a976032a7e8a349a4964 but expected 71a51a633a7b71f9777362a89ca06add9ec84f93","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
