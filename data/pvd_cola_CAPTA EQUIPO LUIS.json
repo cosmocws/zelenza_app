@@ -257,36 +257,38 @@
         "usuario_id": "0694",
         "usuario_nombre": "Vanessa Ceballos",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-26T18:55:09.994885+01:00",
         "timestamp_inicio": "2026-02-26T19:03:18.481778+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-26T19:13:18.823767+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-02-26T19:02:18.272343+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "4bcb981d",
         "usuario_id": "0821",
         "usuario_nombre": "Irene Benítez",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-26T19:03:36.200699+01:00",
         "timestamp_inicio": "2026-02-26T19:04:04.814827+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-26T19:14:19.036927+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-26T19:03:36.807783+01:00"
+        "timestamp_notificacion": "2026-02-26T19:03:36.807783+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "6881b060",
         "usuario_id": "0782",
         "usuario_nombre": "Rocío Miranda",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-02-26T19:03:50.881013+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -296,6 +298,8 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-02-26T19:05:11.489603+01:00",
         "timestamp_notificacion": "2026-02-26T19:05:18.376581+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-02-26T19:12:18.600604+01:00"
     }
 ]
