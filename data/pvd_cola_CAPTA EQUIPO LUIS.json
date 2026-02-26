@@ -557,5 +557,21 @@
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": false,
         "confirmado": false
+    },
+    {
+        "id": "541dfab4",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-26T20:12:29.584654+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-26T20:12:29.757224+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-02-26T20:12:29.762935+01:00"
     }
 ]
