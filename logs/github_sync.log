@@ -17463,3 +17463,12 @@ iVBORw0KGgoAAAANSUhEUgAAAZAAAAGZCAMAAACQbpc2AAADAFBMVEWEBz6FAD6FAD6GAD+MAEGOAEOK
 2026-02-26 04:06:56 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at cdfd7748b79bdbf647bad77f89e1b1fb16b29bd7 but expected d3fd1dd6867bc3015c28d4b126f4d1c53b708f2f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-02-26 04:06:57 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
 2026-02-26 04:06:57 - ERROR - Error al subir modelos_facturas/totalenergies/Totalenergiesfactura.jpg: 409 - {"message":"is at a6040ea55ae25f1b52af1f3380439dcd65e02028 but expected cdfd7748b79bdbf647bad77f89e1b1fb16b29bd7","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 04:06:59 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-26 04:06:59 - ERROR - Error al subir modelos_facturas/totalenergies/totalenergiesgas.jpg: 409 - {"message":"is at 6cdc4d96a108e6e36c4f4104eaf9fe4c887799a3 but expected a6040ea55ae25f1b52af1f3380439dcd65e02028","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 04:07:00 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 04:07:01 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at 4b11b30f3b47077a24f8bd5fe5391835fc9d55b1 but expected d4e6477dc5f4cc2a0447a9f357121018fa652da9","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 04:07:01 - INFO - 📊 Sincronización completada: 35/49 exitosas
+2026-02-26 04:07:01 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-26 04:07:02 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-26 04:07:04 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-26 04:07:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
