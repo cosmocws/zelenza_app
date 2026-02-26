@@ -323,13 +323,13 @@
         "usuario_id": "0791",
         "usuario_nombre": "Jose Manuel Serrano",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-02-26T19:28:19.495773+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-02-26T19:37:15.656486+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
-        "confirmado": false,
+        "confirmado": true,
         "timestamp_notificacion": "2026-02-26T19:35:19.784715+01:00",
         "notificar_sidebar": true
     },
@@ -343,8 +343,10 @@
         "timestamp_inicio": null,
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-26T19:37:19.798002+01:00",
+        "notificar_sidebar": true
     },
     {
         "id": "996dcf96",
