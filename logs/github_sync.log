@@ -1024,3 +1024,199 @@
 2026-02-26 14:40:29 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
 2026-02-26 14:40:31 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
 2026-02-26 14:40:33 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-02-26 14:40:34 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-02-26 14:40:35 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:40:36 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:40:36 - INFO - 📊 Sincronización completada: 48/49 exitosas
+2026-02-26 14:40:43 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-26 14:40:44 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-26 14:40:45 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-26 14:40:46 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-26 14:40:47 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-26 14:40:48 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_basico.json
+2026-02-26 14:40:49 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-26 14:42:55 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-26 14:42:56 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-26 14:42:57 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-26 14:42:58 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-26 14:42:59 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-26 14:43:00 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_basico.json
+2026-02-26 14:43:00 - ERROR - Excepción al obtener SHA de data/seguimiento_agentes.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/seguimiento_agentes.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3eae637a90>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:43:01 - ERROR - Error al subir data/seguimiento_agentes.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:43:01 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-26 14:43:02 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-26 14:43:02 - ERROR - Error al subir data/seguimiento_agentes.json: 409 - {"message":"is at 9b8cf21b8329d1e95a5420c2254ecb8359e0c52b but expected 6bf90041828d68b53b99bca9ce25ae8fed322b30","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:03 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-26 14:43:03 - ERROR - Error al subir data/planes_accion.json: 409 - {"message":"is at e1a54a8a24cc3e6afad477291423bb79d240c0df but expected 9b8cf21b8329d1e95a5420c2254ecb8359e0c52b","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:04 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-26 14:43:04 - ERROR - Error al subir data/festivos.json: 409 - {"message":"is at 3b607ebec3f02a5c2ac697e0d079dbe9d8458845 but expected e1a54a8a24cc3e6afad477291423bb79d240c0df","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:04 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-26 14:43:05 - ERROR - Error al subir data/agent_schedules.json: 409 - {"message":"is at 9203428e973e932af7c6c31c46064da765b4a5ca but expected 3b607ebec3f02a5c2ac697e0d079dbe9d8458845","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:06 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-26 14:43:06 - ERROR - Error al subir data/agent_absences.json: 409 - {"message":"is at 40fee4343e4702463e0c36ea3d94e8bf0ae0c278 but expected 9203428e973e932af7c6c31c46064da765b4a5ca","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:07 - ERROR - Error al subir data/config_excedentes.csv: 409 - {"message":"is at cb63a4dc29c3684aa19060c07edf3ced4c5e386c but expected 40fee4343e4702463e0c36ea3d94e8bf0ae0c278","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:07 - SUCCESS - ✅ Archivo sincronizado: data/agent_absences.json
+2026-02-26 14:43:08 - SUCCESS - ✅ Archivo sincronizado: data/config_excedentes.csv
+2026-02-26 14:43:08 - ERROR - Error al subir data/agent_sales.json: 409 - {"message":"is at 81517662cc4ad1f612ba253b466f2ff09f29c410 but expected cb63a4dc29c3684aa19060c07edf3ced4c5e386c","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:09 - ERROR - Error al subir data/agent_sales.json: 409 - {"message":"is at 0218bf821627460ce43ca5420be4813f5dc61c3f but expected 81517662cc4ad1f612ba253b466f2ff09f29c410","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:09 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-26 14:43:11 - SUCCESS - ✅ Archivo sincronizado: data/precios_luz.csv
+2026-02-26 14:43:11 - ERROR - Error al subir data/ventas_agentes.json: 409 - {"message":"is at eec9a1263b6467446b5014a06b0a9f938d95a990 but expected 0218bf821627460ce43ca5420be4813f5dc61c3f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:12 - SUCCESS - ✅ Archivo sincronizado: data/precios_luz.csv
+2026-02-26 14:43:12 - ERROR - Error al subir data/alertas_sms.json: 409 - {"message":"is at 5532d2a9129d3ea8e59177755ab9ccb73ea630d3 but expected eec9a1263b6467446b5014a06b0a9f938d95a990","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:43:13 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-26 14:43:14 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-26 14:43:15 - SUCCESS - ✅ Archivo sincronizado: data/monitorizaciones.json
+2026-02-26 14:43:17 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-26 14:43:18 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-26 14:43:19 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-26 14:43:48 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-26 14:45:24 - ERROR - Excepción al subir data/alertas_sms.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/alertas_sms.json (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1cb45490>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:45:25 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-26 14:45:26 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-26 14:45:28 - ERROR - Excepción al subir data/agent_metrics.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/agent_metrics.json (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3eae37fe90>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:45:29 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-26 14:45:30 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-26 14:45:32 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-26 14:45:33 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-26 14:45:35 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-26 14:45:37 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy2.jpg
+2026-02-26 14:45:38 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-26 14:45:57 - ERROR - Excepción al obtener SHA de data/objetivos_ventas.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/objetivos_ventas.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e5ee765d0>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:45:57 - ERROR - Error al subir data/objetivos_ventas.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:46:02 - INFO - 🚀 Iniciando sincronización PUSH a GitHub
+2026-02-26 14:46:04 - SUCCESS - ✅ Archivo sincronizado: data/objetivos_ventas.json
+2026-02-26 14:46:05 - SUCCESS - ✅ Archivo sincronizado: data/cola_pvd.json
+2026-02-26 14:46:06 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-26 14:47:35 - ERROR - Excepción al obtener SHA de data/monitorizaciones.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/monitorizaciones.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1c8f9410>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:47:35 - ERROR - Error al subir data/monitorizaciones.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:47:37 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-26 14:47:38 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-26 14:47:39 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-26 14:47:40 - SUCCESS - ✅ Archivo sincronizado: data/agent_metrics.json
+2026-02-26 14:47:41 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-26 14:47:42 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-26 14:47:43 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-26 14:47:45 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-26 14:47:46 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-26 14:47:47 - ERROR - Excepción al obtener SHA de modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3eae368590>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:47:48 - ERROR - Error al subir modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:47:48 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy2.jpg
+2026-02-26 14:47:49 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-26 14:47:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-26 14:47:51 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-26 14:47:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-26 14:47:53 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-26 14:47:53 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-26 14:47:55 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-26 14:47:56 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-26 14:47:57 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-26 14:47:59 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-26 14:48:00 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-26 14:48:02 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-26 14:48:04 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-26 14:48:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-26 14:48:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-26 14:48:08 - ERROR - Excepción al obtener SHA de data/cola_pvd.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/cola_pvd.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3eae837910>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:48:08 - ERROR - Error al subir data/cola_pvd.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:48:08 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-26 14:48:09 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO EVA.json
+2026-02-26 14:48:10 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_CAPTA EQUIPO LUIS.json
+2026-02-26 14:48:10 - ERROR - Error al subir modelos_facturas/fenie_energia/fenieenergia1.jpg: 409 - {"message":"is at a245e257867e4ff3ba8910767d8adfa4ec4de1d7 but expected b90ed3ffe2016a00df147d157b41e5755c32b82e","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:11 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_basico.json
+2026-02-26 14:48:12 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-26 14:48:12 - ERROR - Error al subir data/config_sistema.json: 409 - {"message":"is at 15d6e4b58312d8b814b5ffb554707abc90d09909 but expected 40e12da59c47a18616e0d1d385739681c4f7fa15","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:13 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-26 14:48:14 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-26 14:48:14 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-26 14:48:15 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-26 14:48:16 - ERROR - Excepción al subir data/pvd_cola_CAPTA EQUIPO LUIS.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/pvd_cola_CAPTA%20EQUIPO%20LUIS.json (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1c85f090>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:48:16 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-26 14:48:16 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at 61f94b8a169db2e89d099af83a8cbab68cfa5bc1 but expected fc13342d9bdfb86647ad14e651d1dc0f594c585f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:18 - SUCCESS - ✅ Archivo sincronizado: data/agent_schedules.json
+2026-02-26 14:48:18 - ERROR - Error al subir data/pvd_cola_basico.json: 409 - {"message":"is at 2efc90e775167f232dc4f7bb8296c63c52dadc28 but expected 61f94b8a169db2e89d099af83a8cbab68cfa5bc1","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:18 - ERROR - Error al subir logs/github_sync.log: 409 - {"message":"is at 2efc90e775167f232dc4f7bb8296c63c52dadc28 but expected 61f94b8a169db2e89d099af83a8cbab68cfa5bc1","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:19 - SUCCESS - ✅ Archivo sincronizado: data/config_sistema.json
+2026-02-26 14:48:19 - SUCCESS - ✅ Archivo sincronizado: logs/sync_summary.json
+2026-02-26 14:48:19 - ERROR - Error al subir data/agent_absences.json: 409 - {"message":"is at 2f8c0985c2ae48baae0a4f0e43a560b338fbad9f but expected 2efc90e775167f232dc4f7bb8296c63c52dadc28","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:19 - SUCCESS - ✅ Archivo sincronizado: data/seguimiento_agentes.json
+2026-02-26 14:48:20 - ERROR - Error al subir logs/sync_summary.json: 409 - {"message":"is at b4ba9d2629b28ce09f67a722f3f4a67c8641b741 but expected 2f8c0985c2ae48baae0a4f0e43a560b338fbad9f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:20 - INFO - 📊 Sincronización completada: 39/49 exitosas
+2026-02-26 14:48:20 - ERROR - Error al subir data/config_excedentes.csv: 409 - {"message":"is at b4ba9d2629b28ce09f67a722f3f4a67c8641b741 but expected 2f8c0985c2ae48baae0a4f0e43a560b338fbad9f","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:20 - SUCCESS - ✅ Archivo sincronizado: data/planes_accion.json
+2026-02-26 14:48:21 - ERROR - Error al subir data/agent_sales.json: 409 - {"message":"is at b88bfd7c31f915e851d382da8e4189f4342a22a9 but expected b4ba9d2629b28ce09f67a722f3f4a67c8641b741","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:22 - SUCCESS - ✅ Archivo sincronizado: data/festivos.json
+2026-02-26 14:48:22 - ERROR - Error al subir data/ventas_agentes.json: 409 - {"message":"is at a58a93b43e64ecb8be2558b41e3c5df1525568f7 but expected b88bfd7c31f915e851d382da8e4189f4342a22a9","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:48:23 - SUCCESS - ✅ Archivo sincronizado: data/pvd_cola_.json
+2026-02-26 14:48:23 - ERROR - Error al subir data/precios_luz.csv: 409 - {"message":"is at 3b65f4351fa9adef0ee2151950cbee837d3251a5 but expected a58a93b43e64ecb8be2558b41e3c5df1525568f7","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:02 - ERROR - Excepción al obtener SHA de modelos_facturas/octopus/factura_octopus_energy_3.jpg: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/modelos_facturas/octopus/factura_octopus_energy_3.jpg?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1cba6910>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:50:03 - ERROR - Error al subir modelos_facturas/octopus/factura_octopus_energy_3.jpg: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:50:04 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-26 14:50:06 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-26 14:50:31 - ERROR - Excepción al obtener SHA de data/agent_schedules.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/agent_schedules.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1cb445d0>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:50:31 - ERROR - Excepción al obtener SHA de data/alertas_sms.json: HTTPSConnectionPool(host='api.github.com', port=443): Max retries exceeded with url: /repos/cosmocws/zelenza_app/contents/data/alertas_sms.json?ref=main (Caused by ConnectTimeoutError(<HTTPSConnection(host='api.github.com', port=443) at 0x7a3e1cb46dd0>, 'Connection to api.github.com timed out. (connect timeout=None)'))
+2026-02-26 14:50:31 - ERROR - Error al subir data/alertas_sms.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:50:32 - ERROR - Error al subir data/agent_schedules.json: 422 - {"message":"Invalid request.\n\n\"sha\" wasn't supplied.","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"422"}
+2026-02-26 14:50:33 - SUCCESS - ✅ Archivo sincronizado: data/usuarios.json
+2026-02-26 14:50:33 - ERROR - Error al subir data/agent_absences.json: 409 - {"message":"is at 777df27f9566eb663e8ef8c521ad0610e5ffb8c8 but expected 142a94072c498883d7f259c7b68e42241d130d64","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:34 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-26 14:50:34 - ERROR - Error al subir data/config_excedentes.csv: 409 - {"message":"is at 24a49311955ca22ed5983cb290c63dd4898e96cf but expected 777df27f9566eb663e8ef8c521ad0610e5ffb8c8","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:35 - SUCCESS - ✅ Archivo sincronizado: data/agent_sales.json
+2026-02-26 14:50:35 - ERROR - Error al subir data/monitorizaciones.json: 409 - {"message":"is at 0bc2b492b45066c31041a83fdf5e5373e35a8bdf but expected 24a49311955ca22ed5983cb290c63dd4898e96cf","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:36 - SUCCESS - ✅ Archivo sincronizado: data/ventas_agentes.json
+2026-02-26 14:50:37 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-26 14:50:37 - ERROR - Error al subir data/precios_luz.csv: 409 - {"message":"is at c33d00ead727c54e0bed89e75a5483017c9d6969 but expected 81c363fed5079f352200817c886e30084a863d33","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:38 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-26 14:50:38 - ERROR - Error al subir data/alertas_sms.json: 409 - {"message":"is at b7c12da7dda880d76f9f429fa2781374f1c7a784 but expected c33d00ead727c54e0bed89e75a5483017c9d6969","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:39 - SUCCESS - ✅ Archivo sincronizado: data/config_pvd.json
+2026-02-26 14:50:39 - ERROR - Error al subir data/usuarios.json: 409 - {"message":"is at a334aa2c8a08d46d0eec18cb4aed7fcadee28a12 but expected b7c12da7dda880d76f9f429fa2781374f1c7a784","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:40 - SUCCESS - ✅ Archivo sincronizado: data/feedback_agentes.json
+2026-02-26 14:50:40 - ERROR - Error al subir data/agent_metrics.json: 409 - {"message":"is at 42137fd4f5b0a571e7c33387fca2d563232d5b68 but expected a334aa2c8a08d46d0eec18cb4aed7fcadee28a12","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:41 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-26 14:50:41 - ERROR - Error al subir data/monitorizaciones.json: 409 - {"message":"is at 0c4593b37c6c76a03e5ede0bc7bb04256f5c3d0d but expected 42137fd4f5b0a571e7c33387fca2d563232d5b68","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:42 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-26 14:50:43 - SUCCESS - ✅ Archivo sincronizado: data/registro_llamadas.json
+2026-02-26 14:50:43 - ERROR - Error al subir data/super_users.json: 409 - {"message":"is at 0d86dca3c5b56dffd63960d05483dc692f2b80a1 but expected 965fef410165f9c083046799291982a73fad1be6","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:44 - SUCCESS - ✅ Archivo sincronizado: data/config_pmg.json
+2026-02-26 14:50:45 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-26 14:50:45 - ERROR - Error al subir data/config_pvd.json: 409 - {"message":"is at 8cb082babf3007606871c009c87564e01aa225a7 but expected dcb5daf74538c1455ba1a484d58e0e73c6067c1a","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:46 - SUCCESS - ✅ Archivo sincronizado: data/agent_metrics.json
+2026-02-26 14:50:46 - ERROR - Error al subir modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg: 409 - {"message":"is at 20e1335d3c1d6f05136a38e6e701bee1b9fe8af5 but expected 8cb082babf3007606871c009c87564e01aa225a7","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:47 - SUCCESS - ✅ Archivo sincronizado: data/planes_gas.json
+2026-02-26 14:50:48 - SUCCESS - ✅ Archivo sincronizado: data/alertas_descartadas_admin.json
+2026-02-26 14:50:48 - ERROR - Error al subir modelos_facturas/naturgy/naturgy2.jpg: 409 - {"message":"is at 24e74b8cbfea25881f67c3b932fae6501bb8240c but expected b7a8ff97c020142da16e50d3203dd213291b9643","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:49 - SUCCESS - ✅ Archivo sincronizado: data/super_users.json
+2026-02-26 14:50:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/naturgy/naturgy1.jpg
+2026-02-26 14:50:50 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/reverso-fact-curenergia.jpg
+2026-02-26 14:50:51 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-26 14:50:52 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/cur_energia_grupo_iberdrola/anverso-factura-curenergia.jpg
+2026-02-26 14:50:53 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-26 14:50:54 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-26 14:50:54 - ERROR - Error al subir modelos_facturas/naturgy/naturgy2.jpg: 409 - {"message":"is at 5996625bf154759c4fb376d0db8fb064885fda52 but expected 2ea8befd04c4c3d0e744cd69801bb3ab76d95dd2","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:55 - ERROR - Error al subir modelos_facturas/naturgy/naturgy1.jpg: 409 - {"message":"is at 22f7670a9f67003a774bb6ad788f4a21aba4145a but expected 5996625bf154759c4fb376d0db8fb064885fda52","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:55 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-26 14:50:57 - ERROR - Error al subir modelos_facturas/octopus/factura_octopus_energy_3.jpg: 409 - {"message":"is at af1ba436e924823ba51999b7733f639623fa85fe but expected 22f7670a9f67003a774bb6ad788f4a21aba4145a","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:50:57 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg
+2026-02-26 14:50:58 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg
+2026-02-26 14:50:58 - ERROR - Error al subir modelos_facturas/repsol/factura_luz_repsol.jpg: 409 - {"message":"is at 111bfb44ddb4ea9e01b185125492eef632f3c4b3 but expected af1ba436e924823ba51999b7733f639623fa85fe","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:51:00 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg
+2026-02-26 14:51:00 - ERROR - Error al subir modelos_facturas/repsol/factura_luz_repsol_2.jpg: 409 - {"message":"is at 553a354234faca3b1e779da729e8a228e9dc9d25 but expected 111bfb44ddb4ea9e01b185125492eef632f3c4b3","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
+2026-02-26 14:51:02 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/octopusCUPS.png
+2026-02-26 14:51:02 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-26 14:51:03 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/octopus/factura_octopus_energy_3.jpg
+2026-02-26 14:51:04 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-26 14:51:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol.jpg
+2026-02-26 14:51:05 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-26 14:51:06 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/factura_luz_repsol_2.jpg
+2026-02-26 14:51:07 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-26 14:51:08 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/repsol/repsol1.jpg
+2026-02-26 14:51:09 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-26 14:51:10 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg
+2026-02-26 14:51:11 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-26 14:51:11 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/energiaxxi_endesa_regulado/factura_luz_energia_xxi.jpg
+2026-02-26 14:51:13 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/Totalenergiesfactura.jpg
+2026-02-26 14:51:15 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/totalenergies/totalenergiesgas.jpg
+2026-02-26 14:51:16 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/fenie_energia/fenieenergia1.jpg
+2026-02-26 14:51:18 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/yoigo/yoigo2.jpg
+2026-02-26 14:51:20 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg
+2026-02-26 14:51:21 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
