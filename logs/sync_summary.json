@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-02-26T16:17:56.199033",
-  "message": "Auto-sync: 2026-02-26 16:16:47",
+  "timestamp": "2026-02-26T16:19:52.370056",
+  "message": "Auto-sync: 2026-02-26 16:18:45",
   "results": {
     "total": 49,
-    "success": 49,
-    "failed": 0,
+    "success": 48,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/objetivos_ventas.json",
@@ -55,7 +55,7 @@
       "✅ Subido: modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg",
       "✅ Subido: modelos_facturas/endesa/endesa-factura-1.jpg",
       "✅ Subido: logs/github_sync.log",
-      "✅ Subido: logs/sync_summary.json"
+      "❌ Falló: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
