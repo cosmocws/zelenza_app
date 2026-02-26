@@ -124,21 +124,22 @@
         "usuario_id": "0792",
         "usuario_nombre": "Carmen Uceda",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-02-26T18:39:16.891696+01:00",
         "timestamp_inicio": "2026-02-26T18:41:25.846624+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-02-26T18:51:26.634315+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-02-26T18:39:17.206887+01:00"
+        "timestamp_notificacion": "2026-02-26T18:39:17.206887+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "1e2c86a6",
         "usuario_id": "0245",
         "usuario_nombre": "Francisco José Cruz",
         "duracion_elegida": "corta",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-02-26T18:41:47.614705+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -148,20 +149,24 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-02-26T18:42:58.186889+01:00",
         "timestamp_notificacion": "2026-02-26T18:43:17.273335+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-02-26T18:50:17.476802+01:00"
     },
     {
         "id": "a738b2cd",
         "usuario_id": "0791",
         "usuario_nombre": "Jose Manuel Serrano",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-02-26T18:42:36.050027+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-02-26T18:52:40.442639+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-26T18:50:17.480071+01:00",
+        "notificar_sidebar": true
     },
     {
         "id": "25891057",
@@ -201,5 +206,47 @@
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": false,
         "confirmado": false
+    },
+    {
+        "id": "2ba809da",
+        "usuario_id": "0775",
+        "usuario_nombre": "María del Carmen López",
+        "duracion_elegida": "corta",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-02-26T18:48:29.283569+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": false,
+        "confirmado": false
+    },
+    {
+        "id": "3f58a38e",
+        "usuario_id": "0775",
+        "usuario_nombre": "María del Carmen López",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-02-26T18:50:25.716381+01:00",
+        "timestamp_inicio": "2026-02-26T18:54:29.785548+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-02-26T18:52:43.288930+01:00"
+    },
+    {
+        "id": "ae9875a5",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-02-26T18:51:18.196181+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-02-26T18:54:33.110792+01:00",
+        "notificar_sidebar": true
     }
 ]
