@@ -66,27 +66,43 @@
         "usuario_id": "0694",
         "usuario_nombre": "Vanessa Ceballos",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-04T16:56:00.602281+01:00",
         "timestamp_inicio": "2026-03-04T16:56:06.113772+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-04T17:06:07.611011+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-03-04T16:56:00.755269+01:00"
+        "timestamp_notificacion": "2026-03-04T16:56:00.755269+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "7af49222",
         "usuario_id": "0775",
         "usuario_nombre": "María del Carmen López",
         "duracion_elegida": "corta",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-04T17:00:42.620650+01:00",
         "timestamp_inicio": "2026-03-04T17:00:47.458229+01:00",
+        "timestamp_fin": "2026-03-04T17:05:54.088198+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-04T17:00:42.790921+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "642f22b2",
+        "usuario_id": "0799",
+        "usuario_nombre": "José Enrique García Vega",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-03-04T17:59:06.472982+01:00",
+        "timestamp_inicio": "2026-03-04T17:59:46.748723+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-03-04T17:00:42.790921+01:00"
+        "timestamp_notificacion": "2026-03-04T17:59:06.633924+01:00"
     }
 ]
