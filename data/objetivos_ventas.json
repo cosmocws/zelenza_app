@@ -76,7 +76,8 @@
         "0951": 8,
         "0952": 8,
         "0880": 9,
-        "0492": 12
+        "0492": 12,
+        "00225": 0
     },
     "historico": {
         "0245": [
@@ -1408,10 +1409,19 @@
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
+        ],
+        "00225": [
+            {
+                "fecha": "2026-03-04T12:58:19.458605",
+                "agente": "00225",
+                "objetivo_nuevo": 0,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
         ]
     },
     "metadata": {
         "fecha_creacion": "2026-01-11T01:41:18.398921",
-        "ultima_actualizacion": "2026-03-04T09:56:00.198520"
+        "ultima_actualizacion": "2026-03-04T12:58:19.458743"
     }
 }
