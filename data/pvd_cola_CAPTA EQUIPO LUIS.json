@@ -46,5 +46,35 @@
         "confirmado": true,
         "timestamp_notificacion": "2026-03-05T16:44:51.501194+01:00",
         "notificar_sidebar": true
+    },
+    {
+        "id": "d8b0b989",
+        "usuario_id": "0775",
+        "usuario_nombre": "María del Carmen López",
+        "duracion_elegida": "corta",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-05T17:01:22.934608+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-05T17:01:23.115414+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-03-05T17:01:23.118966+01:00"
+    },
+    {
+        "id": "af2c166b",
+        "usuario_id": "0775",
+        "usuario_nombre": "María del Carmen López",
+        "duracion_elegida": "corta",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-03-05T17:01:32.038785+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-05T17:01:32.182088+01:00"
     }
 ]
