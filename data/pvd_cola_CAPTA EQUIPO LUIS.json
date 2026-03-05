@@ -129,26 +129,44 @@
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-05T18:15:08.748399+01:00",
-        "timestamp_inicio": null,
-        "timestamp_fin": null,
+        "timestamp_inicio": "2026-03-05T18:18:41.946226+01:00",
+        "timestamp_fin": "2026-03-05T18:28:52.411361+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
-        "confirmado": false,
-        "timestamp_notificacion": "2026-03-05T18:15:08.922946+01:00"
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-05T18:15:08.922946+01:00",
+        "finalizado_auto": true
     },
     {
         "id": "7b1d664e",
         "usuario_id": "0799",
         "usuario_nombre": "José Enrique García Vega",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-05T18:16:16.876529+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-03-05T18:19:26.341876+01:00",
+        "timestamp_fin": "2026-03-05T18:29:28.305879+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-05T18:18:52.129340+01:00",
+        "notificar_sidebar": true,
+        "finalizado_auto": true
+    },
+    {
+        "id": "5240472d",
+        "usuario_id": "0387",
+        "usuario_nombre": "David Montesinos",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-03-05T18:25:33.718160+01:00",
+        "timestamp_inicio": "2026-03-05T18:26:01.026781+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-05T18:25:33.898649+01:00"
     }
 ]
