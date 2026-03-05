@@ -853,5 +853,55 @@
         "fecha_creacion": "2026-03-04T22:12:38.000634",
         "id_monitorizacion": "MON_20260304221238_0694",
         "created_at": "2026-03-04T22:12:38.002149"
+    },
+    "MON_20260305131415_0951": {
+        "id_empleado": "0951",
+        "fecha_monitorizacion": "2026-03-05",
+        "fecha_proxima_monitorizacion": "2026-03-05",
+        "nota_global": 13.0,
+        "objetivo": 85.0,
+        "experiencia": 65.0,
+        "comunicacion": 50.0,
+        "deteccion": 0.0,
+        "habilidades_venta": 83.0,
+        "resolucion_objeciones": 0.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0951. LOPD SI. Agente Zelenza SI. Confunde P1, P2 y P3 (Punta, llano y valle) la Punta no es la más barata. 64.403kWh consumo 1, consumo resto de horas 170.717 kWh, en ningún caso consume 717kWh. No lo has guiado hasta donde se ven los consumos ni los precios, para que vea los precios de todo. La comparativa se la inventa completamente, al menos la inicial. Yo no entiendo bien algunas partes, y Joel no lo guía de manera efectiva en ningún momento. La comparativa que se podía haber hecho desde el inicio sale con el plan SUPERTRANQUILIDAD a 49.17€ se ahorra con nosotros 17.22€. Se deja algunos datos por el camino. Se inventa que tuvimos otra tarifa en la que pagábamos 120€ 3 años seguidos¿?. No se paga siempre lo mismo, porque todo depende lo que consumas. Pero no vas a pagar siempre lo mismo. Ya has dicho que estamos llamando de Sevilla no necesitas decir que somos oficina de Iberdrola. La explicación del sms y el mandato SEPA todo correcto. Cuándo pidas datos, no sigas hablando, acaba la frase con la pedida de datos y deja que la otra persona conteste.",
+        "plan_accion": "LOPD Sigue así y agente de Zelenza perfecto. Necesitamos tener mucha más atención y escucha activa para estar atento a todos los datos que nos facilitan los clientes, para no cometer errores. Bajo ningún concepto podemos utilizar la palabra guerra, debemos utilizar cosas como \"dada la situación actual, los precios de los combustibles fósiles van al alza, por tanto el precio de la luz va a seguir subiendo...\". En la pedida de datos, acabar con eso la frase, y no añadir más frases porque se pierde la intención directa de imperativo.",
+        "puntos_clave": [
+            "Oportunidad venta",
+            "Detección",
+            "Estructura",
+            "Escucha activa",
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-03-05T13:14:15.663930",
+        "id_monitorizacion": "MON_20260305131415_0951",
+        "created_at": "2026-03-05T13:14:15.668429"
+    },
+    "MON_20260305133652_0961": {
+        "id_empleado": "0961",
+        "fecha_monitorizacion": "2026-03-05",
+        "fecha_proxima_monitorizacion": "2026-03-12",
+        "nota_global": 20.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 0.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0961. LOPD NO. Agente de Zelenza NO. No debemos dejar tantos silencios y debemos guiar a la cliente por la factura. No podemos utilizar el plan online (0.10€). Los precios lo tenemos que decir completos 0.119€. Decir la LOPD en el minuto 7:12 no es correcto, hay que decirlo al inicio de la llamada SIEMPRE. Muchos silencios a lo largo de la llamada. Textos legales y obligatorios OK. La grabación todo OK.",
+        "plan_accion": "LOPD NO SE PUEDE OLVIDAR. Tenemos que añadir agente de Zelenza en la presentación. No podemos utilizar planes que nosotros no tenemos bajo ningún concepto. No utilicemos tanto el mute en llamada. En cuánto nos dice la compañía, tener a mano una factura para guiar a los clientes a través de ella.",
+        "puntos_clave": [
+            "LOPD ¡CUIDADO!",
+            "Argumentación ¡CUIDADO!",
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-03-05T13:36:52.556996",
+        "id_monitorizacion": "MON_20260305133652_0961",
+        "created_at": "2026-03-05T13:36:52.559126"
     }
 }
