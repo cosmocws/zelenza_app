@@ -78,5 +78,20 @@
         "timestamp_notificacion": "2026-03-05T17:01:32.182088+01:00",
         "motivo_cancelacion": "confirmacion_expirada",
         "timestamp_cancelacion": "2026-03-05T17:08:51.645040+01:00"
+    },
+    {
+        "id": "3b1cf7d6",
+        "usuario_id": "0966",
+        "usuario_nombre": "Alejandro Yepez",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-05T17:22:06.762507+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-05T17:22:06.928506+01:00",
+        "motivo_cancelacion": "usuario_rechazo"
     }
 ]
