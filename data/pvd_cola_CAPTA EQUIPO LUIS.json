@@ -93,5 +93,35 @@
         "confirmado": false,
         "timestamp_notificacion": "2026-03-05T17:22:06.928506+01:00",
         "motivo_cancelacion": "usuario_rechazo"
+    },
+    {
+        "id": "6b0c8550",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-05T17:56:12.935582+01:00",
+        "timestamp_inicio": "2026-03-05T17:56:19.678221+01:00",
+        "timestamp_fin": "2026-03-05T18:01:20.406447+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-05T17:56:13.090505+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "89dca320",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-05T17:56:22.761514+01:00",
+        "timestamp_inicio": "2026-03-05T17:56:25.370956+01:00",
+        "timestamp_fin": "2026-03-05T18:01:28.151798+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-05T17:56:22.937477+01:00",
+        "finalizado_auto": true
     }
 ]
