@@ -124,37 +124,39 @@
         "usuario_id": "0791",
         "usuario_nombre": "Jose Manuel Serrano",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-06T18:38:16.812456+01:00",
         "timestamp_inicio": "2026-03-06T18:51:33.755370+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-06T19:01:38.721995+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-03-06T18:47:02.927366+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "21eb5585",
         "usuario_id": "0799",
         "usuario_nombre": "José Enrique García Vega",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-06T18:44:26.302851+01:00",
         "timestamp_inicio": "2026-03-06T18:52:02.317282+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-06T19:02:03.008559+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
         "timestamp_notificacion": "2026-03-06T18:51:34.865975+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "5a525915",
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-03-06T18:51:18.985897+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -162,19 +164,23 @@
         "notificado": true,
         "confirmado": false,
         "timestamp_notificacion": "2026-03-06T18:55:10.599651+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-03-06T19:02:10.644132+01:00"
     },
     {
         "id": "e30dd8cf",
         "usuario_id": "0775",
         "usuario_nombre": "María del Carmen López",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "EN_CURSO",
         "timestamp_solicitud": "2026-03-06T18:52:59.831788+01:00",
-        "timestamp_inicio": null,
+        "timestamp_inicio": "2026-03-06T19:03:24.838282+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
-        "notificado": false,
-        "confirmado": false
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-06T19:02:10.646660+01:00",
+        "notificar_sidebar": true
     }
 ]
