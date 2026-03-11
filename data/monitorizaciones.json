@@ -1026,5 +1026,57 @@
         "fecha_creacion": "2026-03-11T14:39:22.531137",
         "id_monitorizacion": "MON_20260311143922_0791",
         "created_at": "2026-03-11T14:39:22.534787"
+    },
+    "MON_20260311145706_0799": {
+        "id_empleado": "0799",
+        "fecha_monitorizacion": "2026-03-09",
+        "fecha_proxima_monitorizacion": "2026-03-16",
+        "nota_global": 12.0,
+        "objetivo": 85.0,
+        "experiencia": 60.0,
+        "comunicacion": 0.0,
+        "deteccion": 50.0,
+        "habilidades_venta": 50.0,
+        "resolucion_objeciones": 0.0,
+        "cierre_contacto": 60.0,
+        "feedback": "TZS0799. LOPD SI \"Tarde, porque no podemos sondear antes de decirla\". Agente de Zelenza NO. Muy mala entrada por tener anotaciones sobre para qué lo llamamos de vuelta. Este tipo de cliente necesita que le expliquemos todo muy bien y lo guiemos paso a paso, tenemos que enseñarle la diferencia de dinero de la potencia, del excedente y del consumo. Con este tipo de clientes no vale la pena correr, hay que explicarle todo muy bien y que cierre con convicción, diciéndole claramente desde el inicio de recogida de datos, que es para contratar. Le acabas de dar la opción de mandarle la información, y en este caso era dejarle claro, que las condiciones para enviarle esto es que contrate en el día de hoy. Te lleva él la llamada por donde quiere, porque le damos el control total y le decimos a todo que sí.",
+        "plan_accion": "No podemos ir LOPD Hay que decirlo al inicio. Agente de Zelenza no podemos olvidarlo. Este tipo de clientes hay que explicarles absolutamente todo paso a paso y quiero que corrijas con todos los clientes el comentario que tienes para el sms. A la hora de cerrar resumen de beneficios y comentario tipo \"perfecto pues como ya hemos visto que te ahorras X te explico los pasos que vamos a seguir para poder aplicarte estos precios, lo primero que necesito es el código CUPS...\". Cierra con convicción y no intentes llevar a los clientes hasta el sms sin que les quede claro lo que están haciendo.",
+        "puntos_clave": [
+            "LOPD ¡CUIDADO!",
+            "Argumentación ¡CUIDADO!",
+            "Resumen beneficios",
+            "Oportunidad venta",
+            "Cierre de venta",
+            "Detección",
+            "Estructura",
+            "Tono",
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-03-11T14:57:06.675949",
+        "id_monitorizacion": "MON_20260311145706_0799",
+        "created_at": "2026-03-11T14:57:06.681479"
+    },
+    "MON_20260311145806_0821": {
+        "id_empleado": "0821",
+        "fecha_monitorizacion": "2026-03-09",
+        "fecha_proxima_monitorizacion": "2026-03-16",
+        "nota_global": 80.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 0.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0821. LOPD SI. Agente de Zelenza SI. Enlace de presentación y sondeo perfecto. Cuándo pregunta el tema de permanencia, ni siquiera le comentes que tenemos precio con permanencia. Cuando hagas una pregunta no te pongas impedimentos estilo \"te llega a ti la factura, o bueno le llega a tu mujer, como lo lleva ella...\", porque ya le estamos dando nosotros salidas al cliente. Luego lo llevas muy bien, porque al empatizar con él se para a escucharte. Muy bien encaminada al final la llamada, y eso que te lo ha puesto en algunos puntos, bastante difícil.",
+        "plan_accion": "LOPD Sigue así . Agente de Zelenza SI perfecto. Necesitamos menos sobre argumentación. Es en lo que te debes enfocar, puesto que el resto de la llamada está muy bien encaminada. Lo que quiero decir con la sobre argumentación, es que tenemos que rebatir la objeción tal cuál, sin dar información de más que pueda llegar a confundir al cliente.",
+        "puntos_clave": [
+            "Resolución objeciones"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-03-11T14:58:06.916373",
+        "id_monitorizacion": "MON_20260311145806_0821",
+        "created_at": "2026-03-11T14:58:06.917206"
     }
 }
