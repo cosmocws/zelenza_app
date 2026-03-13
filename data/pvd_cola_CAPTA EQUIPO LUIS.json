@@ -293,13 +293,56 @@
         "usuario_id": "0966",
         "usuario_nombre": "Alejandro Yepez",
         "duracion_elegida": "corta",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-13T18:48:08.037578+01:00",
         "timestamp_inicio": "2026-03-13T18:48:12.608991+01:00",
+        "timestamp_fin": "2026-03-13T18:53:50.856488+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-13T18:48:08.232463+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "4d811b0c",
+        "usuario_id": "0782",
+        "usuario_nombre": "Rocío Miranda",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-03-13T19:01:39.113767+01:00",
+        "timestamp_inicio": "2026-03-13T19:01:44.001437+01:00",
         "timestamp_fin": null,
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-03-13T18:48:08.232463+01:00"
+        "timestamp_notificacion": "2026-03-13T19:01:39.294073+01:00"
+    },
+    {
+        "id": "5f8cfa52",
+        "usuario_id": "0821",
+        "usuario_nombre": "Irene Benítez",
+        "duracion_elegida": "larga",
+        "estado": "EN_CURSO",
+        "timestamp_solicitud": "2026-03-13T19:01:45.510017+01:00",
+        "timestamp_inicio": "2026-03-13T19:02:34.016514+01:00",
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-13T19:01:45.705553+01:00"
+    },
+    {
+        "id": "2f246220",
+        "usuario_id": "0775",
+        "usuario_nombre": "María del Carmen López",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-13T19:04:12.776405+01:00",
+        "timestamp_inicio": "2026-03-13T19:04:16.149736+01:00",
+        "timestamp_fin": "2026-03-13T19:05:28.794733+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-13T19:04:12.981769+01:00"
     }
 ]
