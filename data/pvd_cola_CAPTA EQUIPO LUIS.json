@@ -62,10 +62,10 @@
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-16T16:37:57.826240+01:00",
         "timestamp_inicio": "2026-03-16T16:44:08.629487+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-16T16:51:44.451252+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
@@ -73,5 +73,20 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-03-16T16:41:32.427532+01:00",
         "notificar_sidebar": true
+    },
+    {
+        "id": "8fde6a43",
+        "usuario_id": "0966",
+        "usuario_nombre": "Alejandro Yepez",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-16T16:55:08.767130+01:00",
+        "timestamp_inicio": "2026-03-16T16:55:12.524486+01:00",
+        "timestamp_fin": "2026-03-16T17:00:29.587173+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-16T16:55:08.994397+01:00",
+        "finalizado_auto": true
     }
 ]
