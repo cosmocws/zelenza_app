@@ -315,24 +315,25 @@
         "usuario_id": "0799",
         "usuario_nombre": "José Enrique García Vega",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-17T19:35:57.262569+01:00",
         "timestamp_inicio": "2026-03-17T19:42:35.604155+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-17T19:52:44.807300+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-03-17T19:39:19.564970+01:00",
         "timestamp_notificacion": "2026-03-17T19:39:44.729752+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "finalizado_auto": true
     },
     {
         "id": "b8c962cb",
         "usuario_id": "0613",
         "usuario_nombre": "Nuria Roldán",
         "duracion_elegida": "larga",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-03-17T19:39:25.003757+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -342,7 +343,9 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-03-17T19:42:43.254562+01:00",
         "timestamp_notificacion": "2026-03-17T19:42:44.752391+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-03-17T19:49:44.790507+01:00"
     },
     {
         "id": "3c1838d1",
@@ -356,5 +359,21 @@
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": false,
         "confirmado": false
+    },
+    {
+        "id": "fa5ad2cb",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-17T20:13:04.195688+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-17T20:13:04.380587+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-03-17T20:13:04.384437+01:00"
     }
 ]
