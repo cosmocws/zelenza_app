@@ -357,7 +357,7 @@
         "usuario_id": "0821",
         "usuario_nombre": "Irene Benítez",
         "duracion_elegida": "corta",
-        "estado": "ESPERANDO",
+        "estado": "CANCELADO",
         "timestamp_solicitud": "2026-03-18T19:52:14.696161+01:00",
         "timestamp_inicio": null,
         "timestamp_fin": null,
@@ -367,6 +367,8 @@
         "listo_para_confirmar": true,
         "timestamp_disponible": "2026-03-18T19:55:17.892041+01:00",
         "timestamp_notificacion": "2026-03-18T19:55:59.056493+01:00",
-        "notificar_sidebar": true
+        "notificar_sidebar": true,
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-03-18T20:02:59.112540+01:00"
     }
 ]
