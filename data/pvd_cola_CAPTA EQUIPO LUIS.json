@@ -237,13 +237,45 @@
         "usuario_id": "0775",
         "usuario_nombre": "María del Carmen López",
         "duracion_elegida": "larga",
-        "estado": "EN_CURSO",
+        "estado": "COMPLETADO",
         "timestamp_solicitud": "2026-03-18T18:48:07.944202+01:00",
         "timestamp_inicio": "2026-03-18T18:48:18.274796+01:00",
-        "timestamp_fin": null,
+        "timestamp_fin": "2026-03-18T18:58:58.387495+01:00",
         "grupo": "CAPTA EQUIPO LUIS",
         "notificado": true,
         "confirmado": true,
-        "timestamp_notificacion": "2026-03-18T18:48:08.255569+01:00"
+        "timestamp_notificacion": "2026-03-18T18:48:08.255569+01:00",
+        "finalizado_auto": true
+    },
+    {
+        "id": "2c402223",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-18T18:52:26.065646+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-18T18:52:26.307710+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-03-18T18:52:26.314732+01:00"
+    },
+    {
+        "id": "8f3c5dc0",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-18T18:52:31.632229+01:00",
+        "timestamp_inicio": "2026-03-18T18:52:34.955390+01:00",
+        "timestamp_fin": "2026-03-18T19:02:58.421362+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-18T18:52:31.872814+01:00",
+        "finalizado_auto": true
     }
 ]
