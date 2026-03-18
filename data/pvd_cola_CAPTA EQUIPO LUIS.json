@@ -75,5 +75,35 @@
         "timestamp_notificacion": "2026-03-18T16:31:33.405663+01:00",
         "notificar_sidebar": true,
         "finalizado_auto": true
+    },
+    {
+        "id": "841bd5af",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-18T16:50:42.335319+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-18T16:50:42.616605+01:00",
+        "motivo_cancelacion": "confirmacion_expirada",
+        "timestamp_cancelacion": "2026-03-18T16:57:56.274060+01:00"
+    },
+    {
+        "id": "ddd203b9",
+        "usuario_id": "0799",
+        "usuario_nombre": "José Enrique García Vega",
+        "duracion_elegida": "corta",
+        "estado": "COMPLETADO",
+        "timestamp_solicitud": "2026-03-18T17:00:46.542713+01:00",
+        "timestamp_inicio": "2026-03-18T17:01:32.231801+01:00",
+        "timestamp_fin": "2026-03-18T17:04:56.680177+01:00",
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": true,
+        "timestamp_notificacion": "2026-03-18T17:00:46.763265+01:00"
     }
 ]
