@@ -135,5 +135,35 @@
         "confirmado": false,
         "timestamp_notificacion": "2026-03-18T18:17:45.078748+01:00",
         "motivo_cancelacion": "cancelado_por_usuario"
+    },
+    {
+        "id": "395cdebd",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-03-18T18:21:33.173713+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-18T18:21:33.409272+01:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-03-18T18:21:33.416421+01:00"
+    },
+    {
+        "id": "d25b523c",
+        "usuario_id": "0613",
+        "usuario_nombre": "Nuria Roldán",
+        "duracion_elegida": "larga",
+        "estado": "ESPERANDO",
+        "timestamp_solicitud": "2026-03-18T18:21:42.658499+01:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-03-18T18:21:42.853061+01:00"
     }
 ]
