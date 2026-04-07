@@ -14,5 +14,36 @@
         "timestamp_notificacion": "2026-04-07T18:54:43.264117+02:00",
         "motivo_cancelacion": "confirmacion_expirada",
         "timestamp_cancelacion": "2026-04-07T19:01:46.742248+02:00"
+    },
+    {
+        "id": "9a5efb89",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-04-07T19:43:40.399977+02:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-04-07T19:43:40.572882+02:00",
+        "motivo_cancelacion": "tiempo_confirmacion_expirado",
+        "timestamp_cancelacion": "2026-04-07T19:43:40.578045+02:00"
+    },
+    {
+        "id": "e811b732",
+        "usuario_id": "0791",
+        "usuario_nombre": "Jose Manuel Serrano",
+        "duracion_elegida": "larga",
+        "estado": "CANCELADO",
+        "timestamp_solicitud": "2026-04-07T19:43:46.498078+02:00",
+        "timestamp_inicio": null,
+        "timestamp_fin": null,
+        "grupo": "CAPTA EQUIPO LUIS",
+        "notificado": true,
+        "confirmado": false,
+        "timestamp_notificacion": "2026-04-07T19:43:46.671745+02:00",
+        "motivo_cancelacion": "usuario_rechazo"
     }
 ]
