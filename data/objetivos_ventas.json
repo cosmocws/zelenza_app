@@ -1,20 +1,20 @@
 {
     "objetivos": {
         "0245": 11,
-        "0381": 18,
+        "0381": 17,
         "0387": 13,
-        "0613": 12,
+        "0613": 17,
         "0657": 0,
-        "0694": 18,
+        "0694": 17,
         "0733": 0,
         "0753": 0,
-        "0775": 13,
-        "0782": 13,
+        "0775": 17,
+        "0782": 12,
         "0791": 14,
         "0792": 11,
         "0820": 0,
-        "0821": 12,
-        "0828": 11,
+        "0821": 10,
+        "0828": 17,
         "0829": 0,
         "0841": 0,
         "0854": 0,
@@ -22,7 +22,7 @@
         "0869": 7,
         "0872": 7,
         "0881": 7,
-        "0883": 11,
+        "0883": 12,
         "0885": 9,
         "0888": 0,
         "0889": 0,
@@ -42,7 +42,7 @@
         "0913": 8,
         "0914": 6,
         "0915": 0,
-        "0916": 13,
+        "0916": 14,
         "0919": 0,
         "0922": 6,
         "0924": 0,
@@ -82,7 +82,9 @@
         "0966": 5,
         "0976": 5,
         "0962": 6,
-        "0974": 6
+        "0974": 6,
+        "0980": 6,
+        "0988": 6
     },
     "historico": {
         "0245": [
@@ -143,6 +145,13 @@
                 "objetivo_nuevo": 18,
                 "usuario": "0731",
                 "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174626",
+                "agente": "0381",
+                "objetivo_nuevo": 17,
+                "usuario": "0731",
+                "tipo": "batch_update"
             }
         ],
         "0387": [
@@ -180,6 +189,13 @@
                 "fecha": "2026-03-02T13:13:50.748790",
                 "agente": "0613",
                 "objetivo_nuevo": 12,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174643",
+                "agente": "0613",
+                "objetivo_nuevo": 17,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -226,6 +242,13 @@
                 "fecha": "2026-03-02T13:13:50.748798",
                 "agente": "0694",
                 "objetivo_nuevo": 18,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174647",
+                "agente": "0694",
+                "objetivo_nuevo": 17,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -332,6 +355,13 @@
                 "objetivo_nuevo": 13,
                 "usuario": "0731",
                 "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174650",
+                "agente": "0775",
+                "objetivo_nuevo": 17,
+                "usuario": "0731",
+                "tipo": "batch_update"
             }
         ],
         "0782": [
@@ -360,6 +390,13 @@
                 "fecha": "2026-03-02T13:13:50.748816",
                 "agente": "0782",
                 "objetivo_nuevo": 13,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174654",
+                "agente": "0782",
+                "objetivo_nuevo": 12,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -447,6 +484,13 @@
                 "objetivo_nuevo": 12,
                 "usuario": "0731",
                 "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174657",
+                "agente": "0821",
+                "objetivo_nuevo": 10,
+                "usuario": "0731",
+                "tipo": "batch_update"
             }
         ],
         "0828": [
@@ -468,6 +512,13 @@
                 "fecha": "2026-03-02T13:13:50.748830",
                 "agente": "0828",
                 "objetivo_nuevo": 11,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174661",
+                "agente": "0828",
+                "objetivo_nuevo": 17,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -610,6 +661,13 @@
                 "fecha": "2026-03-04T09:56:00.198493",
                 "agente": "0883",
                 "objetivo_nuevo": 11,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174664",
+                "agente": "0883",
+                "objetivo_nuevo": 12,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -881,6 +939,13 @@
                 "fecha": "2026-03-02T13:13:50.748870",
                 "agente": "0916",
                 "objetivo_nuevo": 13,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            },
+            {
+                "fecha": "2026-04-09T17:52:46.174687",
+                "agente": "0916",
+                "objetivo_nuevo": 14,
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
@@ -1482,10 +1547,28 @@
                 "usuario": "0731",
                 "tipo": "batch_update"
             }
+        ],
+        "0980": [
+            {
+                "fecha": "2026-04-09T17:52:46.174691",
+                "agente": "0980",
+                "objetivo_nuevo": 6,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
+        ],
+        "0988": [
+            {
+                "fecha": "2026-04-09T17:52:46.174695",
+                "agente": "0988",
+                "objetivo_nuevo": 6,
+                "usuario": "0731",
+                "tipo": "batch_update"
+            }
         ]
     },
     "metadata": {
         "fecha_creacion": "2026-01-11T01:41:18.398921",
-        "ultima_actualizacion": "2026-03-06T09:29:20.586119"
+        "ultima_actualizacion": "2026-04-09T17:52:46.174744"
     }
 }
