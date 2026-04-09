@@ -1990,3 +1990,5 @@
 2026-04-09 21:19:01 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 07392d9c2a54db337ef820c029a6462cb122113e but expected 27656b7d63b3bdc4024d2f7a89f783af4b044090","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-04-09 21:19:03 - ERROR - Error al subir modelos_facturas/endesa/Endesa-tarifa-2.0TD.jpg: 409 - {"message":"is at 974458dcf66f465e6fd6e407b8b79729c8207ee1 but expected 07392d9c2a54db337ef820c029a6462cb122113e","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
 2026-04-09 21:19:03 - SUCCESS - ✅ Archivo sincronizado: modelos_facturas/endesa/endesa-factura-1.jpg
+2026-04-09 21:19:04 - SUCCESS - ✅ Archivo sincronizado: logs/github_sync.log
+2026-04-09 21:19:04 - ERROR - Error al subir modelos_facturas/endesa/endesa-factura-1.jpg: 409 - {"message":"is at b72814228de7c9fd472ee3081792223249396d1e but expected 974458dcf66f465e6fd6e407b8b79729c8207ee1","documentation_url":"https://docs.github.com/rest/repos/contents#create-or-update-file-contents","status":"409"}
