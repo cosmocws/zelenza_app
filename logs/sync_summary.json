@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-04-17T23:33:17.900952",
-  "message": "Auto-sync: 2026-04-17 23:32:21",
+  "timestamp": "2026-04-17T23:34:13.760545",
+  "message": "Auto-sync: 2026-04-17 23:33:12",
   "results": {
     "total": 49,
-    "success": 48,
-    "failed": 1,
+    "success": 46,
+    "failed": 3,
     "skipped": 0,
     "details": [
-      "✅ Subido: data/config_excedentes.csv",
+      "❌ Falló: data/config_excedentes.csv",
       "✅ Subido: data/seguimiento_agentes.json",
-      "✅ Subido: data/precios_luz.csv",
+      "❌ Falló: data/precios_luz.csv",
       "✅ Subido: data/config_pvd.json",
-      "✅ Subido: data/pvd_cola_basico.json",
+      "❌ Falló: data/pvd_cola_basico.json",
       "✅ Subido: data/config_pmg.json",
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/ventas_agentes.json",
@@ -55,7 +55,7 @@
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
       "✅ Subido: logs/github_sync.log",
-      "❌ Falló: logs/sync_summary.json"
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
