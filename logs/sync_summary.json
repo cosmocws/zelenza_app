@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-17T11:29:33.009132",
-  "message": "Auto-sync: 2026-04-17 11:28:38",
+  "timestamp": "2026-04-17T12:25:43.631640",
+  "message": "Auto-sync: 2026-04-17 12:24:52",
   "results": {
     "total": 49,
-    "success": 48,
-    "failed": 1,
+    "success": 49,
+    "failed": 0,
     "skipped": 0,
     "details": [
       "✅ Subido: data/config_excedentes.csv",
@@ -20,7 +20,7 @@
       "✅ Subido: data/registro_llamadas.json",
       "✅ Subido: data/cola_pvd.json",
       "✅ Subido: data/planes_gas.json",
-      "❌ Falló: data/planes_accion.json",
+      "✅ Subido: data/planes_accion.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO EVA.json",
       "✅ Subido: data/pvd_cola_CAPTA EQUIPO LUIS.json",
       "✅ Subido: data/usuarios.json",
