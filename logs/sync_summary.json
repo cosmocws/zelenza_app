@@ -1,19 +1,19 @@
 {
-  "timestamp": "2026-04-17T16:58:13.951997",
-  "message": "Auto-sync: 2026-04-17 16:57:25",
+  "timestamp": "2026-04-17T16:59:04.355878",
+  "message": "Auto-sync: 2026-04-17 16:58:09",
   "results": {
     "total": 49,
-    "success": 47,
-    "failed": 2,
+    "success": 46,
+    "failed": 3,
     "skipped": 0,
     "details": [
-      "✅ Subido: data/config_excedentes.csv",
+      "❌ Falló: data/config_excedentes.csv",
       "✅ Subido: data/seguimiento_agentes.json",
       "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/config_pvd.json",
       "✅ Subido: data/pvd_cola_basico.json",
-      "✅ Subido: data/config_pmg.json",
-      "✅ Subido: data/festivos.json",
+      "❌ Falló: data/config_pmg.json",
+      "❌ Falló: data/festivos.json",
       "✅ Subido: data/ventas_agentes.json",
       "✅ Subido: data/agent_metrics.json",
       "✅ Subido: data/agent_absences.json",
@@ -52,9 +52,9 @@
       "✅ Subido: modelos_facturas/repsol/repsol1.jpg",
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol_2.jpg",
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol.jpg",
-      "❌ Falló: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
+      "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
-      "❌ Falló: logs/github_sync.log",
+      "✅ Subido: logs/github_sync.log",
       "✅ Subido: logs/sync_summary.json"
     ]
   },
