@@ -1,15 +1,15 @@
 {
-  "timestamp": "2026-04-18T00:40:10.512710",
-  "message": "Auto-sync: 2026-04-18 00:39:14",
+  "timestamp": "2026-04-18T01:36:14.376929",
+  "message": "Auto-sync: 2026-04-18 01:35:18",
   "results": {
     "total": 49,
-    "success": 46,
-    "failed": 3,
+    "success": 49,
+    "failed": 0,
     "skipped": 0,
     "details": [
-      "❌ Falló: data/config_excedentes.csv",
-      "❌ Falló: data/seguimiento_agentes.json",
-      "❌ Falló: data/precios_luz.csv",
+      "✅ Subido: data/config_excedentes.csv",
+      "✅ Subido: data/seguimiento_agentes.json",
+      "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/config_pvd.json",
       "✅ Subido: data/pvd_cola_basico.json",
       "✅ Subido: data/config_pmg.json",
