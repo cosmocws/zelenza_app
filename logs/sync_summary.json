@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-18T01:36:14.376929",
-  "message": "Auto-sync: 2026-04-18 01:35:18",
+  "timestamp": "2026-04-18T01:45:15.559215",
+  "message": "Auto-sync: 2026-04-18 01:44:16",
   "results": {
     "total": 49,
-    "success": 49,
-    "failed": 0,
+    "success": 46,
+    "failed": 3,
     "skipped": 0,
     "details": [
       "✅ Subido: data/config_excedentes.csv",
@@ -53,9 +53,9 @@
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol_2.jpg",
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
-      "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
-      "✅ Subido: logs/github_sync.log",
-      "✅ Subido: logs/sync_summary.json"
+      "❌ Falló: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
+      "❌ Falló: logs/github_sync.log",
+      "❌ Falló: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
