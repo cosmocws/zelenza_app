@@ -1306,5 +1306,49 @@
         "fecha_creacion": "2026-04-24T12:23:43.728700",
         "id_monitorizacion": "MON_20260424122343_0381",
         "created_at": "2026-04-24T12:23:43.729654"
+    },
+    "MON_20260424122559_0613": {
+        "id_empleado": "0613",
+        "fecha_monitorizacion": "2026-04-22",
+        "fecha_proxima_monitorizacion": "2026-04-29",
+        "nota_global": 36.0,
+        "objetivo": 85.0,
+        "experiencia": 80.0,
+        "comunicacion": 50.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 100.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0613. Agente de Zelenza NO. LOPD SI. Presentación complicada por cómo responde la mujer, en este caso, mantienes bien la calma. No hace falta el CUPS para cambiar titularidad y tampoco tiene que ver con nuestro trabajo, no tienes que perder el objetivo que es la venta, y en esta llamada está bastante claro que no va a acabar en venta en ninguno de los casos. Debemos seguir comprobando si tiene más suministros. Hemos pasado 7 minutos para comprobar que no tiene más suministros.",
+        "plan_accion": "LOPD SI. Agente de Zelenza NO. NO SOMOS ATENCIÓN AL CLIENTE. Qué quiero decir con esto: Comprobamos si tiene un segundo suministro o gas en casa, y si nos dice que no, muchas gracias que tenga un buen día. OBJ a 7 días: 3/5 VENTAS y NO SUPERAR LOS 5 MINUTOS si no hay posibilidad de venta.",
+        "puntos_clave": [
+            "Estructura",
+            "Oportunidad venta",
+            "Cierre de venta"
+        ],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-04-24T12:25:59.292570",
+        "id_monitorizacion": "MON_20260424122559_0613",
+        "created_at": "2026-04-24T12:25:59.293525"
+    },
+    "MON_20260424123413_0657": {
+        "id_empleado": "0657",
+        "fecha_monitorizacion": "2026-04-22",
+        "fecha_proxima_monitorizacion": "2026-04-29",
+        "nota_global": 100.0,
+        "objetivo": 85.0,
+        "experiencia": 100.0,
+        "comunicacion": 100.0,
+        "deteccion": 100.0,
+        "habilidades_venta": 100.0,
+        "resolucion_objeciones": 100.0,
+        "cierre_contacto": 100.0,
+        "feedback": "TZS0657. Agente de Zelenza SI. LOPD SI. Presentación buena y enlace a sondeo muy bien. Muy buena la empatización con el cliente. Muy bien el intento de que te saque la factura y ver los precios. Has llegado a comprobar si podemos hacer algo con él 3 veces, y a la tercera al ver que no hay otra respuesta, la soltamos.",
+        "plan_accion": "LOPD SI. Agente de Zelenza SI. Llamada muy correcta, este es el camino.",
+        "puntos_clave": [],
+        "supervisor_id": "0731",
+        "fecha_creacion": "2026-04-24T12:34:13.631234",
+        "id_monitorizacion": "MON_20260424123413_0657",
+        "created_at": "2026-04-24T12:34:13.633193"
     }
 }
