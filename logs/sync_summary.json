@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-27T19:15:19.899726",
-  "message": "Auto-sync: 2026-04-27 19:14:15",
+  "timestamp": "2026-04-27T19:30:07.299501",
+  "message": "Auto-sync: 2026-04-27 19:29:03",
   "results": {
     "total": 49,
-    "success": 49,
-    "failed": 0,
+    "success": 46,
+    "failed": 3,
     "skipped": 0,
     "details": [
       "✅ Subido: data/config_excedentes.csv",
@@ -48,11 +48,11 @@
       "✅ Subido: modelos_facturas/energiaxxi_endesa_regulado/reverso-fact-curenergia.jpg",
       "✅ Subido: modelos_facturas/factor_energia/factura-factor-energia-luz-1.jpg",
       "✅ Subido: modelos_facturas/octopus/octopusCUPS.png",
-      "✅ Subido: modelos_facturas/octopus/factura_octopus_energy_3.jpg",
+      "❌ Falló: modelos_facturas/octopus/factura_octopus_energy_3.jpg",
       "✅ Subido: modelos_facturas/repsol/repsol1.jpg",
-      "✅ Subido: modelos_facturas/repsol/factura_luz_repsol_2.jpg",
+      "❌ Falló: modelos_facturas/repsol/factura_luz_repsol_2.jpg",
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol.jpg",
-      "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
+      "❌ Falló: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
       "✅ Subido: logs/github_sync.log",
       "✅ Subido: logs/sync_summary.json"
