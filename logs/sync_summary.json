@@ -1,10 +1,10 @@
 {
-  "timestamp": "2026-04-30T09:30:03.998553",
-  "message": "Auto-sync: 2026-04-30 09:29:00",
+  "timestamp": "2026-04-30T09:42:25.073026",
+  "message": "Auto-sync: 2026-04-30 09:41:13",
   "results": {
     "total": 49,
-    "success": 49,
-    "failed": 0,
+    "success": 48,
+    "failed": 1,
     "skipped": 0,
     "details": [
       "✅ Subido: data/config_excedentes.csv",
@@ -16,7 +16,7 @@
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/ventas_agentes.json",
       "✅ Subido: data/agent_metrics.json",
-      "✅ Subido: data/agent_absences.json",
+      "❌ Falló: data/agent_absences.json",
       "✅ Subido: data/registro_llamadas.json",
       "✅ Subido: data/cola_pvd.json",
       "✅ Subido: data/planes_gas.json",
