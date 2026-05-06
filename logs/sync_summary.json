@@ -1,17 +1,17 @@
 {
-  "timestamp": "2026-05-06T20:21:46.275942",
-  "message": "Auto-sync: 2026-05-06 20:20:39",
+  "timestamp": "2026-05-06T20:22:50.328166",
+  "message": "Auto-sync: 2026-05-06 20:21:41",
   "results": {
     "total": 49,
     "success": 47,
     "failed": 2,
     "skipped": 0,
     "details": [
-      "✅ Subido: data/config_excedentes.csv",
+      "❌ Falló: data/config_excedentes.csv",
       "✅ Subido: data/seguimiento_agentes.json",
       "✅ Subido: data/precios_luz.csv",
       "✅ Subido: data/config_pvd.json",
-      "✅ Subido: data/pvd_cola_basico.json",
+      "❌ Falló: data/pvd_cola_basico.json",
       "✅ Subido: data/config_pmg.json",
       "✅ Subido: data/festivos.json",
       "✅ Subido: data/ventas_agentes.json",
@@ -54,8 +54,8 @@
       "✅ Subido: modelos_facturas/repsol/factura_luz_repsol.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-8.jpg",
       "✅ Subido: modelos_facturas/plenitude/factura-plenitude-luz-destacado-numero-1.jpg",
-      "❌ Falló: logs/github_sync.log",
-      "❌ Falló: logs/sync_summary.json"
+      "✅ Subido: logs/github_sync.log",
+      "✅ Subido: logs/sync_summary.json"
     ]
   },
   "type": "PUSH"
